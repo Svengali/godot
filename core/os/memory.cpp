@@ -36,6 +36,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "modules/tracy/profiler.h"
+
 void *operator new(size_t p_size, const char *p_description) {
 	return Memory::alloc_static(p_size, false);
 }
@@ -66,17 +68,20 @@ SafeNumeric<uint64_t> Memory::max_usage;
 SafeNumeric<uint64_t> Memory::alloc_count;
 
 void *Memory::alloc_static(size_t p_bytes, bool p_pad_align) {
+	int prepad = 0;
 #ifdef DEBUG_ENABLED
-	bool prepad = true;
+	prepad = 1;
 #else
 	bool prepad = p_pad_align;
 #endif
 
-	void *mem = malloc(p_bytes + (prepad ? DATA_OFFSET : 0));
+	void *mem = malloc(p_bytes + (prepad * DATA_OFFSET));
 
 	ERR_FAIL_NULL_V(mem, nullptr);
 
 	alloc_count.increment();
+
+	TracyAlloc( mem, p_bytes + (prepad * DATA_OFFSET) );
 
 	if (prepad) {
 		uint8_t *s8 = (uint8_t *)mem;
@@ -89,6 +94,7 @@ void *Memory::alloc_static(size_t p_bytes, bool p_pad_align) {
 		max_usage.exchange_if_greater(new_mem_usage);
 #endif
 		return s8 + DATA_OFFSET;
+
 	} else {
 		return mem;
 	}
@@ -122,12 +128,19 @@ void *Memory::realloc_static(void *p_memory, size_t p_bytes, bool p_pad_align) {
 
 		if (p_bytes == 0) {
 			free(mem);
+
+			TracyFree( mem );
+
 			return nullptr;
 		} else {
 			*s = p_bytes;
 
+			TracyFree( mem );
+
 			mem = (uint8_t *)realloc(mem, p_bytes + DATA_OFFSET);
 			ERR_FAIL_NULL_V(mem, nullptr);
+
+			TracyAlloc( mem, p_bytes + DATA_OFFSET);
 
 			s = (uint64_t *)(mem + SIZE_OFFSET);
 
@@ -136,7 +149,12 @@ void *Memory::realloc_static(void *p_memory, size_t p_bytes, bool p_pad_align) {
 			return mem + DATA_OFFSET;
 		}
 	} else {
+
+		TracyFree( mem );
+
 		mem = (uint8_t *)realloc(mem, p_bytes);
+
+		TracyAlloc( mem, p_bytes );
 
 		ERR_FAIL_COND_V(mem == nullptr && p_bytes > 0, nullptr);
 
@@ -165,8 +183,13 @@ void Memory::free_static(void *p_ptr, bool p_pad_align) {
 		mem_usage.sub(*s);
 #endif
 
+		TracyFree( mem );
+
 		free(mem);
 	} else {
+
+		TracyFree( mem );
+
 		free(mem);
 	}
 }
