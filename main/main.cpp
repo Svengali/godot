@@ -58,6 +58,7 @@
 #include "main/performance.h"
 #include "main/splash.gen.h"
 #include "modules/register_module_types.h"
+#include "modules/tracy/tracy/public/tracy/Tracy.hpp"
 #include "platform/register_platform_apis.h"
 #include "scene/main/scene_tree.h"
 #include "scene/main/window.h"
@@ -123,6 +124,10 @@
 #include "modules/gdscript/language_server/gdscript_language_server.h"
 #endif // TOOLS_ENABLED && !GDSCRIPT_NO_LSP
 #endif // MODULE_GDSCRIPT_ENABLED
+
+//#ifdef MODULE_TRACY_ENABLED
+#include "modules/tracy/profiler.h"
+//#endif
 
 /* Static members */
 
@@ -3904,6 +3909,8 @@ static uint64_t navigation_process_max = 0;
 // will terminate the program. In case of failure, the OS exit code needs
 // to be set explicitly here (defaults to EXIT_SUCCESS).
 bool Main::iteration() {
+	ZoneScoped;
+
 	iterating++;
 
 	const uint64_t ticks = OS::get_singleton()->get_ticks_usec();
@@ -4120,6 +4127,8 @@ bool Main::iteration() {
 		}
 	}
 #endif
+
+	FrameMark;
 
 	return exit;
 }
