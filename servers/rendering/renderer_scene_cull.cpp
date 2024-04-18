@@ -2140,7 +2140,7 @@ void RendererSceneCull::_light_instance_setup_directional_shadow(int p_shadow_in
 	cull.shadows[p_shadow_index].light_instance = light->instance;
 
 	for (int i = 0; i < splits; i++) {
-		RENDER_TIMESTAMP("Cull DirectionalLight3D, Split " + itos(i));
+		RENDER_TIMESTAMP("Cull DirectionalLight3D, Split " ); // + itos(i));
 
 		// setup a camera matrix for that range!
 		Projection camera_matrix;
@@ -2328,7 +2328,7 @@ bool RendererSceneCull::_light_instance_update_shadow(Instance *p_instance, cons
 				}
 				for (int i = 0; i < 2; i++) {
 					//using this one ensures that raster deferred will have it
-					RENDER_TIMESTAMP("Cull OmniLight3D Shadow Paraboloid, Half " + itos(i));
+					RENDER_TIMESTAMP("Cull OmniLight3D Shadow Paraboloid, Half " ); // + itos(i));
 
 					real_t radius = RSG::light_storage->light_get_param(p_instance->base, RS::LIGHT_PARAM_RANGE);
 
@@ -2400,7 +2400,7 @@ bool RendererSceneCull::_light_instance_update_shadow(Instance *p_instance, cons
 				cm.set_perspective(90, 1, radius * 0.005f, radius);
 
 				for (int i = 0; i < 6; i++) {
-					RENDER_TIMESTAMP("Cull OmniLight3D Shadow Cube, Side " + itos(i));
+					RENDER_TIMESTAMP("Cull OmniLight3D Shadow Cube, Side " ); // + itos(i));
 					//using this one ensures that raster deferred will have it
 
 					static const Vector3 view_normals[6] = {
@@ -2638,7 +2638,7 @@ void RendererSceneCull::render_camera(const Ref<RenderSceneBuffers> &p_render_bu
 	RID environment = _render_get_environment(p_camera, p_scenario);
 	RID compositor = _render_get_compositor(p_camera, p_scenario);
 
-	RENDER_TIMESTAMP("Update Occlusion Buffer")
+	RENDER_TIMESTAMP("Update Occlusion Buffer");
 	// For now just cull on the first camera
 	RendererSceneOcclusionCull::get_singleton()->buffer_update(p_viewport, camera_data.main_transform, camera_data.main_projection, camera_data.is_orthogonal);
 
@@ -3070,7 +3070,7 @@ void RendererSceneCull::_render_scene(const RendererSceneRender::CameraData *p_c
 		}
 	}
 
-	RENDER_TIMESTAMP("Cull 3D Scene");
+	RENDER_NAMED_TIMESTAMP("Cull 3D Scene");
 
 	//rasterizer->set_camera(p_camera_data->main_transform, p_camera_data.main_projection, p_camera_data.is_orthogonal);
 
@@ -3331,11 +3331,11 @@ void RendererSceneCull::_render_scene(const RendererSceneRender::CameraData *p_c
 
 			if (redraw && max_shadows_used < MAX_UPDATE_SHADOWS) {
 				//must redraw!
-				RENDER_TIMESTAMP("> Render Light3D " + itos(i));
+				RENDER_TIMESTAMP("> Render Light3D " ); // + itos(i));
 				if (_light_instance_update_shadow(ins, p_camera_data->main_transform, p_camera_data->main_projection, p_camera_data->is_orthogonal, p_camera_data->vaspect, p_shadow_atlas, scenario, p_screen_mesh_lod_threshold, p_visible_layers)) {
 					light->make_shadow_dirty();
 				}
-				RENDER_TIMESTAMP("< Render Light3D " + itos(i));
+				RENDER_NAMED_TIMESTAMP("< Render Light3D " ); // + itos(i));
 			} else {
 				if (redraw) {
 					light->make_shadow_dirty();
@@ -3402,7 +3402,7 @@ void RendererSceneCull::_render_scene(const RendererSceneRender::CameraData *p_c
 		prev_camera_data = RSG::viewport->viewport_get_prev_camera_data(p_viewport);
 	}
 
-	RENDER_TIMESTAMP("Render 3D Scene");
+	RENDER_NAMED_TIMESTAMP("Render 3D Scene");
 	scene_render->render_scene(p_render_buffers, p_camera_data, prev_camera_data, scene_cull_result.geometry_instances, scene_cull_result.light_instances, scene_cull_result.reflections, scene_cull_result.voxel_gi_instances, scene_cull_result.decals, scene_cull_result.lightmaps, scene_cull_result.fog_volumes, p_environment, camera_attributes, p_compositor, p_shadow_atlas, occluders_tex, p_reflection_probe.is_valid() ? RID() : scenario->reflection_atlas, p_reflection_probe, p_reflection_probe_pass, p_screen_mesh_lod_threshold, render_shadow_data, max_shadows_used, render_sdfgi_data, cull.sdfgi.region_count, &sdfgi_update_data, r_render_info);
 
 	if (p_viewport.is_valid()) {
@@ -3544,7 +3544,7 @@ bool RendererSceneCull::_render_reflection_probe_step(Instance *p_instance, int 
 			environment = scenario->fallback_environment;
 		}
 
-		RENDER_TIMESTAMP("Render ReflectionProbe, Step " + itos(p_step));
+		RENDER_TIMESTAMP("Render ReflectionProbe, Step " ); // + itos(p_step));
 		RendererSceneRender::CameraData camera_data;
 		camera_data.set_camera(xform, cm, false, false);
 
@@ -3553,7 +3553,7 @@ bool RendererSceneCull::_render_reflection_probe_step(Instance *p_instance, int 
 
 	} else {
 		//do roughness postprocess step until it believes it's done
-		RENDER_TIMESTAMP("Post-Process ReflectionProbe, Step " + itos(p_step));
+		RENDER_TIMESTAMP("Post-Process ReflectionProbe, Step " ); // + itos(p_step));
 		return RSG::light_storage->reflection_probe_instance_postprocess_step(reflection_probe->instance);
 	}
 

@@ -659,9 +659,11 @@ void RenderForwardMobile::_render_scene(RenderDataRD *p_render_data, const Color
 	}
 	bool is_reflection_probe = p_render_data->reflection_probe.is_valid();
 
-	RENDER_TIMESTAMP("Prepare 3D Scene");
+	{
+		RENDER_TIMESTAMP("Prepare 3D Scene");
 
-	_update_vrs(rb);
+		_update_vrs(rb);
+	}
 
 	RENDER_TIMESTAMP("Setup 3D Scene");
 
@@ -1425,9 +1427,10 @@ void RenderForwardMobile::_render_material(const Transform3D &p_cam_transform, c
 
 	RID rp_uniform_set = _setup_render_pass_uniform_set(RENDER_LIST_SECONDARY, nullptr, RID(), RendererRD::MaterialStorage::get_singleton()->samplers_rd_get_default());
 
-	RENDER_TIMESTAMP("Render 3D Material");
 
 	{
+		RENDER_TIMESTAMP("Render 3D Material");
+
 		RenderListParameters render_list_params(render_list[RENDER_LIST_SECONDARY].elements.ptr(), render_list[RENDER_LIST_SECONDARY].element_info.ptr(), render_list[RENDER_LIST_SECONDARY].elements.size(), true, pass_mode, rp_uniform_set, 0);
 		//regular forward for now
 		Vector<Color> clear = {
@@ -1470,9 +1473,10 @@ void RenderForwardMobile::_render_uv2(const PagedArray<RenderGeometryInstance *>
 
 	RID rp_uniform_set = _setup_render_pass_uniform_set(RENDER_LIST_SECONDARY, nullptr, RID(), RendererRD::MaterialStorage::get_singleton()->samplers_rd_get_default());
 
-	RENDER_TIMESTAMP("Render 3D Material");
 
 	{
+		RENDER_TIMESTAMP("Render 3D Material");
+
 		RenderListParameters render_list_params(render_list[RENDER_LIST_SECONDARY].elements.ptr(), render_list[RENDER_LIST_SECONDARY].element_info.ptr(), render_list[RENDER_LIST_SECONDARY].elements.size(), true, pass_mode, rp_uniform_set, true, false);
 		//regular forward for now
 		Vector<Color> clear = {
@@ -1552,9 +1556,10 @@ void RenderForwardMobile::_render_particle_collider_heightfield(RID p_fb, const 
 
 	RID rp_uniform_set = _setup_render_pass_uniform_set(RENDER_LIST_SECONDARY, nullptr, RID(), RendererRD::MaterialStorage::get_singleton()->samplers_rd_get_default());
 
-	RENDER_TIMESTAMP("Render Collider Heightfield");
 
 	{
+		RENDER_TIMESTAMP("Render Collider Heightfield");
+
 		//regular forward for now
 		RenderListParameters render_list_params(render_list[RENDER_LIST_SECONDARY].elements.ptr(), render_list[RENDER_LIST_SECONDARY].element_info.ptr(), render_list[RENDER_LIST_SECONDARY].elements.size(), false, pass_mode, rp_uniform_set, 0);
 		_render_list_with_draw_list(&render_list_params, p_fb, RD::INITIAL_ACTION_CLEAR, RD::FINAL_ACTION_STORE, RD::INITIAL_ACTION_CLEAR, RD::FINAL_ACTION_STORE);

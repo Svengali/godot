@@ -36,6 +36,8 @@
 #include "core/config/project_settings.h"
 #include "core/io/dir_access.h"
 
+#include "modules/tracy/profiler.h"
+
 #define FORCE_SEPARATE_PRESENT_QUEUE 0
 
 /**************************/
@@ -4714,16 +4716,24 @@ void RenderingDevice::swap_buffers() {
 
 void RenderingDevice::submit() {
 	_THREAD_SAFE_METHOD_
+
+	ZoneScoped;
+
 	_end_frame();
 	_execute_frame(false);
 }
 
 void RenderingDevice::sync() {
 	_THREAD_SAFE_METHOD_
+
+	ZoneScoped;
+
 	_begin_frame();
 }
 
 void RenderingDevice::_free_pending_resources(int p_frame) {
+	ZoneScoped;
+
 	// Free in dependency usage order, so nothing weird happens.
 	// Pipelines.
 	while (frames[p_frame].render_pipelines_to_dispose_of.front()) {
@@ -4828,6 +4838,8 @@ uint64_t RenderingDevice::get_memory_usage(MemoryType p_type) const {
 }
 
 void RenderingDevice::_begin_frame() {
+	ZoneScoped;
+
 	// Before beginning this frame, wait on the fence if it was signaled to make sure its work is finished.
 	if (frames[frame].draw_fence_signaled) {
 		driver->fence_wait(frames[frame].draw_fence);
@@ -4864,6 +4876,8 @@ void RenderingDevice::_begin_frame() {
 }
 
 void RenderingDevice::_end_frame() {
+	ZoneScoped;
+
 	if (draw_list) {
 		ERR_PRINT("Found open draw list at the end of the frame, this should never happen (further drawing will likely not work).");
 	}
@@ -4879,6 +4893,8 @@ void RenderingDevice::_end_frame() {
 }
 
 void RenderingDevice::_execute_frame(bool p_present) {
+	ZoneScoped;
+
 	const bool frame_can_present = p_present && !frames[frame].swap_chains_to_present.is_empty();
 	const bool separate_present_queue = main_queue != present_queue;
 	const VectorView<RDD::SemaphoreID> execute_draw_semaphore = frame_can_present && separate_present_queue ? frames[frame].draw_semaphore : VectorView<RDD::SemaphoreID>();

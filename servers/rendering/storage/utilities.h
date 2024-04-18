@@ -33,6 +33,8 @@
 
 #include "servers/rendering_server.h"
 
+#include "modules/tracy/profiler.h"
+
 class DependencyTracker;
 
 class Dependency {
@@ -158,7 +160,19 @@ public:
 	{                                                  \
 		if (RSG::utilities->capturing_timestamps)      \
 			RSG::utilities->capture_timestamp(m_text); \
-	}
+	} \
+	ZoneScopedN( m_text )  \
+	// END RENDER_TIMESTAMP
+
+
+#define RENDER_NAMED_TIMESTAMP(m_text)                       \
+	{                                                  \
+		if (RSG::utilities->capturing_timestamps)      \
+			RSG::utilities->capture_timestamp(m_text); \
+	} \
+	ZoneText( m_text, 32 )  \
+	// END RENDER_SCOPED_TIMESTAMP
+
 
 	virtual void capture_timestamps_begin() = 0;
 	virtual void capture_timestamp(const String &p_name) = 0;

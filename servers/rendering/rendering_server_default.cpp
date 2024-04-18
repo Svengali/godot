@@ -34,6 +34,7 @@
 #include "core/io/marshalls.h"
 #include "core/os/os.h"
 #include "core/templates/sort_array.h"
+#include "modules/tracy/tracy/public/tracy/Tracy.hpp"
 #include "renderer_canvas_cull.h"
 #include "renderer_scene_cull.h"
 #include "rendering_server_globals.h"
@@ -69,132 +70,182 @@ void RenderingServerDefault::request_frame_drawn_callback(const Callable &p_call
 }
 
 void RenderingServerDefault::_draw(bool p_swap_buffers, double frame_step) {
-	//needs to be done before changes is reset to 0, to not force the editor to redraw
-	RS::get_singleton()->emit_signal(SNAME("frame_pre_draw"));
+	ZoneScoped;
 
-	changes = 0;
+	{
+			ZoneScopedN( "EMIT AND begin_frame" );
 
-	RSG::rasterizer->begin_frame(frame_step);
+			//needs to be done before changes is reset to 0, to not force the editor to redraw
+			RS::get_singleton()->emit_signal(SNAME("frame_pre_draw"));
+
+			changes = 0;
+
+			RSG::rasterizer->begin_frame(frame_step);
+
+	}
 
 	TIMESTAMP_BEGIN()
 
 	uint64_t time_usec = OS::get_singleton()->get_ticks_usec();
 
-	RENDER_TIMESTAMP("Prepare Render Frame");
-	RSG::scene->update(); //update scenes stuff before updating instances
+	{
+		RENDER_TIMESTAMP("Prepare Render Frame");
 
-	frame_setup_time = double(OS::get_singleton()->get_ticks_usec() - time_usec) / 1000.0;
-
-	RSG::particles_storage->update_particles(); //need to be done after instances are updated (colliders and particle transforms), and colliders are rendered
-
-	RSG::scene->render_probes();
-
-	RSG::viewport->draw_viewports(p_swap_buffers);
-	RSG::canvas_render->update();
-
-	RSG::rasterizer->end_frame(p_swap_buffers);
-
-#ifndef _3D_DISABLED
-	XRServer *xr_server = XRServer::get_singleton();
-	if (xr_server != nullptr) {
-		// let our XR server know we're done so we can get our frame timing
-		xr_server->end_frame();
-	}
-#endif // _3D_DISABLED
-
-	RSG::canvas->update_visibility_notifiers();
-	RSG::scene->update_visibility_notifiers();
-
-	while (frame_drawn_callbacks.front()) {
-		Callable c = frame_drawn_callbacks.front()->get();
-		Variant result;
-		Callable::CallError ce;
-		c.callp(nullptr, 0, result, ce);
-		if (ce.error != Callable::CallError::CALL_OK) {
-			String err = Variant::get_callable_error_text(c, nullptr, 0, ce);
-			ERR_PRINT("Error calling frame drawn function: " + err);
+		{
+			ZoneScopedN( "scene-update" );
+			RSG::scene->update(); //update scenes stuff before updating instances
 		}
 
-		frame_drawn_callbacks.pop_front();
-	}
-	RS::get_singleton()->emit_signal(SNAME("frame_post_draw"));
+		frame_setup_time = double(OS::get_singleton()->get_ticks_usec() - time_usec) / 1000.0;
 
-	if (RSG::utilities->get_captured_timestamps_count()) {
-		Vector<FrameProfileArea> new_profile;
-		if (RSG::utilities->capturing_timestamps) {
-			new_profile.resize(RSG::utilities->get_captured_timestamps_count());
+		{
+			ZoneScopedN( "update_particles" );
+			RSG::particles_storage->update_particles(); //need to be done after instances are updated (colliders and particle transforms), and colliders are rendered
 		}
 
-		uint64_t base_cpu = RSG::utilities->get_captured_timestamp_cpu_time(0);
-		uint64_t base_gpu = RSG::utilities->get_captured_timestamp_gpu_time(0);
-		for (uint32_t i = 0; i < RSG::utilities->get_captured_timestamps_count(); i++) {
-			uint64_t time_cpu = RSG::utilities->get_captured_timestamp_cpu_time(i);
-			uint64_t time_gpu = RSG::utilities->get_captured_timestamp_gpu_time(i);
+		{
+			ZoneScopedN( "render_probes" );
+			RSG::scene->render_probes();
+		}
 
-			String name = RSG::utilities->get_captured_timestamp_name(i);
+		{
+			ZoneScopedN( "draw_viewports" );
+			RSG::viewport->draw_viewports(p_swap_buffers);
+		}
 
-			if (name.begins_with("vp_")) {
-				RSG::viewport->handle_timestamp(name, time_cpu, time_gpu);
+		{
+			ZoneScopedN( "update" );
+			RSG::canvas_render->update();
+		}
+
+		{
+			ZoneScopedN( "end_frame" );
+			ZoneColor(0x161616);
+			RSG::rasterizer->end_frame(p_swap_buffers);
+		}
+
+	#ifndef _3D_DISABLED
+		XRServer *xr_server = XRServer::get_singleton();
+		if (xr_server != nullptr) {
+			ZoneScopedN( "xr_server->end_frame" );
+			// let our XR server know we're done so we can get our frame timing
+			xr_server->end_frame();
+		}
+	#endif // _3D_DISABLED
+
+		{
+			ZoneScopedN( "update_visibility_notifiers" );
+			RSG::canvas->update_visibility_notifiers();
+			RSG::scene->update_visibility_notifiers();
+		}
+
+		{
+			ZoneScopedN( "FrameCallbacks" );
+			while (frame_drawn_callbacks.front()) {
+				Callable c = frame_drawn_callbacks.front()->get();
+				Variant result;
+				Callable::CallError ce;
+				c.callp(nullptr, 0, result, ce);
+				if (ce.error != Callable::CallError::CALL_OK) {
+					String err = Variant::get_callable_error_text(c, nullptr, 0, ce);
+					ERR_PRINT("Error calling frame drawn function: " + err);
+				}
+
+				frame_drawn_callbacks.pop_front();
 			}
+			RS::get_singleton()->emit_signal(SNAME("frame_post_draw"));
+		}
 
+		if (RSG::utilities->get_captured_timestamps_count()) {
+
+			ZoneScopedN( "get_captured_timestamps_count" );
+			Vector<FrameProfileArea> new_profile;
 			if (RSG::utilities->capturing_timestamps) {
-				new_profile.write[i].gpu_msec = double((time_gpu - base_gpu) / 1000) / 1000.0;
-				new_profile.write[i].cpu_msec = double(time_cpu - base_cpu) / 1000.0;
-				new_profile.write[i].name = RSG::utilities->get_captured_timestamp_name(i);
-			}
-		}
-
-		frame_profile = new_profile;
-	}
-
-	frame_profile_frame = RSG::utilities->get_captured_timestamps_frame();
-
-	if (print_gpu_profile) {
-		if (print_frame_profile_ticks_from == 0) {
-			print_frame_profile_ticks_from = OS::get_singleton()->get_ticks_usec();
-		}
-		double total_time = 0.0;
-
-		for (int i = 0; i < frame_profile.size() - 1; i++) {
-			String name = frame_profile[i].name;
-			if (name[0] == '<' || name[0] == '>') {
-				continue;
+				new_profile.resize(RSG::utilities->get_captured_timestamps_count());
 			}
 
-			double time = frame_profile[i + 1].gpu_msec - frame_profile[i].gpu_msec;
+			uint64_t base_cpu = RSG::utilities->get_captured_timestamp_cpu_time(0);
+			uint64_t base_gpu = RSG::utilities->get_captured_timestamp_gpu_time(0);
+			for (uint32_t i = 0; i < RSG::utilities->get_captured_timestamps_count(); i++) {
+				uint64_t time_cpu = RSG::utilities->get_captured_timestamp_cpu_time(i);
+				uint64_t time_gpu = RSG::utilities->get_captured_timestamp_gpu_time(i);
 
-			if (name[0] != '<' && name[0] != '>') {
-				if (print_gpu_profile_task_time.has(name)) {
-					print_gpu_profile_task_time[name] += time;
-				} else {
-					print_gpu_profile_task_time[name] = time;
+				String name = RSG::utilities->get_captured_timestamp_name(i);
+
+				if (name.begins_with("vp_")) {
+					RSG::viewport->handle_timestamp(name, time_cpu, time_gpu);
+				}
+
+				if (RSG::utilities->capturing_timestamps) {
+					new_profile.write[i].gpu_msec = double((time_gpu - base_gpu) / 1000) / 1000.0;
+					new_profile.write[i].cpu_msec = double(time_cpu - base_cpu) / 1000.0;
+					new_profile.write[i].name = RSG::utilities->get_captured_timestamp_name(i);
 				}
 			}
+
+			frame_profile = new_profile;
 		}
 
-		if (frame_profile.size()) {
-			total_time = frame_profile[frame_profile.size() - 1].gpu_msec;
+		{
+			ZoneScopedN( "get_captured_timestamps_frame" );
+			frame_profile_frame = RSG::utilities->get_captured_timestamps_frame();
 		}
 
-		uint64_t ticks_elapsed = OS::get_singleton()->get_ticks_usec() - print_frame_profile_ticks_from;
-		print_frame_profile_frame_count++;
-		if (ticks_elapsed > 1000000) {
-			print_line("GPU PROFILE (total " + rtos(total_time) + "ms): ");
+		if (print_gpu_profile) {
 
-			float print_threshold = 0.01;
-			for (const KeyValue<String, float> &E : print_gpu_profile_task_time) {
-				double time = E.value / double(print_frame_profile_frame_count);
-				if (time > print_threshold) {
-					print_line("\t-" + E.key + ": " + rtos(time) + "ms");
+			ZoneScopedN( "print_gpu_profile" );
+
+			if (print_frame_profile_ticks_from == 0) {
+				print_frame_profile_ticks_from = OS::get_singleton()->get_ticks_usec();
+			}
+			double total_time = 0.0;
+
+			for (int i = 0; i < frame_profile.size() - 1; i++) {
+				String name = frame_profile[i].name;
+				if (name[0] == '<' || name[0] == '>') {
+					continue;
+				}
+
+				double time = frame_profile[i + 1].gpu_msec - frame_profile[i].gpu_msec;
+
+				if (name[0] != '<' && name[0] != '>') {
+					if (print_gpu_profile_task_time.has(name)) {
+						print_gpu_profile_task_time[name] += time;
+					} else {
+						print_gpu_profile_task_time[name] = time;
+					}
 				}
 			}
-			print_gpu_profile_task_time.clear();
-			print_frame_profile_ticks_from = OS::get_singleton()->get_ticks_usec();
-			print_frame_profile_frame_count = 0;
+
+			if (frame_profile.size()) {
+				total_time = frame_profile[frame_profile.size() - 1].gpu_msec;
+			}
+
+			uint64_t ticks_elapsed = OS::get_singleton()->get_ticks_usec() - print_frame_profile_ticks_from;
+			print_frame_profile_frame_count++;
+			if (ticks_elapsed > 1000000) {
+				print_line("GPU PROFILE (total " + rtos(total_time) + "ms): ");
+
+				float print_threshold = 0.01;
+				for (const KeyValue<String, float> &E : print_gpu_profile_task_time) {
+					double time = E.value / double(print_frame_profile_frame_count);
+					if (time > print_threshold) {
+						print_line("\t-" + E.key + ": " + rtos(time) + "ms");
+					}
+				}
+				print_gpu_profile_task_time.clear();
+				print_frame_profile_ticks_from = OS::get_singleton()->get_ticks_usec();
+				print_frame_profile_frame_count = 0;
+			}
 		}
+
+		{
+			ZoneScopedN( "update_memory_info" );
+			RSG::utilities->update_memory_info();
+		}
+
 	}
 
-	RSG::utilities->update_memory_info();
 }
 
 double RenderingServerDefault::get_frame_setup_time_cpu() const {

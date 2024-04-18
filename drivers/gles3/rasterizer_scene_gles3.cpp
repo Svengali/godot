@@ -2539,7 +2539,7 @@ void RasterizerSceneGLES3::render_scene(const Ref<RenderSceneBuffers> &p_render_
 		copy_effects->copy_screen(render_data.luminance_multiplier);
 	}
 
-	RENDER_TIMESTAMP("Render Opaque Pass");
+	RENDER_NAMED_TIMESTAMP("Render Opaque Pass");
 	uint64_t spec_constant_base_flags = 0;
 
 	{
@@ -2631,7 +2631,7 @@ void RasterizerSceneGLES3::render_scene(const Ref<RenderSceneBuffers> &p_render_
 		glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 	}
 
-	RENDER_TIMESTAMP("Render 3D Transparent Pass");
+	RENDER_NAMED_TIMESTAMP("Render 3D Transparent Pass");
 	scene_state.enable_gl_blend(true);
 
 	//Render transparent pass
@@ -3531,7 +3531,7 @@ void RasterizerSceneGLES3::render_particle_collider_heightfield(RID p_collider, 
 	_fill_render_list(RENDER_LIST_SECONDARY, &render_data, pass_mode);
 	render_list[RENDER_LIST_SECONDARY].sort_by_key();
 
-	RENDER_TIMESTAMP("Render Collider Heightfield");
+	RENDER_NAMED_TIMESTAMP("Render Collider Heightfield");
 
 	glBindFramebuffer(GL_FRAMEBUFFER, fb);
 	glViewport(0, 0, fb_size.width, fb_size.height);
@@ -3576,9 +3576,10 @@ void RasterizerSceneGLES3::_render_uv2(const PagedArray<RenderGeometryInstance *
 	_fill_render_list(RENDER_LIST_SECONDARY, &render_data, pass_mode);
 	render_list[RENDER_LIST_SECONDARY].sort_by_key();
 
-	RENDER_TIMESTAMP("Render 3D Material");
 
 	{
+		RENDER_TIMESTAMP("Render 3D Material");
+
 		glBindFramebuffer(GL_FRAMEBUFFER, p_framebuffer);
 		glViewport(p_region.position.x, p_region.position.y, p_region.size.x, p_region.size.y);
 

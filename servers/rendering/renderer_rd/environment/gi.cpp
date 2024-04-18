@@ -2026,7 +2026,7 @@ void GI::SDFGI::render_region(Ref<RenderSceneBuffersRD> p_render_buffers, int p_
 		SDFGIShader::PreprocessPushConstant push_constant;
 		memset(&push_constant, 0, sizeof(SDFGIShader::PreprocessPushConstant));
 
-		RENDER_TIMESTAMP("SDFGI Scroll SDF");
+		RENDER_NAMED_TIMESTAMP("SDFGI Scroll SDF");
 
 		//scroll
 		if (cascades[cascade].dirty_regions != SDFGI::Cascade::DIRTY_ALL) {
@@ -2190,7 +2190,7 @@ void GI::SDFGI::render_region(Ref<RenderSceneBuffersRD> p_render_buffers, int p_
 					}
 				}
 
-				RENDER_TIMESTAMP("SDFGI Jump Flood Optimized (Half-Size)");
+				RENDER_NAMED_TIMESTAMP("SDFGI Jump Flood Optimized (Half-Size)");
 
 				//continue with optimized jump flood for smaller reads
 				RD::get_singleton()->compute_list_bind_compute_pipeline(compute_list, gi->sdfgi_shader.preprocess_pipeline[SDFGIShader::PRE_PROCESS_JUMP_FLOOD_OPTIMIZED]);
@@ -2273,10 +2273,10 @@ void GI::SDFGI::render_region(Ref<RenderSceneBuffersRD> p_render_buffers, int p_
 			}
 		}
 
-		RENDER_TIMESTAMP("SDFGI Occlusion");
 
 		// occlusion
 		{
+			RENDER_TIMESTAMP("SDFGI Occlusion");
 			uint32_t probe_size = cascade_size / SDFGI::PROBE_DIVISOR;
 			Vector3i probe_global_pos = cascades[cascade].position / probe_size;
 
@@ -2307,20 +2307,22 @@ void GI::SDFGI::render_region(Ref<RenderSceneBuffersRD> p_render_buffers, int p_
 			RD::get_singleton()->compute_list_add_barrier(compute_list);
 		}
 
-		RENDER_TIMESTAMP("SDFGI Store");
+		{
+			RENDER_TIMESTAMP("SDFGI Store");
 
-		// store
-		RD::get_singleton()->compute_list_bind_compute_pipeline(compute_list, gi->sdfgi_shader.preprocess_pipeline[SDFGIShader::PRE_PROCESS_STORE]);
-		RD::get_singleton()->compute_list_bind_uniform_set(compute_list, cascades[cascade].sdf_store_uniform_set, 0);
-		RD::get_singleton()->compute_list_set_push_constant(compute_list, &push_constant, sizeof(SDFGIShader::PreprocessPushConstant));
-		RD::get_singleton()->compute_list_dispatch_threads(compute_list, cascade_size, cascade_size, cascade_size);
+			// store
+			RD::get_singleton()->compute_list_bind_compute_pipeline(compute_list, gi->sdfgi_shader.preprocess_pipeline[SDFGIShader::PRE_PROCESS_STORE]);
+			RD::get_singleton()->compute_list_bind_uniform_set(compute_list, cascades[cascade].sdf_store_uniform_set, 0);
+			RD::get_singleton()->compute_list_set_push_constant(compute_list, &push_constant, sizeof(SDFGIShader::PreprocessPushConstant));
+			RD::get_singleton()->compute_list_dispatch_threads(compute_list, cascade_size, cascade_size, cascade_size);
 
-		RD::get_singleton()->compute_list_end();
+			RD::get_singleton()->compute_list_end();
 
-		//clear these textures, as they will have previous garbage on next draw
-		RD::get_singleton()->texture_clear(cascades[cascade].light_tex, Color(0, 0, 0, 0), 0, 1, 0, 1);
-		RD::get_singleton()->texture_clear(cascades[cascade].light_aniso_0_tex, Color(0, 0, 0, 0), 0, 1, 0, 1);
-		RD::get_singleton()->texture_clear(cascades[cascade].light_aniso_1_tex, Color(0, 0, 0, 0), 0, 1, 0, 1);
+			//clear these textures, as they will have previous garbage on next draw
+			RD::get_singleton()->texture_clear(cascades[cascade].light_tex, Color(0, 0, 0, 0), 0, 1, 0, 1);
+			RD::get_singleton()->texture_clear(cascades[cascade].light_aniso_0_tex, Color(0, 0, 0, 0), 0, 1, 0, 1);
+			RD::get_singleton()->texture_clear(cascades[cascade].light_aniso_1_tex, Color(0, 0, 0, 0), 0, 1, 0, 1);
+		}
 
 #if 0
 		Vector<uint8_t> data = RD::get_singleton()->texture_get_data(cascades[cascade].sdf, 0);
@@ -2349,7 +2351,7 @@ void GI::SDFGI::render_region(Ref<RenderSceneBuffersRD> p_render_buffers, int p_
 		//finalize render and update sdf
 #endif
 
-		RENDER_TIMESTAMP("< SDFGI Update SDF");
+		RENDER_NAMED_TIMESTAMP("< SDFGI Update SDF");
 		RD::get_singleton()->draw_command_end_label();
 	}
 }
