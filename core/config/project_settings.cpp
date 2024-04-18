@@ -1330,8 +1330,8 @@ void ProjectSettings::load_scene_groups_cache() {
 		for (const String &E : scene_paths) {
 			Array scene_groups = cf->get_value(E, "groups", Array());
 			HashSet<StringName> cache;
-			for (int i = 0; i < scene_groups.size(); ++i) {
-				cache.insert(scene_groups[i]);
+			for (const Variant &scene_group : scene_groups) {
+				cache.insert(scene_group);
 			}
 			add_scene_groups_cache(E, cache);
 		}
@@ -1528,6 +1528,7 @@ ProjectSettings::ProjectSettings() {
 
 	GLOBAL_DEF_RST("internationalization/rendering/force_right_to_left_layout_direction", false);
 	GLOBAL_DEF_BASIC(PropertyInfo(Variant::INT, "internationalization/rendering/root_node_layout_direction", PROPERTY_HINT_ENUM, "Based on Application Locale,Left-to-Right,Right-to-Left,Based on System Locale"), 0);
+	GLOBAL_DEF_BASIC("internationalization/rendering/root_node_auto_translate", true);
 
 	GLOBAL_DEF(PropertyInfo(Variant::INT, "gui/timers/incremental_search_max_interval_msec", PROPERTY_HINT_RANGE, "0,10000,1,or_greater"), 2000);
 

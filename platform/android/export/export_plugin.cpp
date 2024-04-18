@@ -1393,6 +1393,14 @@ void EditorExportPlatformAndroid::_fix_manifest(const Ref<EditorExportPreset> &p
 	p_manifest = ret;
 }
 
+String EditorExportPlatformAndroid::_get_keystore_path(const Ref<EditorExportPreset> &p_preset, bool p_debug) {
+	String keystore_preference = p_debug ? "keystore/debug" : "keystore/release";
+	String keystore_env_variable = p_debug ? ENV_ANDROID_KEYSTORE_DEBUG_PATH : ENV_ANDROID_KEYSTORE_RELEASE_PATH;
+	String keystore_path = p_preset->get_or_env(keystore_preference, keystore_env_variable);
+
+	return ProjectSettings::get_singleton()->globalize_path(keystore_path).simplify_path();
+}
+
 String EditorExportPlatformAndroid::_parse_string(const uint8_t *p_bytes, bool p_utf8) {
 	uint32_t offset = 0;
 	uint32_t len = 0;
@@ -2347,10 +2355,10 @@ static bool has_valid_keystore_credentials(String &r_error_str, const String &p_
 }
 
 bool EditorExportPlatformAndroid::has_valid_username_and_password(const Ref<EditorExportPreset> &p_preset, String &r_error) {
-	String dk = p_preset->get_or_env("keystore/debug", ENV_ANDROID_KEYSTORE_DEBUG_PATH);
+	String dk = _get_keystore_path(p_preset, true);
 	String dk_user = p_preset->get_or_env("keystore/debug_user", ENV_ANDROID_KEYSTORE_DEBUG_USER);
 	String dk_password = p_preset->get_or_env("keystore/debug_password", ENV_ANDROID_KEYSTORE_DEBUG_PASS);
-	String rk = p_preset->get_or_env("keystore/release", ENV_ANDROID_KEYSTORE_RELEASE_PATH);
+	String rk = _get_keystore_path(p_preset, false);
 	String rk_user = p_preset->get_or_env("keystore/release_user", ENV_ANDROID_KEYSTORE_RELEASE_USER);
 	String rk_password = p_preset->get_or_env("keystore/release_password", ENV_ANDROID_KEYSTORE_RELEASE_PASS);
 
@@ -2449,7 +2457,7 @@ bool EditorExportPlatformAndroid::has_valid_export_configuration(const Ref<Edito
 
 	// Validate the rest of the export configuration.
 
-	String dk = p_preset->get_or_env("keystore/debug", ENV_ANDROID_KEYSTORE_DEBUG_PATH);
+	String dk = _get_keystore_path(p_preset, true);
 	String dk_user = p_preset->get_or_env("keystore/debug_user", ENV_ANDROID_KEYSTORE_DEBUG_USER);
 	String dk_password = p_preset->get_or_env("keystore/debug_password", ENV_ANDROID_KEYSTORE_DEBUG_PASS);
 
@@ -2467,7 +2475,7 @@ bool EditorExportPlatformAndroid::has_valid_export_configuration(const Ref<Edito
 		}
 	}
 
-	String rk = p_preset->get_or_env("keystore/release", ENV_ANDROID_KEYSTORE_RELEASE_PATH);
+	String rk = _get_keystore_path(p_preset, false);
 	String rk_user = p_preset->get_or_env("keystore/release_user", ENV_ANDROID_KEYSTORE_RELEASE_USER);
 	String rk_password = p_preset->get_or_env("keystore/release_password", ENV_ANDROID_KEYSTORE_RELEASE_PASS);
 
@@ -2658,7 +2666,7 @@ String EditorExportPlatformAndroid::get_apk_expansion_fullpath(const Ref<EditorE
 
 Error EditorExportPlatformAndroid::save_apk_expansion_file(const Ref<EditorExportPreset> &p_preset, bool p_debug, const String &p_path) {
 	String fullpath = get_apk_expansion_fullpath(p_preset, p_path);
-	Error err = save_pack(false, p_preset, p_debug, fullpath);
+	Error err = save_pack(p_preset, p_debug, fullpath);
 	return err;
 }
 
@@ -2724,7 +2732,7 @@ void EditorExportPlatformAndroid::get_command_line_flags(const Ref<EditorExportP
 Error EditorExportPlatformAndroid::sign_apk(const Ref<EditorExportPreset> &p_preset, bool p_debug, const String &export_path, EditorProgress &ep) {
 	int export_format = int(p_preset->get("gradle_build/export_format"));
 	String export_label = export_format == EXPORT_FORMAT_AAB ? "AAB" : "APK";
-	String release_keystore = p_preset->get_or_env("keystore/release", ENV_ANDROID_KEYSTORE_RELEASE_PATH);
+	String release_keystore = _get_keystore_path(p_preset, false);
 	String release_username = p_preset->get_or_env("keystore/release_user", ENV_ANDROID_KEYSTORE_RELEASE_USER);
 	String release_password = p_preset->get_or_env("keystore/release_password", ENV_ANDROID_KEYSTORE_RELEASE_PASS);
 	String target_sdk_version = p_preset->get("gradle_build/target_sdk");
@@ -2746,7 +2754,7 @@ Error EditorExportPlatformAndroid::sign_apk(const Ref<EditorExportPreset> &p_pre
 	String password;
 	String user;
 	if (p_debug) {
-		keystore = p_preset->get_or_env("keystore/debug", ENV_ANDROID_KEYSTORE_DEBUG_PATH);
+		keystore = _get_keystore_path(p_preset, true);
 		password = p_preset->get_or_env("keystore/debug_password", ENV_ANDROID_KEYSTORE_DEBUG_PASS);
 		user = p_preset->get_or_env("keystore/debug_user", ENV_ANDROID_KEYSTORE_DEBUG_USER);
 
@@ -3102,9 +3110,9 @@ Error EditorExportPlatformAndroid::export_project_helper(const Ref<EditorExportP
 			user_data.libs_directory = gradle_build_directory.path_join("libs");
 			user_data.debug = p_debug;
 			if (p_flags & DEBUG_FLAG_DUMB_CLIENT) {
-				err = export_project_files(true, p_preset, p_debug, ignore_apk_file, &user_data, copy_gradle_so);
+				err = export_project_files(p_preset, p_debug, ignore_apk_file, &user_data, copy_gradle_so);
 			} else {
-				err = export_project_files(true, p_preset, p_debug, rename_and_store_file_in_gradle_project, &user_data, copy_gradle_so);
+				err = export_project_files(p_preset, p_debug, rename_and_store_file_in_gradle_project, &user_data, copy_gradle_so);
 			}
 			if (err != OK) {
 				add_message(EXPORT_MESSAGE_ERROR, TTR("Export"), TTR("Could not export project files to gradle project."));
@@ -3231,7 +3239,7 @@ Error EditorExportPlatformAndroid::export_project_helper(const Ref<EditorExportP
 
 		if (should_sign) {
 			if (p_debug) {
-				String debug_keystore = p_preset->get_or_env("keystore/debug", ENV_ANDROID_KEYSTORE_DEBUG_PATH);
+				String debug_keystore = _get_keystore_path(p_preset, true);
 				String debug_password = p_preset->get_or_env("keystore/debug_password", ENV_ANDROID_KEYSTORE_DEBUG_PASS);
 				String debug_user = p_preset->get_or_env("keystore/debug_user", ENV_ANDROID_KEYSTORE_DEBUG_USER);
 
@@ -3253,7 +3261,7 @@ Error EditorExportPlatformAndroid::export_project_helper(const Ref<EditorExportP
 				cmdline.push_back("-Pdebug_keystore_password=" + debug_password); // argument to specify the debug keystore password.
 			} else {
 				// Pass the release keystore info as well
-				String release_keystore = p_preset->get_or_env("keystore/release", ENV_ANDROID_KEYSTORE_RELEASE_PATH);
+				String release_keystore = _get_keystore_path(p_preset, false);
 				String release_username = p_preset->get_or_env("keystore/release_user", ENV_ANDROID_KEYSTORE_RELEASE_USER);
 				String release_password = p_preset->get_or_env("keystore/release_password", ENV_ANDROID_KEYSTORE_RELEASE_PASS);
 				if (release_keystore.is_relative_path()) {
@@ -3489,7 +3497,7 @@ Error EditorExportPlatformAndroid::export_project_helper(const Ref<EditorExportP
 		APKExportData ed;
 		ed.ep = &ep;
 		ed.apk = unaligned_apk;
-		err = export_project_files(true, p_preset, p_debug, ignore_apk_file, &ed, save_apk_so);
+		err = export_project_files(p_preset, p_debug, ignore_apk_file, &ed, save_apk_so);
 	} else {
 		if (apk_expansion) {
 			err = save_apk_expansion_file(p_preset, p_debug, p_path);
@@ -3501,7 +3509,7 @@ Error EditorExportPlatformAndroid::export_project_helper(const Ref<EditorExportP
 			APKExportData ed;
 			ed.ep = &ep;
 			ed.apk = unaligned_apk;
-			err = export_project_files(true, p_preset, p_debug, save_apk_file, &ed, save_apk_so);
+			err = export_project_files(p_preset, p_debug, save_apk_file, &ed, save_apk_so);
 		}
 	}
 
