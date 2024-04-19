@@ -35,6 +35,8 @@
 #include "thirdparty/misc/smolv.h"
 #include "vulkan_hooks.h"
 
+#include "modules/tracy/profiler.h"
+
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 
 #define PRINT_NATIVE_COMMANDS 0
@@ -2131,6 +2133,8 @@ RDD::CommandQueueID RenderingDeviceDriverVulkan::command_queue_create(CommandQue
 }
 
 Error RenderingDeviceDriverVulkan::command_queue_execute_and_present(CommandQueueID p_cmd_queue, VectorView<SemaphoreID> p_wait_semaphores, VectorView<CommandBufferID> p_cmd_buffers, VectorView<SemaphoreID> p_cmd_semaphores, FenceID p_cmd_fence, VectorView<SwapChainID> p_swap_chains) {
+	ZoneScoped;
+
 	DEV_ASSERT(p_cmd_queue.id != 0);
 
 	VkResult err;
@@ -2145,6 +2149,8 @@ Error RenderingDeviceDriverVulkan::command_queue_execute_and_present(CommandQueu
 	wait_semaphores_stages.clear();
 
 	if (!command_queue->pending_semaphores_for_execute.is_empty()) {
+		ZoneScopedN( "pending_semaphores_for_execute" );
+
 		for (uint32_t i = 0; i < command_queue->pending_semaphores_for_execute.size(); i++) {
 			VkSemaphore wait_semaphore = command_queue->image_semaphores[command_queue->pending_semaphores_for_execute[i]];
 			wait_semaphores.push_back(wait_semaphore);
@@ -2161,6 +2167,8 @@ Error RenderingDeviceDriverVulkan::command_queue_execute_and_present(CommandQueu
 	}
 
 	if (p_cmd_buffers.size() > 0) {
+		ZoneScopedN( "pending_semaphores_for_execute" );
+
 		thread_local LocalVector<VkCommandBuffer> command_buffers;
 		thread_local LocalVector<VkSemaphore> signal_semaphores;
 		command_buffers.clear();
@@ -2231,6 +2239,8 @@ Error RenderingDeviceDriverVulkan::command_queue_execute_and_present(CommandQueu
 	}
 
 	if (p_swap_chains.size() > 0) {
+		ZoneScopedN( "pending_semaphores_for_execute" );
+
 		thread_local LocalVector<VkSwapchainKHR> swapchains;
 		thread_local LocalVector<uint32_t> image_indices;
 		thread_local LocalVector<VkResult> results;

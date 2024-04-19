@@ -48,6 +48,8 @@
 #include "servers/rendering_server.h"
 #include "servers/text_server.h"
 
+#include "modules/tracy/profiler.h"
+
 #ifdef TOOLS_ENABLED
 #include "editor/plugins/control_editor_plugin.h"
 #endif
@@ -1580,6 +1582,8 @@ void Control::_update_minimum_size() {
 }
 
 void Control::update_minimum_size() {
+	ZoneScoped;
+
 	ERR_MAIN_THREAD_GUARD;
 	if (!is_inside_tree() || data.block_minimum_size_adjust) {
 		return;

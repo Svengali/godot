@@ -41,6 +41,8 @@
 #include "scene/theme/theme_db.h"
 #include "scene/theme/theme_owner.h"
 
+#include "modules/tracy/profiler.h"
+
 // Editor integration.
 
 int Window::root_layout_direction = 0;
@@ -1565,6 +1567,8 @@ void Window::child_controls_changed() {
 }
 
 void Window::_update_child_controls() {
+	ZoneScoped;
+
 	if (!updating_child_controls) {
 		return;
 	}
