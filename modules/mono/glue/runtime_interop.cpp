@@ -47,6 +47,8 @@
 #include "core/os/os.h"
 #include "core/string/string_name.h"
 
+#include "modules/tracy/profiler.h"
+
 #ifdef TOOLS_ENABLED
 #include "editor/editor_file_system.h"
 #endif
@@ -528,6 +530,9 @@ bool godotsharp_callable_get_data_for_marshalling(const Callable *p_callable,
 }
 
 godot_variant godotsharp_callable_call(Callable *p_callable, const Variant **p_args, const int32_t p_arg_count, Callable::CallError *p_call_error) {
+
+	ZoneScoped;
+
 	godot_variant ret;
 	memnew_placement(&ret, Variant);
 
@@ -558,6 +563,8 @@ void godotsharp_method_bind_ptrcall(MethodBind *p_method_bind, Object *p_instanc
 }
 
 godot_variant godotsharp_method_bind_call(MethodBind *p_method_bind, Object *p_instance, const godot_variant **p_args, const int32_t p_arg_count, Callable::CallError *p_call_error) {
+	ZoneScoped;
+
 	godot_variant ret;
 	memnew_placement(&ret, Variant());
 

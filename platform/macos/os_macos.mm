@@ -46,6 +46,8 @@
 #include <os/log.h>
 #include <sys/sysctl.h>
 
+#include "modules/tracy/profiler.h"
+
 void OS_MacOS::pre_wait_observer_cb(CFRunLoopObserverRef p_observer, CFRunLoopActivity p_activiy, void *p_context) {
 	// Prevent main loop from sleeping and redraw window during modal popup display.
 	// Do not redraw when rendering is done from the separate thread, it will conflict with the OpenGL context updates.
@@ -770,10 +772,16 @@ void OS_MacOS::run() {
 	while (!quit) {
 		@autoreleasepool {
 			@try {
+
 				if (DisplayServer::get_singleton()) {
+					ZoneScopedN( "process_events" );
 					DisplayServer::get_singleton()->process_events(); // Get rid of pending events.
 				}
-				joypad_macos->start_processing();
+
+				{
+					ZoneScopedN( "joypad_macos->start_processing" );
+					joypad_macos->start_processing();
+				}
 
 				if (Main::iteration()) {
 					quit = true;

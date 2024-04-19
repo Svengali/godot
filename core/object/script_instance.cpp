@@ -32,6 +32,8 @@
 
 #include "core/object/script_language.h"
 
+#include "modules/tracy/profiler.h"
+
 int ScriptInstance::get_method_argument_count(const StringName &p_method, bool *r_is_valid) const {
 	// Default implementation simply traverses hierarchy.
 	Ref<Script> script = get_script();
@@ -55,6 +57,9 @@ int ScriptInstance::get_method_argument_count(const StringName &p_method, bool *
 }
 
 Variant ScriptInstance::call_const(const StringName &p_method, const Variant **p_args, int p_argcount, Callable::CallError &r_error) {
+
+	ZoneScoped;
+
 	return callp(p_method, p_args, p_argcount, r_error);
 }
 

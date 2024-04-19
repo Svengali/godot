@@ -42,6 +42,8 @@
 #include "core/os/thread_safe.h"
 #include "core/variant/typed_array.h"
 
+#include "modules/tracy/profiler.h"
+
 namespace core_bind {
 
 ////// ResourceLoader //////
@@ -1229,6 +1231,9 @@ void Mutex::_bind_methods() {
 ////// Thread //////
 
 void Thread::_start_func(void *ud) {
+
+	ZoneScoped;
+
 	Ref<Thread> *tud = (Ref<Thread> *)ud;
 	Ref<Thread> t = *tud;
 	memdelete(tud);

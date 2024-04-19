@@ -4035,16 +4035,25 @@ bool Main::iteration() {
 			Engine::get_singleton()->_in_physics = false;
 		}
 	}
+
 	if (Input::get_singleton()->is_using_input_buffering() && agile_input_event_flushing) {
+		ZoneScopedN( "flush_buffered_events" );
 		Input::get_singleton()->flush_buffered_events();
 	}
 
 	uint64_t process_begin = OS::get_singleton()->get_ticks_usec();
 
-	if (OS::get_singleton()->get_main_loop()->process(process_step * time_scale)) {
-		exit = true;
+	{
+		ZoneScopedN( "get_main_loop()->process" );
+		if (OS::get_singleton()->get_main_loop()->process(process_step * time_scale)) {
+			exit = true;
+		}
 	}
+
+{
+	ZoneScopedN( "message_queue->flush" );
 	message_queue->flush();
+}
 
 	{
 		ZoneScopedN("sync");

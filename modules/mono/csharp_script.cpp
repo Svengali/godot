@@ -32,6 +32,7 @@
 
 #include "godotsharp_dirs.h"
 #include "managed_callable.h"
+#include "modules/tracy/tracy/public/tracy/Tracy.hpp"
 #include "mono_gd/gd_mono_cache.h"
 #include "signal_awaiter_utils.h"
 #include "utils/macros.h"
@@ -1647,11 +1648,31 @@ int CSharpInstance::get_method_argument_count(const StringName &p_method, bool *
 }
 
 Variant CSharpInstance::callp(const StringName &p_method, const Variant **p_args, int p_argcount, Callable::CallError &r_error) {
+
+	ZoneScoped;
+
+	const auto class_name = script->type_info.class_name;
+
+	const auto method_string = static_cast<String>( p_method );
+
+
+	String full_name = class_name;
+	full_name += "::";
+	full_name += method_string;
+
+	ZoneName( full_name.ascii().ptr(), 128 );
+
+	ZoneValue(p_argcount);
+
+
 	ERR_FAIL_COND_V(!script.is_valid(), Variant());
 
 	Variant ret;
 	GDMonoCache::managed_callbacks.CSharpInstanceBridge_Call(
 			gchandle.get_intptr(), &p_method, p_args, p_argcount, &r_error, &ret);
+
+	const auto ret_string = ret.stringify();
+	ZoneText( ret_string.ascii(), 128 );
 
 	return ret;
 }
@@ -2528,15 +2549,28 @@ MethodInfo CSharpScript::get_method_info(const StringName &p_method) const {
 }
 
 Variant CSharpScript::callp(const StringName &p_method, const Variant **p_args, int p_argcount, Callable::CallError &r_error) {
+
+	ZoneScoped;
+
 	if (valid) {
+
+		const auto method_string = static_cast<String>( p_method );
+		ZoneName( method_string.ascii().ptr(), 128 );
+
 		Variant ret;
 		bool ok = GDMonoCache::managed_callbacks.ScriptManagerBridge_CallStatic(this, &p_method, p_args, p_argcount, &r_error, &ret);
 		if (ok) {
 			return ret;
 		}
+
 	}
 
-	return Script::callp(p_method, p_args, p_argcount, r_error);
+	{
+		const auto method_string = static_cast<String>( p_method );
+		ZoneName( method_string.ascii().ptr(), 128 );
+
+		return Script::callp(p_method, p_args, p_argcount, r_error);
+	}
 }
 
 Error CSharpScript::reload(bool p_keep_state) {

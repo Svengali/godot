@@ -67,6 +67,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "modules/tracy/profiler.h"
+
 void SceneTreeTimer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_time_left", "time"), &SceneTreeTimer::set_time_left);
 	ClassDB::bind_method(D_METHOD("get_time_left"), &SceneTreeTimer::get_time_left);
@@ -982,8 +984,13 @@ void SceneTree::_process_groups_thread(uint32_t p_index, bool p_physics) {
 }
 
 void SceneTree::_process(bool p_physics) {
+
+	ZoneScoped;
+
 	if (process_groups_dirty) {
 		{
+			ZoneScopedN( "process_groups_dirty" );
+
 			// First, remove dirty groups.
 			// This needs to be done when not processing to avoid problems.
 			ProcessGroup **pg_ptr = (ProcessGroup **)process_groups.ptr(); // discard constness.

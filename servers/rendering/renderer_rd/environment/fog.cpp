@@ -1082,12 +1082,14 @@ void Fog::volumetric_fog_update(const VolumetricFogSettings &p_settings, const P
 	sky_transform = sky_transform.inverse() * p_cam_transform.basis;
 	RendererRD::MaterialStorage::store_transform_3x3(sky_transform, params.radiance_inverse_xform);
 
+	RD::ComputeListID compute_list;
+{
 	RD::get_singleton()->draw_command_begin_label("Render Volumetric Fog");
 
 	RENDER_TIMESTAMP("Render Fog");
 	RD::get_singleton()->buffer_update(volumetric_fog.params_ubo, 0, sizeof(VolumetricFogShader::ParamsUBO), &params);
 
-	RD::ComputeListID compute_list = RD::get_singleton()->compute_list_begin();
+	compute_list = RD::get_singleton()->compute_list_begin();
 
 	RD::get_singleton()->compute_list_bind_compute_pipeline(compute_list, volumetric_fog.process_pipelines[using_sdfgi ? VolumetricFogShader::VOLUMETRIC_FOG_PROCESS_SHADER_DENSITY_WITH_SDFGI : VolumetricFogShader::VOLUMETRIC_FOG_PROCESS_SHADER_DENSITY]);
 
@@ -1107,6 +1109,7 @@ void Fog::volumetric_fog_update(const VolumetricFogSettings &p_settings, const P
 		RD::get_singleton()->compute_list_add_barrier(compute_list);
 	}
 	RD::get_singleton()->draw_command_end_label();
+}
 
 	if (p_settings.volumetric_fog_filter_active) {
 		RD::get_singleton()->draw_command_begin_label("Filter Fog");
@@ -1132,6 +1135,7 @@ void Fog::volumetric_fog_update(const VolumetricFogSettings &p_settings, const P
 		RD::get_singleton()->draw_command_end_label();
 	}
 
+{
 	RENDER_TIMESTAMP("Integrate Fog");
 	RD::get_singleton()->draw_command_begin_label("Integrate Fog");
 
@@ -1140,8 +1144,11 @@ void Fog::volumetric_fog_update(const VolumetricFogSettings &p_settings, const P
 	RD::get_singleton()->compute_list_dispatch_threads(compute_list, fog->width, fog->height, 1);
 
 	RD::get_singleton()->compute_list_end();
+}
 
+{
 	RENDER_TIMESTAMP("< Volumetric Fog");
 	RD::get_singleton()->draw_command_end_label();
 	RD::get_singleton()->draw_command_end_label();
+}
 }
