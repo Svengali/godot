@@ -763,19 +763,15 @@ def detect_visual_c_compiler_version(tools_env):
 def find_visual_c_batch_file(env):
     from SCons.Tool.MSCommon.vc import get_default_version, get_host_target, find_batch_file, find_vc_pdir
 
-    # Syntax changed in SCons 4.4.0.
-    from SCons import __version__ as scons_raw_version
-
-    scons_ver = env._get_major_minor_revision(scons_raw_version)
-
     msvc_version = get_default_version(env)
 
-    if scons_ver >= (4, 4, 0):
+    # Syntax changed in SCons 4.4.0.
+    if env.scons_version >= (4, 4, 0):
         (host_platform, target_platform, _) = get_host_target(env, msvc_version)
     else:
         (host_platform, target_platform, _) = get_host_target(env)
 
-    if scons_ver < (4, 6, 0):
+    if env.scons_version < (4, 6, 0):
         return find_batch_file(env, msvc_version, host_platform, target_platform)[0]
 
     # Scons 4.6.0+ removed passing env, so we need to get the product_dir ourselves first,
@@ -926,7 +922,11 @@ def get_compiler_version(env):
         # Not using -dumpversion as some GCC distros only return major, and
         # Clang used to return hardcoded 4.2.1: # https://reviews.llvm.org/D56803
         try:
-            version = subprocess.check_output([env.subst(env["CXX"]), "--version"]).strip().decode("utf-8")
+            version = (
+                subprocess.check_output([env.subst(env["CXX"]), "--version"], shell=(os.name == "nt"))
+                .strip()
+                .decode("utf-8")
+            )
         except (subprocess.CalledProcessError, OSError):
             print("Couldn't parse CXX environment variable to infer compiler version.")
             return ret
@@ -990,6 +990,10 @@ def using_emcc(env):
 
 
 def show_progress(env):
+    if env["ninja"]:
+        # Has its own progress/tracking tool that clashes with ours
+        return
+
     import sys
     from SCons.Script import Progress, Command, AlwaysBuild
 

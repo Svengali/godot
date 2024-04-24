@@ -690,6 +690,7 @@ void EditorSettings::_load_defaults(Ref<ConfigFile> p_extra_config) {
 	EDITOR_SETTING_USAGE(Variant::COLOR, PROPERTY_HINT_NONE, "editors/3d_gizmos/gizmo_colors/instantiated", Color(0.7, 0.7, 0.7, 0.6), "", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_RESTART_IF_CHANGED)
 	EDITOR_SETTING_USAGE(Variant::COLOR, PROPERTY_HINT_NONE, "editors/3d_gizmos/gizmo_colors/joint", Color(0.5, 0.8, 1), "", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_RESTART_IF_CHANGED)
 	EDITOR_SETTING_USAGE(Variant::COLOR, PROPERTY_HINT_NONE, "editors/3d_gizmos/gizmo_colors/shape", Color(0.5, 0.7, 1), "", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_RESTART_IF_CHANGED)
+	EDITOR_SETTING_USAGE(Variant::COLOR, PROPERTY_HINT_NONE, "editors/3d_gizmos/gizmo_colors/aabb", Color(0.28, 0.8, 0.82), "", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_RESTART_IF_CHANGED)
 
 	// If a line is a multiple of this, it uses the primary grid color.
 	// Use a power of 2 value by default as it's more common to use powers of 2 in level design.
@@ -989,6 +990,29 @@ EditorSettings *EditorSettings::get_singleton() {
 	return singleton.ptr();
 }
 
+String EditorSettings::get_existing_settings_path() {
+	const String config_dir = EditorPaths::get_singleton()->get_config_dir();
+	int minor = VERSION_MINOR;
+	String filename;
+
+	do {
+		if (VERSION_MAJOR == 4 && minor < 3) {
+			// Minor version is used since 4.3, so special case to load older settings.
+			filename = vformat("editor_settings-%d.tres", VERSION_MAJOR);
+			minor = -1;
+		} else {
+			filename = vformat("editor_settings-%d.%d.tres", VERSION_MAJOR, minor);
+			minor--;
+		}
+	} while (minor >= 0 && !FileAccess::exists(config_dir.path_join(filename)));
+	return config_dir.path_join(filename);
+}
+
+String EditorSettings::get_newest_settings_path() {
+	const String config_file_name = vformat("editor_settings-%d.%d.tres", VERSION_MAJOR, VERSION_MINOR);
+	return EditorPaths::get_singleton()->get_config_dir().path_join(config_file_name);
+}
+
 void EditorSettings::create() {
 	// IMPORTANT: create() *must* create a valid EditorSettings singleton,
 	// as the rest of the engine code will assume it. As such, it should never
@@ -1016,16 +1040,16 @@ void EditorSettings::create() {
 
 	if (EditorPaths::get_singleton()->are_paths_valid()) {
 		// Validate editor config file.
-		Ref<DirAccess> dir = DirAccess::open(EditorPaths::get_singleton()->get_config_dir());
-		ERR_FAIL_COND(dir.is_null());
+		ERR_FAIL_COND(!DirAccess::dir_exists_absolute(EditorPaths::get_singleton()->get_config_dir()));
 
-		String config_file_name = "editor_settings-" + itos(VERSION_MAJOR) + ".tres";
-		config_file_path = EditorPaths::get_singleton()->get_config_dir().path_join(config_file_name);
-		if (!dir->file_exists(config_file_name)) {
+		config_file_path = get_existing_settings_path();
+		if (!FileAccess::exists(config_file_path)) {
+			config_file_path = get_newest_settings_path();
 			goto fail;
 		}
 
 		singleton = ResourceLoader::load(config_file_path, "EditorSettings");
+		singleton->set_path(get_newest_settings_path()); // Settings can be loaded from older version file, so make sure it's newest.
 
 		if (singleton.is_null()) {
 			ERR_PRINT("Could not load editor settings from path: " + config_file_path);
