@@ -682,5 +682,37 @@ namespace Godot
         {
             return Marshaling.ConvertManagedTypeToVariantType(type, out bool _);
         }
+
+
+
+        public static ulong TracyBegin( string name )
+        {
+            var gd_string = Marshaling.ConvertStringToNative( name );
+            var id = NativeFuncs.godotsharp_tracy_begin( ref gd_string );
+            return id;
+        }
+
+        public static void TracyEnd( ulong id )
+        {
+            NativeFuncs.godotsharp_tracy_end( id );
+        }
+
+        public static void TracyName( ulong id, string text )
+        {
+            var gd_string = Marshaling.ConvertStringToNative( text );
+            NativeFuncs.godotsharp_tracy_text( id, ref gd_string );
+        }
+
+        public static void TracyValue( ulong id, ulong value )
+        {
+            NativeFuncs.godotsharp_tracy_ulong( id, value );
+        }
+
+
+
+
+
+
+
     }
 }

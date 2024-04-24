@@ -48,6 +48,8 @@
 #include "core/string/string_name.h"
 
 #include "modules/tracy/profiler.h"
+#include "modules/tracy/tracy/public/tracy/Tracy.hpp"
+#include "modules/tracy/tracy_profiler.h"
 
 #ifdef TOOLS_ENABLED
 #include "editor/editor_file_system.h"
@@ -63,18 +65,22 @@ static_assert(sizeof(SafeRefCount) == sizeof(uint32_t));
 typedef Object *(*godotsharp_class_creation_func)();
 
 bool godotsharp_dotnet_module_is_initialized() {
+	ZoneScoped;
 	return GDMono::get_singleton()->is_initialized();
 }
 
 MethodBind *godotsharp_method_bind_get_method(const StringName *p_classname, const StringName *p_methodname) {
+	ZoneScoped;
 	return ClassDB::get_method(*p_classname, *p_methodname);
 }
 
 MethodBind *godotsharp_method_bind_get_method_with_compatibility(const StringName *p_classname, const StringName *p_methodname, uint64_t p_hash) {
+	ZoneScoped;
 	return ClassDB::get_method_with_compatibility(*p_classname, *p_methodname, p_hash);
 }
 
 godotsharp_class_creation_func godotsharp_get_class_constructor(const StringName *p_classname) {
+	ZoneScoped;
 	ClassDB::ClassInfo *class_info = ClassDB::classes.getptr(*p_classname);
 	if (class_info) {
 		return class_info->creation_func;
@@ -109,6 +115,7 @@ bool godotsharp_internal_script_debugger_is_active() {
 }
 
 GCHandleIntPtr godotsharp_internal_object_get_associated_gchandle(Object *p_ptr) {
+	ZoneScoped;
 #ifdef DEBUG_ENABLED
 	CRASH_COND(p_ptr == nullptr);
 #endif
@@ -137,6 +144,7 @@ GCHandleIntPtr godotsharp_internal_object_get_associated_gchandle(Object *p_ptr)
 }
 
 void godotsharp_internal_object_disposed(Object *p_ptr, GCHandleIntPtr p_gchandle_to_free) {
+	ZoneScoped;
 #ifdef DEBUG_ENABLED
 	CRASH_COND(p_ptr == nullptr);
 #endif
@@ -165,6 +173,7 @@ void godotsharp_internal_object_disposed(Object *p_ptr, GCHandleIntPtr p_gchandl
 }
 
 void godotsharp_internal_refcounted_disposed(Object *p_ptr, GCHandleIntPtr p_gchandle_to_free, bool p_is_finalizer) {
+	ZoneScoped;
 #ifdef DEBUG_ENABLED
 	CRASH_COND(p_ptr == nullptr);
 	// This is only called with RefCounted derived classes
@@ -213,11 +222,13 @@ void godotsharp_internal_refcounted_disposed(Object *p_ptr, GCHandleIntPtr p_gch
 }
 
 int32_t godotsharp_internal_signal_awaiter_connect(Object *p_source, StringName *p_signal, Object *p_target, GCHandleIntPtr p_awaiter_handle_ptr) {
+	ZoneScoped;
 	StringName signal = p_signal ? *p_signal : StringName();
 	return (int32_t)gd_mono_connect_signal_awaiter(p_source, signal, p_target, p_awaiter_handle_ptr);
 }
 
 GCHandleIntPtr godotsharp_internal_unmanaged_get_script_instance_managed(Object *p_unmanaged, bool *r_has_cs_script_instance) {
+	ZoneScoped;
 #ifdef DEBUG_ENABLED
 	CRASH_COND(!p_unmanaged);
 	CRASH_COND(!r_has_cs_script_instance);
@@ -250,6 +261,7 @@ GCHandleIntPtr godotsharp_internal_unmanaged_get_instance_binding_managed(Object
 }
 
 GCHandleIntPtr godotsharp_internal_unmanaged_instance_binding_create_managed(Object *p_unmanaged, GCHandleIntPtr p_old_gchandle) {
+	ZoneScoped;
 #ifdef DEBUG_ENABLED
 	CRASH_COND(!p_unmanaged);
 #endif
@@ -314,10 +326,13 @@ void godotsharp_internal_tie_managed_to_unmanaged_with_pre_setup(GCHandleIntPtr 
 }
 
 void godotsharp_internal_new_csharp_script(Ref<CSharpScript> *r_dest) {
+	ZoneScoped;
 	memnew_placement(r_dest, Ref<CSharpScript>(memnew(CSharpScript)));
 }
 
 void godotsharp_internal_editor_file_system_update_file(const String *p_script_path) {
+	ZoneScoped;
+
 #ifdef TOOLS_ENABLED
 	// If the EditorFileSystem singleton is available, update the file;
 	// otherwise, the file will be updated when the singleton becomes available.
@@ -332,6 +347,8 @@ void godotsharp_internal_editor_file_system_update_file(const String *p_script_p
 }
 
 bool godotsharp_internal_script_load(const String *p_path, Ref<CSharpScript> *r_dest) {
+	ZoneScoped;
+
 	Ref<Resource> res = ResourceLoader::load(*p_path);
 	if (res.is_valid()) {
 		memnew_placement(r_dest, Ref<CSharpScript>(res));
@@ -343,11 +360,15 @@ bool godotsharp_internal_script_load(const String *p_path, Ref<CSharpScript> *r_
 }
 
 void godotsharp_internal_reload_registered_script(CSharpScript *p_script) {
+	ZoneScoped;
+
 	CRASH_COND(!p_script);
 	CSharpScript::reload_registered_script(Ref<CSharpScript>(p_script));
 }
 
 void godotsharp_array_filter_godot_objects_by_native(StringName *p_native_name, const Array *p_input, Array *r_output) {
+	ZoneScoped;
+
 	memnew_placement(r_output, Array);
 
 	for (int i = 0; i < p_input->size(); ++i) {
@@ -358,6 +379,8 @@ void godotsharp_array_filter_godot_objects_by_native(StringName *p_native_name, 
 }
 
 void godotsharp_array_filter_godot_objects_by_non_native(const Array *p_input, Array *r_output) {
+	ZoneScoped;
+
 	memnew_placement(r_output, Array);
 
 	for (int i = 0; i < p_input->size(); ++i) {
@@ -394,6 +417,8 @@ void godotsharp_node_path_as_string(String *r_dest, const NodePath *p_np) {
 }
 
 godot_packed_array godotsharp_packed_byte_array_new_mem_copy(const uint8_t *p_src, int32_t p_length) {
+	ZoneScoped;
+
 	godot_packed_array ret;
 	memnew_placement(&ret, PackedByteArray);
 	PackedByteArray *array = reinterpret_cast<PackedByteArray *>(&ret);
@@ -404,6 +429,8 @@ godot_packed_array godotsharp_packed_byte_array_new_mem_copy(const uint8_t *p_sr
 }
 
 godot_packed_array godotsharp_packed_int32_array_new_mem_copy(const int32_t *p_src, int32_t p_length) {
+	ZoneScoped;
+
 	godot_packed_array ret;
 	memnew_placement(&ret, PackedInt32Array);
 	PackedInt32Array *array = reinterpret_cast<PackedInt32Array *>(&ret);
@@ -414,6 +441,8 @@ godot_packed_array godotsharp_packed_int32_array_new_mem_copy(const int32_t *p_s
 }
 
 godot_packed_array godotsharp_packed_int64_array_new_mem_copy(const int64_t *p_src, int32_t p_length) {
+	ZoneScoped;
+
 	godot_packed_array ret;
 	memnew_placement(&ret, PackedInt64Array);
 	PackedInt64Array *array = reinterpret_cast<PackedInt64Array *>(&ret);
@@ -424,6 +453,8 @@ godot_packed_array godotsharp_packed_int64_array_new_mem_copy(const int64_t *p_s
 }
 
 godot_packed_array godotsharp_packed_float32_array_new_mem_copy(const float *p_src, int32_t p_length) {
+	ZoneScoped;
+
 	godot_packed_array ret;
 	memnew_placement(&ret, PackedFloat32Array);
 	PackedFloat32Array *array = reinterpret_cast<PackedFloat32Array *>(&ret);
@@ -434,6 +465,8 @@ godot_packed_array godotsharp_packed_float32_array_new_mem_copy(const float *p_s
 }
 
 godot_packed_array godotsharp_packed_float64_array_new_mem_copy(const double *p_src, int32_t p_length) {
+	ZoneScoped;
+
 	godot_packed_array ret;
 	memnew_placement(&ret, PackedFloat64Array);
 	PackedFloat64Array *array = reinterpret_cast<PackedFloat64Array *>(&ret);
@@ -444,6 +477,8 @@ godot_packed_array godotsharp_packed_float64_array_new_mem_copy(const double *p_
 }
 
 godot_packed_array godotsharp_packed_vector2_array_new_mem_copy(const Vector2 *p_src, int32_t p_length) {
+	ZoneScoped;
+
 	godot_packed_array ret;
 	memnew_placement(&ret, PackedVector2Array);
 	PackedVector2Array *array = reinterpret_cast<PackedVector2Array *>(&ret);
@@ -454,6 +489,8 @@ godot_packed_array godotsharp_packed_vector2_array_new_mem_copy(const Vector2 *p
 }
 
 godot_packed_array godotsharp_packed_vector3_array_new_mem_copy(const Vector3 *p_src, int32_t p_length) {
+	ZoneScoped;
+
 	godot_packed_array ret;
 	memnew_placement(&ret, PackedVector3Array);
 	PackedVector3Array *array = reinterpret_cast<PackedVector3Array *>(&ret);
@@ -464,6 +501,8 @@ godot_packed_array godotsharp_packed_vector3_array_new_mem_copy(const Vector3 *p
 }
 
 godot_packed_array godotsharp_packed_color_array_new_mem_copy(const Color *p_src, int32_t p_length) {
+	ZoneScoped;
+
 	godot_packed_array ret;
 	memnew_placement(&ret, PackedColorArray);
 	PackedColorArray *array = reinterpret_cast<PackedColorArray *>(&ret);
@@ -474,11 +513,14 @@ godot_packed_array godotsharp_packed_color_array_new_mem_copy(const Color *p_src
 }
 
 void godotsharp_packed_string_array_add(PackedStringArray *r_dest, const String *p_element) {
+	ZoneScoped;
+
 	r_dest->append(*p_element);
 }
 
 void godotsharp_callable_new_with_delegate(GCHandleIntPtr p_delegate_handle, void *p_trampoline,
 		const Object *p_object, Callable *r_callable) {
+	ZoneScoped;
 	// TODO: Use pooling for ManagedCallable instances.
 	ObjectID objid = p_object ? p_object->get_instance_id() : ObjectID();
 	CallableCustom *managed_callable = memnew(ManagedCallable(p_delegate_handle, p_trampoline, objid));
@@ -487,6 +529,8 @@ void godotsharp_callable_new_with_delegate(GCHandleIntPtr p_delegate_handle, voi
 
 bool godotsharp_callable_get_data_for_marshalling(const Callable *p_callable,
 		GCHandleIntPtr *r_delegate_handle, void **r_trampoline, Object **r_object, StringName *r_name) {
+	ZoneScoped;
+
 	if (p_callable->is_custom()) {
 		CallableCustom *custom = p_callable->get_custom();
 		CallableCustom::CompareEqualFunc compare_equal_func = custom->get_compare_equal_func();
@@ -544,10 +588,14 @@ godot_variant godotsharp_callable_call(Callable *p_callable, const Variant **p_a
 }
 
 void godotsharp_callable_call_deferred(Callable *p_callable, const Variant **p_args, const int32_t p_arg_count) {
+	ZoneScoped;
+
 	p_callable->call_deferredp(p_args, p_arg_count);
 }
 
 godot_color godotsharp_color_from_ok_hsl(float p_h, float p_s, float p_l, float p_alpha) {
+	ZoneScoped;
+
 	godot_color ret;
 	Color *dest = (Color *)&ret;
 	memnew_placement(dest, Color(Color::from_ok_hsl(p_h, p_s, p_l, p_alpha)));
@@ -559,11 +607,26 @@ godot_color godotsharp_color_from_ok_hsl(float p_h, float p_s, float p_l, float 
 // gdnative.h
 
 void godotsharp_method_bind_ptrcall(MethodBind *p_method_bind, Object *p_instance, const void **p_args, void *p_ret) {
+	ZoneScoped;
+
+	const auto name = static_cast<String>( p_method_bind->get_name() );
+	const auto str = name.ascii();
+	ZoneName( str.ptr(), 128 );
+
+	ZoneValue( reinterpret_cast<intptr_t>( p_instance ) );
+
 	p_method_bind->ptrcall(p_instance, p_args, p_ret);
 }
 
 godot_variant godotsharp_method_bind_call(MethodBind *p_method_bind, Object *p_instance, const godot_variant **p_args, const int32_t p_arg_count, Callable::CallError *p_call_error) {
 	ZoneScoped;
+
+	const auto name = static_cast<String>( p_method_bind->get_name() );
+	const auto str = name.ascii();
+	ZoneName( str.ptr(), 128 );
+
+	ZoneValue( reinterpret_cast<intptr_t>( p_instance ) );
+
 
 	godot_variant ret;
 	memnew_placement(&ret, Variant());
@@ -901,12 +964,16 @@ godot_packed_array godotsharp_variant_as_packed_color_array(const Variant *p_sel
 }
 
 bool godotsharp_variant_equals(const godot_variant *p_a, const godot_variant *p_b) {
+	ZoneScoped;
+
 	return *reinterpret_cast<const Variant *>(p_a) == *reinterpret_cast<const Variant *>(p_b);
 }
 
 // string.h
 
 void godotsharp_string_new_with_utf16_chars(String *r_dest, const char16_t *p_contents) {
+	ZoneScoped;
+
 	memnew_placement(r_dest, String());
 	r_dest->parse_utf16(p_contents);
 }
@@ -914,36 +981,50 @@ void godotsharp_string_new_with_utf16_chars(String *r_dest, const char16_t *p_co
 // string_name.h
 
 void godotsharp_string_name_new_copy(StringName *r_dest, const StringName *p_src) {
+	ZoneScoped;
+
 	memnew_placement(r_dest, StringName(*p_src));
 }
 
 // node_path.h
 
 void godotsharp_node_path_new_copy(NodePath *r_dest, const NodePath *p_src) {
+	ZoneScoped;
+
 	memnew_placement(r_dest, NodePath(*p_src));
 }
 
 // array.h
 
 void godotsharp_array_new(Array *r_dest) {
+	ZoneScoped;
+
 	memnew_placement(r_dest, Array);
 }
 
 void godotsharp_array_new_copy(Array *r_dest, const Array *p_src) {
+	ZoneScoped;
+
 	memnew_placement(r_dest, Array(*p_src));
 }
 
 godot_variant *godotsharp_array_ptrw(godot_array *p_self) {
+	ZoneScoped;
+
 	return reinterpret_cast<godot_variant *>(&reinterpret_cast<Array *>(p_self)->operator[](0));
 }
 
 // dictionary.h
 
 void godotsharp_dictionary_new(Dictionary *r_dest) {
+	ZoneScoped;
+
 	memnew_placement(r_dest, Dictionary);
 }
 
 void godotsharp_dictionary_new_copy(Dictionary *r_dest, const Dictionary *p_src) {
+	ZoneScoped;
+
 	memnew_placement(r_dest, Dictionary(*p_src));
 }
 
@@ -986,50 +1067,72 @@ void godotsharp_packed_color_array_destroy(PackedColorArray *p_self) {
 }
 
 void godotsharp_variant_destroy(Variant *p_self) {
+	ZoneScoped;
+
 	p_self->~Variant();
 }
 
 void godotsharp_string_destroy(String *p_self) {
+	ZoneScoped;
+
 	p_self->~String();
 }
 
 void godotsharp_string_name_destroy(StringName *p_self) {
+	ZoneScoped;
+
 	p_self->~StringName();
 }
 
 void godotsharp_node_path_destroy(NodePath *p_self) {
+	ZoneScoped;
+
 	p_self->~NodePath();
 }
 
 void godotsharp_signal_destroy(Signal *p_self) {
+	ZoneScoped;
+
 	p_self->~Signal();
 }
 
 void godotsharp_callable_destroy(Callable *p_self) {
+	ZoneScoped;
+
 	p_self->~Callable();
 }
 
 void godotsharp_array_destroy(Array *p_self) {
+	ZoneScoped;
+
 	p_self->~Array();
 }
 
 void godotsharp_dictionary_destroy(Dictionary *p_self) {
+	ZoneScoped;
+
 	p_self->~Dictionary();
 }
 
 // Array
 
 int32_t godotsharp_array_add(Array *p_self, const Variant *p_item) {
+	ZoneScoped;
+
 	p_self->append(*p_item);
 	return p_self->size();
 }
 
 int32_t godotsharp_array_add_range(Array *p_self, const Array *p_collection) {
+	ZoneScoped;
+
 	p_self->append_array(*p_collection);
 	return p_self->size();
 }
 
 int32_t godotsharp_array_binary_search(const Array *p_self, int32_t p_index, int32_t p_length, const Variant *p_value) {
+	ZoneScoped;
+
 	ERR_FAIL_COND_V(p_index < 0, -1);
 	ERR_FAIL_COND_V(p_length < 0, -1);
 	ERR_FAIL_COND_V(p_self->size() - p_index < p_length, -1);
@@ -1057,30 +1160,44 @@ int32_t godotsharp_array_binary_search(const Array *p_self, int32_t p_index, int
 }
 
 void godotsharp_array_duplicate(const Array *p_self, bool p_deep, Array *r_dest) {
+	ZoneScoped;
+
 	memnew_placement(r_dest, Array(p_self->duplicate(p_deep)));
 }
 
 void godotsharp_array_fill(Array *p_self, const Variant *p_value) {
+	ZoneScoped;
+
 	p_self->fill(*p_value);
 }
 
 int32_t godotsharp_array_index_of(const Array *p_self, const Variant *p_item, int32_t p_index = 0) {
+	ZoneScoped;
+
 	return p_self->find(*p_item, p_index);
 }
 
 void godotsharp_array_insert(Array *p_self, int32_t p_index, const Variant *p_item) {
+	ZoneScoped;
+
 	p_self->insert(p_index, *p_item);
 }
 
 int32_t godotsharp_array_last_index_of(const Array *p_self, const Variant *p_item, int32_t p_index) {
+	ZoneScoped;
+
 	return p_self->rfind(*p_item, p_index);
 }
 
 void godotsharp_array_make_read_only(Array *p_self) {
+	ZoneScoped;
+
 	p_self->make_read_only();
 }
 
 void godotsharp_array_max(const Array *p_self, Variant *r_value) {
+	ZoneScoped;
+
 	*r_value = p_self->max();
 }
 
@@ -1093,34 +1210,50 @@ void godotsharp_array_pick_random(const Array *p_self, Variant *r_value) {
 }
 
 bool godotsharp_array_recursive_equal(const Array *p_self, const Array *p_other) {
+	ZoneScoped;
+
 	return p_self->recursive_equal(*p_other, 0);
 }
 
 void godotsharp_array_remove_at(Array *p_self, int32_t p_index) {
+	ZoneScoped;
+
 	p_self->remove_at(p_index);
 }
 
 int32_t godotsharp_array_resize(Array *p_self, int32_t p_new_size) {
+	ZoneScoped;
+
 	return (int32_t)p_self->resize(p_new_size);
 }
 
 void godotsharp_array_reverse(Array *p_self) {
+	ZoneScoped;
+
 	p_self->reverse();
 }
 
 void godotsharp_array_shuffle(Array *p_self) {
+	ZoneScoped;
+
 	p_self->shuffle();
 }
 
 void godotsharp_array_slice(Array *p_self, int32_t p_start, int32_t p_end, int32_t p_step, bool p_deep, Array *r_dest) {
+	ZoneScoped;
+
 	memnew_placement(r_dest, Array(p_self->slice(p_start, p_end, p_step, p_deep)));
 }
 
 void godotsharp_array_sort(Array *p_self) {
+	ZoneScoped;
+
 	p_self->sort();
 }
 
 void godotsharp_array_to_string(const Array *p_self, String *r_str) {
+	ZoneScoped;
+
 	*r_str = Variant(*p_self).operator String();
 }
 
@@ -1141,10 +1274,14 @@ void godotsharp_dictionary_set_value(Dictionary *p_self, const Variant *p_key, c
 }
 
 void godotsharp_dictionary_keys(const Dictionary *p_self, Array *r_dest) {
+	ZoneScoped;
+
 	memnew_placement(r_dest, Array(p_self->keys()));
 }
 
 void godotsharp_dictionary_values(const Dictionary *p_self, Array *r_dest) {
+	ZoneScoped;
+
 	memnew_placement(r_dest, Array(p_self->values()));
 }
 
@@ -1170,14 +1307,20 @@ bool godotsharp_dictionary_contains_key(const Dictionary *p_self, const Variant 
 }
 
 void godotsharp_dictionary_duplicate(const Dictionary *p_self, bool p_deep, Dictionary *r_dest) {
+	ZoneScoped;
+
 	memnew_placement(r_dest, Dictionary(p_self->duplicate(p_deep)));
 }
 
 void godotsharp_dictionary_merge(Dictionary *p_self, const Dictionary *p_dictionary, bool p_overwrite) {
+	ZoneScoped;
+
 	p_self->merge(*p_dictionary, p_overwrite);
 }
 
 bool godotsharp_dictionary_recursive_equal(const Dictionary *p_self, const Dictionary *p_other) {
+	ZoneScoped;
+
 	return p_self->recursive_equal(*p_other, 0);
 }
 
@@ -1190,6 +1333,8 @@ void godotsharp_dictionary_make_read_only(Dictionary *p_self) {
 }
 
 void godotsharp_dictionary_to_string(const Dictionary *p_self, String *r_str) {
+	ZoneScoped;
+
 	*r_str = Variant(*p_self).operator String();
 }
 
@@ -1308,30 +1453,44 @@ void godotsharp_weakref(Object *p_ptr, Ref<RefCounted> *r_weak_ref) {
 }
 
 void godotsharp_print(const godot_string *p_what) {
+	ZoneScoped;
+
 	print_line(*reinterpret_cast<const String *>(p_what));
 }
 
 void godotsharp_print_rich(const godot_string *p_what) {
+	ZoneScoped;
+
 	print_line_rich(*reinterpret_cast<const String *>(p_what));
 }
 
 void godotsharp_printerr(const godot_string *p_what) {
+	ZoneScoped;
+
 	print_error(*reinterpret_cast<const String *>(p_what));
 }
 
 void godotsharp_printt(const godot_string *p_what) {
+	ZoneScoped;
+
 	print_line(*reinterpret_cast<const String *>(p_what));
 }
 
 void godotsharp_prints(const godot_string *p_what) {
+	ZoneScoped;
+
 	print_line(*reinterpret_cast<const String *>(p_what));
 }
 
 void godotsharp_printraw(const godot_string *p_what) {
+	ZoneScoped;
+
 	OS::get_singleton()->print("%s", reinterpret_cast<const String *>(p_what)->utf8().get_data());
 }
 
 void godotsharp_err_print_error(const godot_string *p_function, const godot_string *p_file, int32_t p_line, const godot_string *p_error, const godot_string *p_message, bool p_editor_notify, ErrorHandlerType p_type) {
+	ZoneScoped;
+
 	_err_print_error(
 			reinterpret_cast<const String *>(p_function)->utf8().get_data(),
 			reinterpret_cast<const String *>(p_file)->utf8().get_data(),
@@ -1342,12 +1501,16 @@ void godotsharp_err_print_error(const godot_string *p_function, const godot_stri
 }
 
 void godotsharp_var_to_str(const godot_variant *p_var, godot_string *r_ret) {
+	ZoneScoped;
+
 	const Variant &var = *reinterpret_cast<const Variant *>(p_var);
 	String &vars = *memnew_placement(r_ret, String);
 	VariantWriter::write_to_string(var, vars);
 }
 
 void godotsharp_str_to_var(const godot_string *p_str, godot_variant *r_ret) {
+	ZoneScoped;
+
 	Variant ret;
 
 	VariantParser::StreamString ss;
@@ -1365,6 +1528,8 @@ void godotsharp_str_to_var(const godot_string *p_str, godot_variant *r_ret) {
 }
 
 void godotsharp_var_to_bytes(const godot_variant *p_var, bool p_full_objects, godot_packed_array *r_bytes) {
+	ZoneScoped;
+
 	const Variant &var = *reinterpret_cast<const Variant *>(p_var);
 	PackedByteArray &bytes = *memnew_placement(r_bytes, PackedByteArray);
 
@@ -1377,6 +1542,8 @@ void godotsharp_var_to_bytes(const godot_variant *p_var, bool p_full_objects, go
 }
 
 void godotsharp_bytes_to_var(const godot_packed_array *p_bytes, bool p_allow_objects, godot_variant *r_ret) {
+	ZoneScoped;
+
 	const PackedByteArray *bytes = reinterpret_cast<const PackedByteArray *>(p_bytes);
 	Variant ret;
 	Error err = decode_variant(ret, bytes->ptr(), bytes->size(), nullptr, p_allow_objects);
@@ -1409,6 +1576,8 @@ Object *godotsharp_instance_from_id(uint64_t p_instance_id) {
 }
 
 void godotsharp_object_to_string(Object *p_ptr, godot_string *r_str) {
+	ZoneScoped;
+
 #ifdef DEBUG_ENABLED
 	// Cannot happen in C#; would get an ObjectDisposedException instead.
 	CRASH_COND(p_ptr == nullptr);
@@ -1417,6 +1586,35 @@ void godotsharp_object_to_string(Object *p_ptr, godot_string *r_str) {
 	memnew_placement(r_str,
 			String("<" + p_ptr->get_class() + "#" + itos(p_ptr->get_instance_id()) + ">"));
 }
+
+uint64_t godotsharp_tracy_begin( const godot_string *p_name ) {
+
+	const String name = *reinterpret_cast<const String *>( p_name );
+
+	const auto id = TracyProfiler::get_singleton()->zone_begin( name );
+
+	return id;
+}
+
+void godotsharp_tracy_end( const uint64_t id ) {
+
+	TracyProfiler::get_singleton()->zone_end( id );
+
+}
+
+void godotsharp_tracy_text( const uint64_t id, const godot_string *p_text ) {
+
+	const String text = *reinterpret_cast<const String *>( p_text );
+
+	TracyProfiler::get_singleton()->zone_set_text( id, text );
+}
+
+void godotsharp_tracy_ulong( const uint64_t id, const uint64_t value ) {
+
+	TracyProfiler::get_singleton()->zone_set_value( id, value );
+}
+
+
 
 #ifdef __cplusplus
 }
@@ -1627,6 +1825,10 @@ static const void *unmanaged_callbacks[]{
 	(void *)godotsharp_var_to_str,
 	(void *)godotsharp_err_print_error,
 	(void *)godotsharp_object_to_string,
+	(void *)godotsharp_tracy_begin,
+	(void *)godotsharp_tracy_end,
+	(void *)godotsharp_tracy_text,
+	(void *)godotsharp_tracy_ulong,
 };
 
 const void **godotsharp::get_runtime_interop_funcs(int32_t &r_size) {

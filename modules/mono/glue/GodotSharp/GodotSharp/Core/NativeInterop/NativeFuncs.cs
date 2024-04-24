@@ -550,5 +550,13 @@ namespace Godot.NativeInterop
         // Object
 
         public static partial void godotsharp_object_to_string(IntPtr ptr, out godot_string r_str);
+
+        public static partial ulong godotsharp_tracy_begin( ref godot_string p_name );
+
+        public static partial ulong godotsharp_tracy_end( ulong id );
+
+        public static partial ulong godotsharp_tracy_text( ulong id, ref godot_string p_name );
+
+        public static partial ulong godotsharp_tracy_ulong( ulong id, ulong value );
     }
 }
