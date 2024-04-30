@@ -3379,7 +3379,12 @@ void EditorInspector::update_tree() {
 				if (use_doc_hints) {
 					// `|` separators used in `EditorHelpBit`.
 					if (theme_item_name.is_empty()) {
-						if (p.usage & PROPERTY_USAGE_INTERNAL) {
+						if (p.name.contains("shader_parameter/")) {
+							ShaderMaterial *shader_material = Object::cast_to<ShaderMaterial>(object);
+							if (shader_material) {
+								ep->set_tooltip_text("property|" + shader_material->get_shader()->get_path() + "|" + property_prefix + p.name);
+							}
+						} else if (p.usage & PROPERTY_USAGE_INTERNAL) {
 							ep->set_tooltip_text("internal_property|" + classname + "|" + property_prefix + p.name);
 						} else {
 							ep->set_tooltip_text("property|" + classname + "|" + property_prefix + p.name);
@@ -4019,14 +4024,16 @@ void EditorInspector::_notification(int p_what) {
 		} break;
 
 		case NOTIFICATION_PREDELETE: {
-			edit(nullptr); //just in case
+			if (EditorNode::get_singleton() && !EditorNode::get_singleton()->is_exiting()) {
+				// Don't need to clean up if exiting, and object may already be freed.
+				edit(nullptr);
+			}
 		} break;
 
 		case NOTIFICATION_EXIT_TREE: {
 			if (!sub_inspector) {
 				get_tree()->disconnect("node_removed", callable_mp(this, &EditorInspector::_node_removed));
 			}
-			edit(nullptr);
 		} break;
 
 		case NOTIFICATION_VISIBILITY_CHANGED: {

@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  editor_plugin_settings.h                                              */
+/*  test_graph_node.h                                                     */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -28,51 +28,32 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef EDITOR_PLUGIN_SETTINGS_H
-#define EDITOR_PLUGIN_SETTINGS_H
+#ifndef TEST_GRAPH_NODE_H
+#define TEST_GRAPH_NODE_H
 
-#include "editor/editor_data.h"
-#include "editor/plugin_config_dialog.h"
+#include "scene/gui/graph_node.h"
+#include "scene/main/window.h"
 
-class Tree;
+#include "tests/test_macros.h"
 
-class EditorPluginSettings : public VBoxContainer {
-	GDCLASS(EditorPluginSettings, VBoxContainer);
+namespace TestGraphNode {
 
-	enum {
-		BUTTON_PLUGIN_EDIT
-	};
+TEST_CASE("[GraphNode][SceneTree]") {
+	SUBCASE("[GraphNode] Graph Node only child on delete should not cause error.") {
+		// Setup.
+		GraphNode *test_node = memnew(GraphNode);
+		test_child->set_name("Graph Node");
+		Control *test_child = memnew(Control);
+		test_child->set_name("child");
+		test_node->add_child(test_child);
 
-	enum {
-		COLUMN_PADDING_LEFT,
-		COLUMN_STATUS,
-		COLUMN_NAME,
-		COLUMN_VERSION,
-		COLUMN_AUTHOR,
-		COLUMN_EDIT,
-		COLUMN_PADDING_RIGHT,
-		COLUMN_MAX,
-	};
+		// Test.
+		CHECK_NOTHROW_MESSAGE(test_node->remove_child(test_child));
 
-	PluginConfigDialog *plugin_config_dialog = nullptr;
-	Tree *plugin_list = nullptr;
-	bool updating = false;
+		memdelete(test_node);
+	}
+}
 
-	void _plugin_activity_changed();
-	void _create_clicked();
-	void _cell_button_pressed(Object *p_item, int p_column, int p_id, MouseButton p_button);
+} // namespace TestGraphNode
 
-	static Vector<String> _get_plugins(const String &p_dir);
-
-protected:
-	void _notification(int p_what);
-
-	static void _bind_methods();
-
-public:
-	void update_plugins();
-
-	EditorPluginSettings();
-};
-
-#endif // EDITOR_PLUGIN_SETTINGS_H
+#endif // TEST_GRAPH_NODE_H

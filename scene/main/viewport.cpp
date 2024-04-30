@@ -856,9 +856,10 @@ void Viewport::_process_picking() {
 
 							if (send_event) {
 								co->_input_event_call(this, ev, res[i].shape);
-								if (physics_object_picking_first_only) {
-									break;
-								}
+							}
+
+							if (physics_object_picking_first_only) {
+								break;
 							}
 						}
 					}
@@ -3578,6 +3579,13 @@ bool Viewport::gui_is_drag_successful() const {
 	return gui.drag_successful;
 }
 
+void Viewport::gui_cancel_drag() {
+	ERR_MAIN_THREAD_GUARD;
+	if (gui_is_dragging()) {
+		_perform_drop();
+	}
+}
+
 void Viewport::set_input_as_handled() {
 	ERR_MAIN_THREAD_GUARD;
 	if (!handle_input_locally) {
@@ -4954,7 +4962,7 @@ Viewport::Viewport() {
 	unhandled_key_input_group = "_vp_unhandled_key_input" + id;
 
 	// Window tooltip.
-	gui.tooltip_delay = GLOBAL_DEF(PropertyInfo(Variant::FLOAT, "gui/timers/tooltip_delay_sec", PROPERTY_HINT_RANGE, "0,5,0.01,or_greater"), 0.5);
+	gui.tooltip_delay = GLOBAL_GET("gui/timers/tooltip_delay_sec");
 
 #ifndef _3D_DISABLED
 	set_scaling_3d_mode((Viewport::Scaling3DMode)(int)GLOBAL_GET("rendering/scaling_3d/mode"));
