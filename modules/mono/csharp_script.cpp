@@ -2101,6 +2101,9 @@ bool CSharpScript::_update_exports(PlaceHolderScriptInstance *p_instance_to_upda
 		return false;
 	}
 
+	//auto dbg_name = p_instance_to_update->get_script()->get_class_name();
+
+
 	bool changed = false;
 
 #ifdef TOOLS_ENABLED
