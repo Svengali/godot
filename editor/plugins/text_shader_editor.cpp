@@ -49,6 +49,11 @@ Dictionary GDShaderSyntaxHighlighter::_get_line_syntax_highlighting_impl(int p_l
 
 	for (const Point2i &region : disabled_branch_regions) {
 		if (p_line >= region.x && p_line <= region.y) {
+			// When "color_regions[0].p_start_key.length() > 2",
+			// disabled_branch_region causes color_region to break.
+			// This should be seen as a temporary solution.
+			CodeHighlighter::_get_line_syntax_highlighting_impl(p_line);
+
 			Dictionary highlighter_info;
 			highlighter_info["color"] = disabled_branch_color;
 
@@ -334,6 +339,8 @@ void ShaderTextEditor::_load_theme_settings() {
 		warnings_panel->add_theme_font_override("normal_font", EditorNode::get_singleton()->get_editor_theme()->get_font(SNAME("main"), EditorStringName(EditorFonts)));
 		warnings_panel->add_theme_font_size_override("normal_font_size", EditorNode::get_singleton()->get_editor_theme()->get_font_size(SNAME("main_size"), EditorStringName(EditorFonts)));
 	}
+
+	syntax_highlighter->set_uint_suffix_enabled(true);
 }
 
 void ShaderTextEditor::_check_shader_mode() {
@@ -434,7 +441,7 @@ void ShaderTextEditor::_code_complete_script(const String &p_code, List<ScriptLa
 }
 
 void ShaderTextEditor::_validate_script() {
-	emit_signal(SNAME("script_changed")); // Ensure to notify that it changed, so it is applied
+	emit_signal(CoreStringName(script_changed)); // Ensure to notify that it changed, so it is applied
 
 	String code;
 
@@ -581,9 +588,7 @@ void ShaderTextEditor::_update_warning_panel() {
 	int warning_count = 0;
 
 	warnings_panel->push_table(2);
-	for (int i = 0; i < warnings.size(); i++) {
-		ShaderWarning &w = warnings[i];
-
+	for (const ShaderWarning &w : warnings) {
 		if (warning_count == 0) {
 			if (saved_treat_warning_as_errors) {
 				String error_text = "error(" + itos(w.get_line()) + "): " + w.get_message() + " " + TTR("Warnings should be fixed to prevent errors.");
@@ -1098,7 +1103,7 @@ TextShaderEditor::TextShaderEditor() {
 	code_editor->set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT);
 
 	code_editor->connect("show_warnings_panel", callable_mp(this, &TextShaderEditor::_show_warnings_panel));
-	code_editor->connect("script_changed", callable_mp(this, &TextShaderEditor::apply_shaders));
+	code_editor->connect(CoreStringName(script_changed), callable_mp(this, &TextShaderEditor::apply_shaders));
 	EditorSettings::get_singleton()->connect("settings_changed", callable_mp(this, &TextShaderEditor::_editor_settings_changed));
 	ProjectSettings::get_singleton()->connect("settings_changed", callable_mp(this, &TextShaderEditor::_project_settings_changed));
 
@@ -1106,7 +1111,7 @@ TextShaderEditor::TextShaderEditor() {
 	code_editor->get_text_editor()->set_context_menu_enabled(false);
 	code_editor->get_text_editor()->set_draw_breakpoints_gutter(false);
 	code_editor->get_text_editor()->set_draw_executing_lines_gutter(false);
-	code_editor->get_text_editor()->connect("gui_input", callable_mp(this, &TextShaderEditor::_text_edit_gui_input));
+	code_editor->get_text_editor()->connect(SceneStringName(gui_input), callable_mp(this, &TextShaderEditor::_text_edit_gui_input));
 
 	code_editor->update_editor_settings();
 

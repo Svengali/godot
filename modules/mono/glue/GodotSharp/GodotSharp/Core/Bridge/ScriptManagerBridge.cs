@@ -800,17 +800,17 @@ namespace Godot.Bridge
 
                 GetScriptTypeInfo(scriptType, outTypeInfo);
 
+                Type native = GodotObject.InternalGetClassNativeBase(scriptType);
+
                 // Methods
 
                 // Performance is not critical here as this will be replaced with source generators.
                 using var methods = new Collections.Array();
 
                 Type? top = scriptType;
-                Type native = GodotObject.InternalGetClassNativeBase(top);
-
-                while (top != null && top != native)
+                if (scriptType != native)
                 {
-                    var methodList = GetMethodListForType(top);
+                    var methodList = GetMethodListForType(scriptType);
 
 
                     if (methodList != null)
@@ -864,8 +864,6 @@ namespace Godot.Bridge
                             methods.Add(methodInfo);
                         }
                     }
-
-                    top = top.BaseType;
                 }
 
                 *outMethodsDest = NativeFuncs.godotsharp_array_new_copy(
@@ -917,11 +915,9 @@ namespace Godot.Bridge
                 // Performance is not critical here as this will be replaced with source generators.
                 using var signals = new Collections.Dictionary();
 
-                top = scriptType;
-
-                while (top != null && top != native)
+                if (scriptType != native)
                 {
-                    var signalList = GetSignalListForType(top);
+                    var signalList = GetSignalListForType(scriptType);
 
                     if (signalList != null)
                     {
@@ -956,8 +952,6 @@ namespace Godot.Bridge
                             signals.Add(signalName, signalParams);
                         }
                     }
-
-                    top = top.BaseType;
                 }
 
                 *outEventSignalsDest = NativeFuncs.godotsharp_dictionary_new_copy(

@@ -1243,7 +1243,7 @@ MaterialStorage::MaterialStorage() {
 		actions.renames["NORMAL_MAP_DEPTH"] = "normal_map_depth";
 		actions.renames["ALBEDO"] = "albedo";
 		actions.renames["ALPHA"] = "alpha";
-		actions.renames["PREMULT_ALPHA_FACTOR"] = "premult_alpha";
+		actions.renames["PREMUL_ALPHA_FACTOR"] = "premul_alpha";
 		actions.renames["METALLIC"] = "metallic";
 		actions.renames["SPECULAR"] = "specular";
 		actions.renames["ROUGHNESS"] = "roughness";
@@ -1966,13 +1966,9 @@ void MaterialStorage::global_shader_parameters_load_settings(bool p_load_texture
 			Variant value = d["value"];
 
 			if (gvtype >= RS::GLOBAL_VAR_TYPE_SAMPLER2D) {
-				//textire
-				if (!p_load_textures) {
-					continue;
-				}
-
 				String path = value;
-				if (path.is_empty()) {
+				// Don't load the textures, but still add the parameter so shaders compile correctly while loading.
+				if (!p_load_textures || path.is_empty()) {
 					value = RID();
 				} else {
 					Ref<Resource> resource = ResourceLoader::load(path);
@@ -2910,7 +2906,7 @@ void SceneShaderData::set_code(const String &p_code) {
 	actions.render_mode_values["blend_mix"] = Pair<int *, int>(&blend_modei, BLEND_MODE_MIX);
 	actions.render_mode_values["blend_sub"] = Pair<int *, int>(&blend_modei, BLEND_MODE_SUB);
 	actions.render_mode_values["blend_mul"] = Pair<int *, int>(&blend_modei, BLEND_MODE_MUL);
-	actions.render_mode_values["blend_premult_alpha"] = Pair<int *, int>(&blend_modei, BLEND_MODE_PREMULT_ALPHA);
+	actions.render_mode_values["blend_premul_alpha"] = Pair<int *, int>(&blend_modei, BLEND_MODE_PREMULT_ALPHA);
 
 	actions.render_mode_values["alpha_to_coverage"] = Pair<int *, int>(&alpha_antialiasing_modei, ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE);
 	actions.render_mode_values["alpha_to_coverage_and_one"] = Pair<int *, int>(&alpha_antialiasing_modei, ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE_AND_TO_ONE);

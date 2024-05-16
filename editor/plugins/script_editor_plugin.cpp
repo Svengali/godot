@@ -64,7 +64,6 @@
 #include "editor/window_wrapper.h"
 #include "scene/main/node.h"
 #include "scene/main/window.h"
-#include "scene/scene_string_names.h"
 #include "script_text_editor.h"
 #include "servers/display_server.h"
 #include "text_editor.h"
@@ -374,7 +373,7 @@ void ScriptEditorQuickOpen::_update_search() {
 
 	for (int i = 0; i < functions.size(); i++) {
 		String file = functions[i];
-		if ((search_box->get_text().is_empty() || file.findn(search_box->get_text()) != -1)) {
+		if ((search_box->get_text().is_empty() || file.containsn(search_box->get_text()))) {
 			TreeItem *ti = search_options->create_item(root);
 			ti->set_text(0, file);
 			if (root->get_first_child() == ti) {
@@ -425,7 +424,7 @@ ScriptEditorQuickOpen::ScriptEditorQuickOpen() {
 	search_box = memnew(LineEdit);
 	vbc->add_margin_child(TTR("Search:"), search_box);
 	search_box->connect("text_changed", callable_mp(this, &ScriptEditorQuickOpen::_text_changed));
-	search_box->connect("gui_input", callable_mp(this, &ScriptEditorQuickOpen::_sbox_input));
+	search_box->connect(SceneStringName(gui_input), callable_mp(this, &ScriptEditorQuickOpen::_sbox_input));
 	search_options = memnew(Tree);
 	vbc->add_margin_child(TTR("Matches:"), search_options, true);
 	set_ok_button_text(TTR("Open"));
@@ -742,7 +741,7 @@ void ScriptEditor::_add_recent_script(const String &p_path) {
 	}
 
 	Array rc = EditorSettings::get_singleton()->get_project_metadata("recent_files", "scripts", Array());
-	if (rc.find(p_path) != -1) {
+	if (rc.has(p_path)) {
 		rc.erase(p_path);
 	}
 	rc.push_front(p_path);
@@ -973,7 +972,7 @@ void ScriptEditor::_queue_close_tabs() {
 			// Maybe there are unsaved changes.
 			if (se->is_unsaved()) {
 				_ask_close_current_unsaved_tab(se);
-				erase_tab_confirm->connect(SceneStringNames::get_singleton()->visibility_changed, callable_mp(this, &ScriptEditor::_queue_close_tabs), CONNECT_ONE_SHOT);
+				erase_tab_confirm->connect(SceneStringName(visibility_changed), callable_mp(this, &ScriptEditor::_queue_close_tabs), CONNECT_ONE_SHOT);
 				break;
 			}
 		}
@@ -1275,8 +1274,8 @@ void ScriptEditor::_menu_option(int p_option) {
 			List<String> extensions;
 			ResourceLoader::get_recognized_extensions_for_type("Script", &extensions);
 			file_dialog->clear_filters();
-			for (int i = 0; i < extensions.size(); i++) {
-				file_dialog->add_filter("*." + extensions[i], extensions[i].to_upper());
+			for (const String &extension : extensions) {
+				file_dialog->add_filter("*." + extension, extension.to_upper());
 			}
 
 			for (const String &E : textfile_extensions) {
@@ -1714,7 +1713,7 @@ void ScriptEditor::_notification(int p_what) {
 			filter_scripts->set_right_icon(get_editor_theme_icon(SNAME("Search")));
 			filter_methods->set_right_icon(get_editor_theme_icon(SNAME("Search")));
 
-			filename->add_theme_style_override("normal", get_theme_stylebox(SNAME("normal"), SNAME("LineEdit")));
+			filename->add_theme_style_override("normal", get_theme_stylebox(CoreStringName(normal), SNAME("LineEdit")));
 
 			recent_scripts->reset_size();
 
@@ -1725,7 +1724,7 @@ void ScriptEditor::_notification(int p_what) {
 
 		case NOTIFICATION_READY: {
 			// Can't set own styles in NOTIFICATION_THEME_CHANGED, so for now this will do.
-			add_theme_style_override("panel", get_theme_stylebox(SNAME("ScriptEditorPanel"), SNAME("EditorStyles")));
+			add_theme_style_override("panel", get_theme_stylebox(SNAME("ScriptEditorPanel"), EditorStringName(EditorStyles)));
 
 			get_tree()->connect("tree_changed", callable_mp(this, &ScriptEditor::_tree_changed));
 			InspectorDock::get_singleton()->connect("request_help", callable_mp(this, &ScriptEditor::_help_class_open));
@@ -4000,7 +3999,7 @@ ScriptEditor::ScriptEditor(WindowWrapper *p_wrapper) {
 	filename = memnew(Label);
 	filename->set_clip_text(true);
 	filename->set_h_size_flags(SIZE_EXPAND_FILL);
-	filename->add_theme_style_override("normal", EditorNode::get_singleton()->get_editor_theme()->get_stylebox(SNAME("normal"), SNAME("LineEdit")));
+	filename->add_theme_style_override("normal", EditorNode::get_singleton()->get_editor_theme()->get_stylebox(CoreStringName(normal), SNAME("LineEdit")));
 	buttons_hbox->add_child(filename);
 
 	members_overview_alphabeta_sort_button = memnew(Button);
@@ -4149,14 +4148,14 @@ ScriptEditor::ScriptEditor(WindowWrapper *p_wrapper) {
 	site_search = memnew(Button);
 	site_search->set_flat(true);
 	site_search->set_text(TTR("Online Docs"));
-	site_search->connect("pressed", callable_mp(this, &ScriptEditor::_menu_option).bind(SEARCH_WEBSITE));
+	site_search->connect(SceneStringName(pressed), callable_mp(this, &ScriptEditor::_menu_option).bind(SEARCH_WEBSITE));
 	menu_hb->add_child(site_search);
 	site_search->set_tooltip_text(TTR("Open Godot online documentation."));
 
 	help_search = memnew(Button);
 	help_search->set_flat(true);
 	help_search->set_text(TTR("Search Help"));
-	help_search->connect("pressed", callable_mp(this, &ScriptEditor::_menu_option).bind(SEARCH_HELP));
+	help_search->connect(SceneStringName(pressed), callable_mp(this, &ScriptEditor::_menu_option).bind(SEARCH_HELP));
 	menu_hb->add_child(help_search);
 	help_search->set_tooltip_text(TTR("Search the reference documentation."));
 
@@ -4164,14 +4163,14 @@ ScriptEditor::ScriptEditor(WindowWrapper *p_wrapper) {
 
 	script_back = memnew(Button);
 	script_back->set_flat(true);
-	script_back->connect("pressed", callable_mp(this, &ScriptEditor::_history_back));
+	script_back->connect(SceneStringName(pressed), callable_mp(this, &ScriptEditor::_history_back));
 	menu_hb->add_child(script_back);
 	script_back->set_disabled(true);
 	script_back->set_tooltip_text(TTR("Go to previous edited document."));
 
 	script_forward = memnew(Button);
 	script_forward->set_flat(true);
-	script_forward->connect("pressed", callable_mp(this, &ScriptEditor::_history_forward));
+	script_forward->connect(SceneStringName(pressed), callable_mp(this, &ScriptEditor::_history_forward));
 	menu_hb->add_child(script_forward);
 	script_forward->set_disabled(true);
 	script_forward->set_tooltip_text(TTR("Go to next edited document."));
@@ -4238,7 +4237,7 @@ ScriptEditor::ScriptEditor(WindowWrapper *p_wrapper) {
 
 	autosave_timer = memnew(Timer);
 	autosave_timer->set_one_shot(false);
-	autosave_timer->connect(SceneStringNames::get_singleton()->tree_entered, callable_mp(this, &ScriptEditor::_update_autosave_timer));
+	autosave_timer->connect(SceneStringName(tree_entered), callable_mp(this, &ScriptEditor::_update_autosave_timer));
 	autosave_timer->connect("timeout", callable_mp(this, &ScriptEditor::_autosave_scripts));
 	add_child(autosave_timer);
 
@@ -4479,7 +4478,7 @@ ScriptEditorPlugin::ScriptEditorPlugin() {
 
 	EDITOR_GET("text_editor/behavior/files/auto_reload_scripts_on_external_change");
 	ScriptServer::set_reload_scripts_on_save(EDITOR_DEF("text_editor/behavior/files/auto_reload_and_parse_scripts_on_save", true));
-	EDITOR_DEF("text_editor/behavior/files/open_dominant_script_on_scene_change", true);
+	EDITOR_DEF("text_editor/behavior/files/open_dominant_script_on_scene_change", false);
 	EDITOR_DEF("text_editor/external/use_external_editor", false);
 	EDITOR_DEF("text_editor/external/exec_path", "");
 	EDITOR_DEF("text_editor/script_list/script_temperature_enabled", true);

@@ -2321,7 +2321,7 @@ void DisplayServerMacOS::window_set_window_buttons_offset(const Vector2i &p_offs
 	WindowData &wd = windows[p_window];
 	float scale = screen_get_max_scale();
 	wd.wb_offset = p_offset / scale;
-	wd.wb_offset = wd.wb_offset.max(Vector2i(12, 12));
+	wd.wb_offset = wd.wb_offset.maxi(12);
 	if (wd.window_button_view) {
 		[wd.window_button_view setOffset:NSMakePoint(wd.wb_offset.x, wd.wb_offset.y)];
 	}
@@ -2985,7 +2985,7 @@ Key DisplayServerMacOS::keyboard_get_label_from_physical(Key p_keycode) const {
 }
 
 void DisplayServerMacOS::process_events() {
-	_THREAD_SAFE_LOCK_
+	ERR_FAIL_COND(!Thread::is_main_thread());
 
 	while (true) {
 		NSEvent *event = [NSApp
@@ -3018,10 +3018,10 @@ void DisplayServerMacOS::process_events() {
 
 	if (!drop_events) {
 		_process_key_events();
-		_THREAD_SAFE_UNLOCK_
 		Input::get_singleton()->flush_buffered_events();
-		_THREAD_SAFE_LOCK_
 	}
+
+	_THREAD_SAFE_LOCK_
 
 	for (KeyValue<WindowID, WindowData> &E : windows) {
 		WindowData &wd = E.value;
@@ -3051,7 +3051,7 @@ void DisplayServerMacOS::process_events() {
 }
 
 void DisplayServerMacOS::force_process_and_drop_events() {
-	_THREAD_SAFE_METHOD_
+	ERR_FAIL_COND(!Thread::is_main_thread());
 
 	drop_events = true;
 	process_events();
@@ -3281,6 +3281,30 @@ void DisplayServerMacOS::status_indicator_set_callback(IndicatorID p_id, const C
 	ERR_FAIL_COND(!indicators.has(p_id));
 
 	[indicators[p_id].delegate setCallback:p_callback];
+}
+
+Rect2 DisplayServerMacOS::status_indicator_get_rect(IndicatorID p_id) const {
+	ERR_FAIL_COND_V(!indicators.has(p_id), Rect2());
+
+	NSStatusItem *item = indicators[p_id].item;
+	NSView *v = item.button;
+	const NSRect contentRect = [v frame];
+	const NSRect nsrect = [v.window convertRectToScreen:contentRect];
+	Rect2 rect;
+
+	// Return the position of the top-left corner, for macOS the y starts at the bottom.
+	const float scale = screen_get_max_scale();
+	rect.size.x = nsrect.size.width;
+	rect.size.y = nsrect.size.height;
+	rect.size *= scale;
+	rect.position.x = nsrect.origin.x;
+	rect.position.y = (nsrect.origin.y + nsrect.size.height);
+	rect.position *= scale;
+	rect.position -= _get_screens_origin();
+	// macOS native y-coordinate relative to _get_screens_origin() is negative,
+	// Godot expects a positive value.
+	rect.position.y *= -1;
+	return rect;
 }
 
 void DisplayServerMacOS::delete_status_indicator(IndicatorID p_id) {
