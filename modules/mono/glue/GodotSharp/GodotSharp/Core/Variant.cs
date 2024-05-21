@@ -149,7 +149,6 @@ public partial struct Variant : IDisposable
             Type.PackedStringArray => AsStringArray(),
             Type.PackedVector2Array => AsVector2Array(),
             Type.PackedVector3Array => AsVector3Array(),
-            Type.PackedVector4Array => AsVector4Array(),
             Type.PackedColorArray => AsColorArray(),
             Type.Nil => null,
             Type.Max or _ =>

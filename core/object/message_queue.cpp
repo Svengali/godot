@@ -229,9 +229,9 @@ Error CallQueue::flush() {
 	ZoneScoped;
 
 	// Thread overrides are not meant to be flushed, but appended to the main one.
-	if (unlikely(this == MessageQueue::thread_singleton)) {
-		return _transfer_messages_to_main_queue();
-	}
+	//if (unlikely(this == MessageQueue::thread_singleton)) {
+	//	return _transfer_messages_to_main_queue();
+	//}
 
 	LOCK_MUTEX;
 

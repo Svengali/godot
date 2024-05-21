@@ -34,10 +34,15 @@
 #include "core/io/marshalls.h"
 #include "core/os/os.h"
 #include "core/templates/sort_array.h"
+
 #include "modules/tracy/tracy/public/tracy/Tracy.hpp"
+
 #include "renderer_canvas_cull.h"
 #include "renderer_scene_cull.h"
 #include "rendering_server_globals.h"
+
+#include "modules/tracy/profiler.h"
+
 
 // careful, these may run in different threads than the rendering server
 
@@ -72,6 +77,8 @@ void RenderingServerDefault::request_frame_drawn_callback(const Callable &p_call
 void RenderingServerDefault::_draw(bool p_swap_buffers, double frame_step) {
 	ZoneScoped;
 
+
+
 	changes = 0;
 
 	{
@@ -86,7 +93,7 @@ void RenderingServerDefault::_draw(bool p_swap_buffers, double frame_step) {
 
 	}
 
-	TIMESTAMP_BEGIN()
+	//TIMESTAMP_BEGIN()
 
 	uint64_t time_usec = OS::get_singleton()->get_ticks_usec();
 
@@ -125,6 +132,7 @@ void RenderingServerDefault::_draw(bool p_swap_buffers, double frame_step) {
 			ZoneColor(0x161616);
 			RSG::rasterizer->end_frame(p_swap_buffers);
 		}
+	}
 
 	if (create_thread) {
 		callable_mp(this, &RenderingServerDefault::_run_post_draw_steps).call_deferred();
