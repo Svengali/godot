@@ -125,8 +125,18 @@ repos:
         language: node
         entry: jsdoc
         files: ^platform/web/js/engine/(engine|config|features)\.js$
-        args: [--template, platform/web/js/jsdoc2rst/, --destination, '', -d, dry-run]
-        additional_dependencies: ["jsdoc@4.0.2"]
+        args:
+          - --template
+          - platform/web/js/jsdoc2rst/
+          - platform/web/js/engine/engine.js
+          - platform/web/js/engine/config.js
+          - platform/web/js/engine/features.js
+          - --destination
+          - ''
+          - -d
+          - dry-run
+        pass_filenames: false
+        additional_dependencies: ['jsdoc@^4.0.3']
 
       - id: copyright-headers
         name: copyright-headers
@@ -136,6 +146,7 @@ repos:
         exclude: |
           (?x)^(
             core/math/bvh_.*\.inc$|
+            platform/(?!android|ios|linuxbsd|macos|web|windows)\w+/.*|
             platform/android/java/lib/src/com/.*|
             platform/android/java/lib/src/org/godotengine/godot/gl/GLSurfaceView\.java$|
             platform/android/java/lib/src/org/godotengine/godot/gl/EGLLogWrapper\.java$|
@@ -176,3 +187,15 @@ repos:
         language: python
         entry: python3 misc/scripts/dotnet_format.py
         types_or: [c#]
+
+# End of upstream Godot pre-commit hooks.
+#
+# Keep this separation to let downstream forks add their own hooks to this file,
+# without running into merge conflicts when rebasing on latest upstream.
+#
+# Start of downstream pre-commit hooks.
+#
+# This is still the "repo: local" scope, so new local hooks can be defined directly at this indentation:
+#     - id: new-local-hook
+# To add external repo hooks, bring the indentation back to:
+# - repo: my-remote-hook
