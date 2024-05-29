@@ -723,7 +723,7 @@ namespace Godot.Bridge
 
         private static unsafe void GetScriptTypeInfo(Type scriptType, godot_csharp_type_info* outTypeInfo)
         {
-            Console.WriteLine($"GetScriptTypeInfo {scriptType?.Name}");
+            Console.WriteLine($"\n*** GetScriptTypeInfo {scriptType?.Name}");
 
             Type native = GodotObject.InternalGetClassNativeBase(scriptType);
 
