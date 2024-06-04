@@ -813,6 +813,7 @@ namespace Godot.Bridge
                     var methodList = GetMethodListForType(scriptType);
 
 
+
                     if (methodList != null)
                     {
                         foreach (var method in methodList)
