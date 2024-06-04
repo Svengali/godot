@@ -2831,24 +2831,26 @@ void TextEdit::_update_caches() {
 }
 
 void TextEdit::_close_ime_window() {
-	if (get_viewport()->get_window_id() == DisplayServer::INVALID_WINDOW_ID || !DisplayServer::get_singleton()->has_feature(DisplayServer::FEATURE_IME)) {
+	DisplayServer::WindowID wid = get_window() ? get_window()->get_window_id() : DisplayServer::INVALID_WINDOW_ID;
+	if (wid == DisplayServer::INVALID_WINDOW_ID || !DisplayServer::get_singleton()->has_feature(DisplayServer::FEATURE_IME)) {
 		return;
 	}
-	DisplayServer::get_singleton()->window_set_ime_position(Point2(), get_viewport()->get_window_id());
-	DisplayServer::get_singleton()->window_set_ime_active(false, get_viewport()->get_window_id());
+	DisplayServer::get_singleton()->window_set_ime_position(Point2(), wid);
+	DisplayServer::get_singleton()->window_set_ime_active(false, wid);
 }
 
 void TextEdit::_update_ime_window_position() {
-	if (get_viewport()->get_window_id() == DisplayServer::INVALID_WINDOW_ID || !DisplayServer::get_singleton()->has_feature(DisplayServer::FEATURE_IME)) {
+	DisplayServer::WindowID wid = get_window() ? get_window()->get_window_id() : DisplayServer::INVALID_WINDOW_ID;
+	if (wid == DisplayServer::INVALID_WINDOW_ID || !DisplayServer::get_singleton()->has_feature(DisplayServer::FEATURE_IME)) {
 		return;
 	}
-	DisplayServer::get_singleton()->window_set_ime_active(true, get_viewport()->get_window_id());
+	DisplayServer::get_singleton()->window_set_ime_active(true, wid);
 	Point2 pos = get_global_position() + get_caret_draw_pos();
 	if (get_window()->get_embedder()) {
 		pos += get_viewport()->get_popup_base_transform().get_origin();
 	}
 	// The window will move to the updated position the next time the IME is updated, not immediately.
-	DisplayServer::get_singleton()->window_set_ime_position(pos, get_viewport()->get_window_id());
+	DisplayServer::get_singleton()->window_set_ime_position(pos, wid);
 }
 
 void TextEdit::_update_ime_text() {
@@ -4393,13 +4395,7 @@ int TextEdit::get_minimap_line_at_pos(const Point2i &p_pos) const {
 		}
 	}
 
-	if (row < 0) {
-		row = 0;
-	}
-
-	if (row >= text.size()) {
-		row = text.size() - 1;
-	}
+	row = CLAMP(row, 0, text.size() - 1);
 
 	return row;
 }
@@ -7188,9 +7184,9 @@ void TextEdit::_generate_context_menu() {
 	menu->add_check_item(ETR("Display Control Characters"), MENU_DISPLAY_UCC);
 	menu->add_submenu_node_item(ETR("Insert Control Character"), menu_ctl, MENU_SUBMENU_INSERT_UCC);
 
-	menu->connect("id_pressed", callable_mp(this, &TextEdit::menu_option));
-	menu_dir->connect("id_pressed", callable_mp(this, &TextEdit::menu_option));
-	menu_ctl->connect("id_pressed", callable_mp(this, &TextEdit::menu_option));
+	menu->connect(SceneStringName(id_pressed), callable_mp(this, &TextEdit::menu_option));
+	menu_dir->connect(SceneStringName(id_pressed), callable_mp(this, &TextEdit::menu_option));
+	menu_ctl->connect(SceneStringName(id_pressed), callable_mp(this, &TextEdit::menu_option));
 }
 
 void TextEdit::_update_context_menu() {
@@ -7991,7 +7987,7 @@ void TextEdit::_update_minimap_click() {
 	}
 
 	Point2i next_line = get_next_visible_line_index_offset_from(row, 0, -get_visible_line_count() / 2);
-	int first_line = row - next_line.x + 1;
+	int first_line = MAX(0, row - next_line.x + 1);
 	double delta = get_scroll_pos_for_line(first_line, next_line.y) - get_v_scroll();
 	if (delta < 0) {
 		_scroll_up(-delta, true);
