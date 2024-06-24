@@ -405,6 +405,7 @@ namespace Godot
         /// </code>
         /// </example>
         /// <param name="what">Arguments that form the warning message.</param>
+        [StackTraceHidden]
         public static void PushWarning(params object[] what)
         {
             ErrPrintError(AppendPrintParams(what), type: godot_error_handler_type.ERR_HANDLER_WARNING);
