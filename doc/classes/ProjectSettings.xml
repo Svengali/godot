@@ -271,6 +271,7 @@
 		<member name="application/config/custom_user_dir_name" type="String" setter="" getter="" default="&quot;&quot;">
 			This user directory is used for storing persistent data ([code]user://[/code] filesystem). If a custom directory name is defined, this name will be appended to the system-specific user data directory (same parent folder as the Godot configuration folder documented in [method OS.get_user_data_dir]).
 			The [member application/config/use_custom_user_dir] setting must be enabled for this to take effect.
+			[b]Note:[/b] If [member application/config/custom_user_dir_name] contains trailing periods, they will be stripped as folder names ending with a period are not allowed on Windows.
 		</member>
 		<member name="application/config/description" type="String" setter="" getter="" default="&quot;&quot;">
 			The project's description, displayed as a tooltip in the Project Manager when hovering the project.
@@ -344,7 +345,7 @@
 			This setting can be overridden using the [code]--frame-delay &lt;ms;&gt;[/code] command line argument.
 		</member>
 		<member name="application/run/low_processor_mode" type="bool" setter="" getter="" default="false">
-			If [code]true[/code], enables low-processor usage mode. The screen is not redrawn if nothing changes visually. This is meant for writing applications and editors, but is pretty useless (and can hurt performance) in most games.
+			If [code]true[/code], enables low-processor usage mode. When enabled, the engine takes longer to redraw, but only redraws the screen if necessary. This may lower power consumption, and is intended for editors or mobile applications. For most games, because the screen needs to be redrawn every frame, it is recommended to keep this setting disabled.
 		</member>
 		<member name="application/run/low_processor_mode_sleep_usec" type="int" setter="" getter="" default="6900">
 			Amount of sleeping between frames when the low-processor usage mode is enabled (in microseconds). Higher values will result in lower CPU usage.
