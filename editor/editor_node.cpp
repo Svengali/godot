@@ -317,14 +317,10 @@ void EditorNode::shortcut_input(const Ref<InputEvent> &p_event) {
 
 	Ref<InputEventKey> k = p_event;
 	if ((k.is_valid() && k->is_pressed() && !k->is_echo()) || Object::cast_to<InputEventShortcut>(*p_event)) {
-		EditorPlugin *old_editor = editor_plugin_screen;
-
+		bool is_handled = true;
 		if (ED_IS_SHORTCUT("editor/filter_files", p_event)) {
 			FileSystemDock::get_singleton()->focus_on_filter();
-			get_tree()->get_root()->set_input_as_handled();
-		}
-
-		if (ED_IS_SHORTCUT("editor/editor_2d", p_event)) {
+		} else if (ED_IS_SHORTCUT("editor/editor_2d", p_event)) {
 			editor_select(EDITOR_2D);
 		} else if (ED_IS_SHORTCUT("editor/editor_3d", p_event)) {
 			editor_select(EDITOR_3D);
@@ -343,9 +339,10 @@ void EditorNode::shortcut_input(const Ref<InputEvent> &p_event) {
 		} else if (ED_IS_SHORTCUT("editor/toggle_last_opened_bottom_panel", p_event)) {
 			bottom_panel->toggle_last_opened_bottom_panel();
 		} else {
+			is_handled = false;
 		}
 
-		if (old_editor != editor_plugin_screen) {
+		if (is_handled) {
 			get_tree()->get_root()->set_input_as_handled();
 		}
 	}
@@ -706,23 +703,7 @@ void EditorNode::_notification(int p_what) {
 		} break;
 
 		case NOTIFICATION_READY: {
-			{
-				started_timestamp = Time::get_singleton()->get_unix_time_from_system();
-				_initializing_plugins = true;
-				Vector<String> addons;
-				if (ProjectSettings::get_singleton()->has_setting("editor_plugins/enabled")) {
-					addons = GLOBAL_GET("editor_plugins/enabled");
-				}
-
-				for (int i = 0; i < addons.size(); i++) {
-					set_addon_plugin_enabled(addons[i], true);
-				}
-				_initializing_plugins = false;
-
-				if (!pending_addons.is_empty()) {
-					EditorFileSystem::get_singleton()->connect("script_classes_updated", callable_mp(this, &EditorNode::_enable_pending_addons));
-				}
-			}
+			started_timestamp = Time::get_singleton()->get_unix_time_from_system();
 
 			RenderingServer::get_singleton()->viewport_set_disable_2d(get_scene_root()->get_viewport_rid(), true);
 			RenderingServer::get_singleton()->viewport_set_environment_mode(get_viewport()->get_viewport_rid(), RenderingServer::VIEWPORT_ENVIRONMENT_DISABLED);
@@ -860,6 +841,23 @@ void EditorNode::_update_update_spinner() {
 	OS::get_singleton()->set_low_processor_usage_mode(!update_continuously);
 }
 
+void EditorNode::init_plugins() {
+	_initializing_plugins = true;
+	Vector<String> addons;
+	if (ProjectSettings::get_singleton()->has_setting("editor_plugins/enabled")) {
+		addons = GLOBAL_GET("editor_plugins/enabled");
+	}
+
+	for (const String &addon : addons) {
+		set_addon_plugin_enabled(addon, true);
+	}
+	_initializing_plugins = false;
+
+	if (!pending_addons.is_empty()) {
+		EditorFileSystem::get_singleton()->connect("script_classes_updated", callable_mp(this, &EditorNode::_enable_pending_addons), CONNECT_ONE_SHOT);
+	}
+}
+
 void EditorNode::_on_plugin_ready(Object *p_script, const String &p_activate_name) {
 	Ref<Script> scr = Object::cast_to<Script>(p_script);
 	if (scr.is_null()) {
@@ -954,6 +952,7 @@ void EditorNode::_fs_changed() {
 	// FIXME: Move this to a cleaner location, it's hacky to do this in _fs_changed.
 	String export_error;
 	Error err = OK;
+	// It's important to wait for the first scan to finish; otherwise, scripts or resources might not be imported.
 	if (!export_defer.preset.is_empty() && !EditorFileSystem::get_singleton()->is_scanning()) {
 		String preset_name = export_defer.preset;
 		// Ensures export_project does not loop infinitely, because notifications may
@@ -5259,6 +5258,14 @@ bool EditorNode::has_scenes_in_session() {
 	return !scenes.is_empty();
 }
 
+void EditorNode::undo() {
+	trigger_menu_option(EDIT_UNDO, true);
+}
+
+void EditorNode::redo() {
+	trigger_menu_option(EDIT_REDO, true);
+}
+
 bool EditorNode::ensure_main_scene(bool p_from_native) {
 	pick_main_scene->set_meta("from_native", p_from_native); // Whether from play button or native run.
 	String main_scene = GLOBAL_GET("application/run/main_scene");
@@ -5970,9 +5977,6 @@ void EditorNode::reload_instances_with_path_in_edited_scenes(const String &p_ins
 				if (owner) {
 					is_editable = owner->is_editable_instance(original_node);
 				}
-
-				// For clear instance state for path recaching.
-				instantiated_node->set_scene_instance_state(Ref<SceneState>());
 
 				bool original_node_is_displayed_folded = original_node->is_displayed_folded();
 				bool original_node_scene_instance_load_placeholder = original_node->get_scene_instance_load_placeholder();
@@ -6807,7 +6811,7 @@ EditorNode::EditorNode() {
 	distraction_free = memnew(Button);
 	distraction_free->set_theme_type_variation("FlatMenuButton");
 	ED_SHORTCUT_AND_COMMAND("editor/distraction_free_mode", TTR("Distraction Free Mode"), KeyModifierMask::CTRL | KeyModifierMask::SHIFT | Key::F11);
-	ED_SHORTCUT_OVERRIDE("editor/distraction_free_mode", "macos", KeyModifierMask::META | KeyModifierMask::CTRL | Key::D);
+	ED_SHORTCUT_OVERRIDE("editor/distraction_free_mode", "macos", KeyModifierMask::META | KeyModifierMask::SHIFT | Key::D);
 	ED_SHORTCUT_AND_COMMAND("editor/toggle_last_opened_bottom_panel", TTR("Toggle Last Opened Bottom Panel"), KeyModifierMask::CMD_OR_CTRL | Key::J);
 	distraction_free->set_shortcut(ED_GET_SHORTCUT("editor/distraction_free_mode"));
 	distraction_free->set_tooltip_text(TTR("Toggle distraction-free mode."));
