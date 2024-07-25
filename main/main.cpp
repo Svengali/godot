@@ -1,4 +1,4 @@
-/**************************************************************************/
+    /**************************************************************************/
 /*  main.cpp                                                              */
 /**************************************************************************/
 /*                         This file is part of:                          */
@@ -4062,7 +4062,7 @@ bool Main::iteration() {
 			ZoneValue(iters);
 		if (Input::get_singleton()->is_agile_input_event_flushing()) {
 			Input::get_singleton()->flush_buffered_events();
-		}
+            }
 
 		Engine::get_singleton()->_in_physics = true;
 		Engine::get_singleton()->_physics_frames++;
@@ -4221,7 +4221,6 @@ bool Main::iteration() {
 	bool quit_after_timeout = false;
 #endif
 	if ((quit_after > 0) && (Engine::get_singleton()->_process_frames >= quit_after)) {
-		ZoneText( "Quitting...", 32 );
 #ifdef TOOLS_ENABLED
 		quit_after_timeout = true;
 #endif
@@ -4256,14 +4255,6 @@ bool Main::iteration() {
 		}
 	}
 #endif
-
-#ifdef TOOLS_ENABLED
-	if (exit && quit_after_timeout && EditorNode::get_singleton()) {
-		EditorNode::get_singleton()->unload_editor_addons();
-	}
-#endif
-
-	FrameMark;
 
 	return exit;
 }
