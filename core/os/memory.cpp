@@ -72,7 +72,7 @@ void *Memory::alloc_static(size_t p_bytes, bool p_pad_align) {
 #ifdef DEBUG_ENABLED
 	prepad = 1;
 #else
-	bool prepad = p_pad_align;
+	prepad = (int)p_pad_align;
 #endif
 
 	void *mem = malloc(p_bytes + (prepad * DATA_OFFSET));
