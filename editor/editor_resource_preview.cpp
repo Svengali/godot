@@ -240,7 +240,7 @@ void EditorResourcePreview::_generate_preview(Ref<ImageTexture> &r_texture, Ref<
 	}
 
 	if (is_print_verbose_enabled()) {
-		print_line(vformat("Generated '%s' preview in %d usec", p_item.path, OS::get_singleton()->get_ticks_usec() - started_at));
+		//print_line(vformat("Generated '%s' preview in %d usec", p_item.path, OS::get_singleton()->get_ticks_usec() - started_at));
 	}
 }
 

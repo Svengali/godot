@@ -724,7 +724,7 @@ namespace Godot.Bridge
 
         private static unsafe void GetScriptTypeInfo(Type scriptType, godot_csharp_type_info* outTypeInfo)
         {
-            Console.WriteLine($"\n*** GetScriptTypeInfo {scriptType?.Name}");
+            //Console.WriteLine($"\n*** GetScriptTypeInfo {scriptType?.Name}");
 
             Type native = GodotObject.InternalGetClassNativeBase(scriptType);
 
@@ -819,7 +819,7 @@ namespace Godot.Bridge
                     {
                         foreach (var method in methodList)
                         {
-                            Console.WriteLine($"|-{method.Name}");
+                            //Console.WriteLine($"|-{method.Name}");
 
                             var methodInfo = new Collections.Dictionary();
 
