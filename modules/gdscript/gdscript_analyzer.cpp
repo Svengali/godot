@@ -285,7 +285,7 @@ Error GDScriptAnalyzer::check_class_member_name_conflict(const GDScriptParser::C
 	return OK;
 }
 
-void GDScriptAnalyzer::get_class_node_current_scope_classes(GDScriptParser::ClassNode *p_node, List<GDScriptParser::ClassNode *> *p_list) {
+void GDScriptAnalyzer::get_class_node_current_scope_classes(GDScriptParser::ClassNode *p_node, List<GDScriptParser::ClassNode *> *p_list, GDScriptParser::Node *p_source) {
 	ERR_FAIL_NULL(p_node);
 	ERR_FAIL_NULL(p_list);
 
@@ -299,11 +299,13 @@ void GDScriptAnalyzer::get_class_node_current_scope_classes(GDScriptParser::Clas
 
 	// Prioritize node base type over its outer class
 	if (p_node->base_type.class_type != nullptr) {
-		get_class_node_current_scope_classes(p_node->base_type.class_type, p_list);
+		ensure_cached_parser_for_class(p_node->base_type.class_type, p_node, vformat(R"(Trying to fetch classes in the current scope: base class of "%s")", p_node->fqcn), p_source);
+		get_class_node_current_scope_classes(p_node->base_type.class_type, p_list, p_source);
 	}
 
 	if (p_node->outer != nullptr) {
-		get_class_node_current_scope_classes(p_node->outer, p_list);
+		ensure_cached_parser_for_class(p_node->outer, p_node, vformat(R"(Trying to fetch classes in the current scope: outer class of "%s")", p_node->fqcn), p_source);
+		get_class_node_current_scope_classes(p_node->outer, p_list, p_source);
 	}
 }
 
@@ -312,13 +314,11 @@ Error GDScriptAnalyzer::resolve_class_inheritance(GDScriptParser::ClassNode *p_c
 		p_source = p_class;
 	}
 
-	Ref<GDScriptParserRef> parser_ref = ensure_cached_parser_for_class(p_class, nullptr, vformat(R"(Trying to resolve class inheritance of "%s" from "%s")", p_class->fqcn, parser->script_path), p_source);
+	Ref<GDScriptParserRef> parser_ref = ensure_cached_parser_for_class(p_class, nullptr, vformat(R"(Trying to resolve class inheritance of "%s")", p_class->fqcn), p_source);
 	Finally finally([&]() {
-		GDScriptParser::ClassNode *look_class = p_class;
-		do {
-			ensure_cached_parser_for_class(look_class->base_type.class_type, look_class, vformat(R"(Trying to resolve class inheritance of "%s" from "%s")", p_class->fqcn, parser->script_path), p_source);
-			look_class = look_class->base_type.class_type;
-		} while (look_class != nullptr);
+		for (GDScriptParser::ClassNode *look_class = p_class; look_class != nullptr; look_class = look_class->base_type.class_type) {
+			ensure_cached_parser_for_class(look_class->base_type.class_type, look_class, vformat(R"(Trying to resolve class inheritance of "%s")", p_class->fqcn), p_source);
+		}
 	});
 
 	if (p_class->base_type.is_resolving()) {
@@ -476,7 +476,7 @@ Error GDScriptAnalyzer::resolve_class_inheritance(GDScriptParser::ClassNode *p_c
 				// Look for other classes in script.
 				bool found = false;
 				List<GDScriptParser::ClassNode *> script_classes;
-				get_class_node_current_scope_classes(p_class, &script_classes);
+				get_class_node_current_scope_classes(p_class, &script_classes, id);
 				for (GDScriptParser::ClassNode *look_class : script_classes) {
 					if (look_class->identifier && look_class->identifier->name == name) {
 						if (!look_class->get_datatype().is_set()) {
@@ -768,7 +768,7 @@ GDScriptParser::DataType GDScriptAnalyzer::resolve_datatype(GDScriptParser::Type
 			// Classes in current scope.
 			List<GDScriptParser::ClassNode *> script_classes;
 			bool found = false;
-			get_class_node_current_scope_classes(parser->current_class, &script_classes);
+			get_class_node_current_scope_classes(parser->current_class, &script_classes, p_type);
 			for (GDScriptParser::ClassNode *script_class : script_classes) {
 				if (found) {
 					break;
@@ -888,9 +888,13 @@ void GDScriptAnalyzer::resolve_class_member(GDScriptParser::ClassNode *p_class, 
 		p_source = member.get_source_node();
 	}
 
-	Ref<GDScriptParserRef> parser_ref = ensure_cached_parser_for_class(p_class, nullptr, vformat(R"(Trying to resolve class member "%s" of "%s" from "%s")", member.get_name(), p_class->fqcn, parser->script_path), p_source);
+	Ref<GDScriptParserRef> parser_ref = ensure_cached_parser_for_class(p_class, nullptr, vformat(R"(Trying to resolve class member "%s" of "%s")", member.get_name(), p_class->fqcn), p_source);
 	Finally finally([&]() {
-		ensure_cached_parser_for_class(member.get_datatype().class_type, p_class, vformat(R"(Trying to resolve class member "%s" of "%s" from "%s")", member.get_name(), p_class->fqcn, parser->script_path), p_source);
+		ensure_cached_parser_for_class(member.get_datatype().class_type, p_class, vformat(R"(Trying to resolve datatype of class member "%s" of "%s")", member.get_name(), p_class->fqcn), p_source);
+		GDScriptParser::DataType member_type = member.get_datatype();
+		if (member_type.has_container_element_type(0)) {
+			ensure_cached_parser_for_class(member_type.get_container_element_type(0).class_type, p_class, vformat(R"(Trying to resolve datatype of class member "%s" of "%s")", member.get_name(), p_class->fqcn), p_source);
+		}
 	});
 
 	if (member.get_datatype().is_resolving()) {
@@ -918,7 +922,7 @@ void GDScriptAnalyzer::resolve_class_member(GDScriptParser::ClassNode *p_class, 
 
 		Error err = parser_ref->raise_status(GDScriptParserRef::PARSED);
 		if (err) {
-			push_error(vformat(R"(Could not parse script "%s": %s (While resolving member "%s").)", p_class->get_datatype().script_path, error_names[err], member.get_name()), p_source);
+			push_error(vformat(R"(Could not parse script "%s": %s (While resolving external class member "%s").)", p_class->get_datatype().script_path, error_names[err], member.get_name()), p_source);
 			return;
 		}
 
@@ -928,7 +932,7 @@ void GDScriptAnalyzer::resolve_class_member(GDScriptParser::ClassNode *p_class, 
 		int error_count = other_parser->errors.size();
 		other_analyzer->resolve_class_member(p_class, p_index);
 		if (other_parser->errors.size() > error_count) {
-			push_error(vformat(R"(Could not resolve member "%s".)", member.get_name()), p_source);
+			push_error(vformat(R"(Could not resolve external class member "%s".)", member.get_name()), p_source);
 			return;
 		}
 
@@ -1177,7 +1181,7 @@ void GDScriptAnalyzer::resolve_class_interface(GDScriptParser::ClassNode *p_clas
 		p_source = p_class;
 	}
 
-	Ref<GDScriptParserRef> parser_ref = ensure_cached_parser_for_class(p_class, nullptr, vformat(R"(Trying to resolve class interface of "%s" from "%s")", p_class->fqcn, parser->script_path), p_source);
+	Ref<GDScriptParserRef> parser_ref = ensure_cached_parser_for_class(p_class, nullptr, vformat(R"(Trying to resolve class interface of "%s")", p_class->fqcn), p_source);
 
 	if (!p_class->resolved_interface) {
 #ifdef DEBUG_ENABLED
@@ -1267,7 +1271,7 @@ void GDScriptAnalyzer::resolve_class_body(GDScriptParser::ClassNode *p_class, co
 		p_source = p_class;
 	}
 
-	Ref<GDScriptParserRef> parser_ref = ensure_cached_parser_for_class(p_class, nullptr, vformat(R"(Trying to resolve class body of "%s" from "%s")", p_class->fqcn, parser->script_path), p_source);
+	Ref<GDScriptParserRef> parser_ref = ensure_cached_parser_for_class(p_class, nullptr, vformat(R"(Trying to resolve class body of "%s")", p_class->fqcn), p_source);
 
 	if (p_class->resolved_body) {
 		return;
@@ -3659,57 +3663,92 @@ Ref<GDScriptParserRef> GDScriptAnalyzer::ensure_cached_parser_for_class(const GD
 		return nullptr;
 	}
 
-	{
-		HashMap<const GDScriptParser::ClassNode *, Ref<GDScriptParserRef>>::Iterator E = external_class_parser_cache.find(p_class);
-		if (E) {
-			return E->value;
-		}
+	if (HashMap<const GDScriptParser::ClassNode *, Ref<GDScriptParserRef>>::Iterator E = external_class_parser_cache.find(p_class)) {
+		return E->value;
 	}
 
+	if (p_from_class == nullptr) {
+		p_from_class = parser->head;
+	}
+
+	String script_path = p_class->get_datatype().script_path;
+
 	Ref<GDScriptParserRef> parser_ref;
-	Ref<GDScriptParserRef> dependant_parser_ref;
-	GDScriptParser *dependant_parser = parser;
-	do {
-		if (HashMap<const GDScriptParser::ClassNode *, Ref<GDScriptParserRef>>::Iterator E = external_class_parser_cache.find(p_from_class)) {
-			dependant_parser_ref = E->value;
-			dependant_parser = E->value->get_parser();
-
-			// Silently ensure it's parsed.
-			dependant_parser_ref->raise_status(GDScriptParserRef::PARSED);
-		}
-
-		if (dependant_parser == nullptr) {
-			continue;
-		}
-
-		if (dependant_parser_ref.is_valid() && dependant_parser->has_class(p_class)) {
-			external_class_parser_cache.insert(p_class, dependant_parser_ref);
-			parser_ref = dependant_parser_ref;
-			break;
-		}
-
-		String script_path = p_class->get_datatype().script_path;
-		HashMap<String, Ref<GDScriptParserRef>>::Iterator E = dependant_parser->depended_parsers.find(script_path);
-		if (E) {
-			// Silently ensure it's parsed.
-			E->value->raise_status(GDScriptParserRef::PARSED);
-			if (E->value->get_parser()->has_class(p_class)) {
-				external_class_parser_cache.insert(p_class, E->value);
-				parser_ref = E->value;
+	for (const GDScriptParser::ClassNode *look_class = p_from_class; look_class != nullptr; look_class = look_class->base_type.class_type) {
+		if (parser->has_class(look_class)) {
+			parser_ref = find_cached_parser_for_class(p_class, parser);
+			if (parser_ref.is_valid()) {
 				break;
 			}
 		}
 
-		dependant_parser_ref = Ref<GDScriptParserRef>();
-		dependant_parser = nullptr;
-		p_from_class = p_from_class->base_type.class_type;
-	} while (p_from_class != nullptr);
+		if (HashMap<const GDScriptParser::ClassNode *, Ref<GDScriptParserRef>>::Iterator E = external_class_parser_cache.find(look_class)) {
+			parser_ref = find_cached_parser_for_class(p_class, E->value);
+			if (parser_ref.is_valid()) {
+				break;
+			}
+		}
+
+		String look_class_script_path = look_class->get_datatype().script_path;
+		if (HashMap<String, Ref<GDScriptParserRef>>::Iterator E = parser->depended_parsers.find(look_class_script_path)) {
+			parser_ref = find_cached_parser_for_class(p_class, E->value);
+			if (parser_ref.is_valid()) {
+				break;
+			}
+		}
+	}
 
 	if (parser_ref.is_null()) {
 		push_error(vformat(R"(Parser bug: Could not find external parser. (%s))", p_context), p_source);
+		// A null parser will be inserted into the cache and this error won't spam for the same class.
+		// This is ok, the values of external_class_parser_cache are not assumed to be valid references.
 	}
 
+	external_class_parser_cache.insert(p_class, parser_ref);
 	return parser_ref;
+}
+
+Ref<GDScriptParserRef> GDScriptAnalyzer::find_cached_parser_for_class(const GDScriptParser::ClassNode *p_class, const Ref<GDScriptParserRef> &p_dependant_parser) {
+	if (p_dependant_parser.is_null()) {
+		return nullptr;
+	}
+
+	if (HashMap<const GDScriptParser::ClassNode *, Ref<GDScriptParserRef>>::Iterator E = p_dependant_parser->get_analyzer()->external_class_parser_cache.find(p_class)) {
+		if (E->value.is_valid()) {
+			// Silently ensure it's parsed.
+			E->value->raise_status(GDScriptParserRef::PARSED);
+			if (E->value->get_parser()->has_class(p_class)) {
+				return E->value;
+			}
+		}
+	}
+
+	if (p_dependant_parser->get_parser()->has_class(p_class)) {
+		return p_dependant_parser;
+	}
+
+	// Silently ensure it's parsed.
+	p_dependant_parser->raise_status(GDScriptParserRef::PARSED);
+	return find_cached_parser_for_class(p_class, p_dependant_parser->get_parser());
+}
+
+Ref<GDScriptParserRef> GDScriptAnalyzer::find_cached_parser_for_class(const GDScriptParser::ClassNode *p_class, GDScriptParser *p_dependant_parser) {
+	if (p_dependant_parser == nullptr) {
+		return nullptr;
+	}
+
+	String script_path = p_class->get_datatype().script_path;
+	if (HashMap<String, Ref<GDScriptParserRef>>::Iterator E = p_dependant_parser->depended_parsers.find(script_path)) {
+		if (E->value.is_valid()) {
+			// Silently ensure it's parsed.
+			E->value->raise_status(GDScriptParserRef::PARSED);
+			if (E->value->get_parser()->has_class(p_class)) {
+				return E->value;
+			}
+		}
+	}
+
+	return nullptr;
 }
 
 Ref<GDScript> GDScriptAnalyzer::get_depended_shallow_script(const String &p_path, Error &r_error) {
@@ -3841,7 +3880,7 @@ void GDScriptAnalyzer::reduce_identifier_from_base(GDScriptParser::IdentifierNod
 	bool is_base = true;
 
 	if (base_class != nullptr) {
-		get_class_node_current_scope_classes(base_class, &script_classes);
+		get_class_node_current_scope_classes(base_class, &script_classes, p_identifier);
 	}
 
 	bool is_constructor = base.is_meta_type && p_identifier->name == SNAME("new");
@@ -4435,6 +4474,7 @@ void GDScriptAnalyzer::reduce_preload(GDScriptParser::PreloadNode *p_preload) {
 	p_preload->is_constant = true;
 	p_preload->reduced_value = p_preload->resource;
 	p_preload->set_datatype(type_from_variant(p_preload->reduced_value, p_preload));
+	ensure_cached_parser_for_class(p_preload->get_datatype().class_type, nullptr, vformat(R"(Trying to resolve preload of "%s")", p_preload->resolved_path), p_preload);
 }
 
 void GDScriptAnalyzer::reduce_self(GDScriptParser::SelfNode *p_self) {
