@@ -311,13 +311,13 @@
 			The grid size in units. Higher values prevent the grid from appearing "cut off" at certain angles, but make the grid more demanding to render. Depending on the camera's position, the grid may not be fully visible since a shader is used to fade it progressively.
 		</member>
 		<member name="editors/3d/grid_xy_plane" type="bool" setter="" getter="">
-			If [code]true[/code], render the grid on an XY plane. This can be useful for 3D side-scrolling games.
+			If [code]true[/code], renders the grid on the XY plane in perspective view. This can be useful for 3D side-scrolling games.
 		</member>
 		<member name="editors/3d/grid_xz_plane" type="bool" setter="" getter="">
-			If [code]true[/code], render the grid on an XZ plane.
+			If [code]true[/code], renders the grid on the XZ plane in perspective view.
 		</member>
 		<member name="editors/3d/grid_yz_plane" type="bool" setter="" getter="">
-			If [code]true[/code], render the grid on a YZ plane. This can be useful for 3D side-scrolling games.
+			If [code]true[/code], renders the grid on the YZ plane in perspective view. This can be useful for 3D side-scrolling games.
 		</member>
 		<member name="editors/3d/navigation/emulate_3_button_mouse" type="bool" setter="" getter="">
 			If [code]true[/code], enables 3-button mouse emulation mode. This is useful on laptops when using a trackpad.
@@ -656,6 +656,9 @@
 			Expanding main editor window content to the title, if supported by [DisplayServer]. See [constant DisplayServer.WINDOW_FLAG_EXTEND_TO_TITLE].
 			Specific to the macOS platform.
 		</member>
+		<member name="interface/editor/font_allow_msdf" type="bool" setter="" getter="">
+			If set to [code]true[/code], MSDF font rendering will be used for the visual shader graph editor. You may need to set this to [code]false[/code] when using a custom main font, as some fonts will look broken due to the use of self-intersecting outlines in their font data. Downloading the font from the font maker's official website as opposed to a service like Google Fonts can help resolve this issue.
+		</member>
 		<member name="interface/editor/font_antialiasing" type="int" setter="" getter="">
 			FreeType's font anti-aliasing mode used to render the editor fonts. Most fonts are not designed to look good with anti-aliasing disabled, so it's recommended to leave this enabled unless you're using a pixel art font.
 		</member>
@@ -719,7 +722,8 @@
 			[b]Note:[/b] If the editor was started with the [code]--debug-canvas-item-redraw[/code] [url=$DOCS_URL/tutorials/editor/command_line_tutorial.html]command line argument[/url], the update spinner will [i]never[/i] display regardless of this setting's value. This is to avoid confusion with what would cause redrawing in real world scenarios.
 		</member>
 		<member name="interface/editor/single_window_mode" type="bool" setter="" getter="">
-			If [code]true[/code], embed modal windows such as docks inside the main editor window. When single-window mode is enabled, tooltips will also be embedded inside the main editor window, which means they can't be displayed outside of the editor window.
+			If [code]true[/code], embed modal windows such as docks inside the main editor window. When single-window mode is enabled, tooltips will also be embedded inside the main editor window, which means they can't be displayed outside of the editor window. Single-window mode can be faster as it does not need to create a separate window for every popup and tooltip, which can be a slow operation depending on the operating system and rendering method in use.
+			This is equivalent to [member ProjectSettings.display/window/subwindows/embed_subwindows] in the running project, except the setting's value is inverted.
 			[b]Note:[/b] To query whether the editor can use multiple windows in an editor plugin, use [method EditorInterface.is_multi_window_enabled] instead of querying the value of this editor setting.
 		</member>
 		<member name="interface/editor/ui_layout_direction" type="int" setter="" getter="">
