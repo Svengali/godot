@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  FileErrors.kt                                                         */
+/*  register_types.cpp                                                    */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -28,26 +28,20 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-package org.godotengine.godot.io.file
+#include "register_types.h"
 
-/**
- * Set of errors that may occur when performing data access.
- */
-internal enum class FileErrors(val nativeValue: Int) {
-	OK(0),
-	FAILED(-1),
-	FILE_NOT_FOUND(-2),
-	FILE_CANT_OPEN(-3),
-	INVALID_PARAMETER(-4);
+#include "image_compress_betsy.h"
 
-	companion object {
-		fun fromNativeError(error: Int): FileErrors? {
-			for (fileError in entries) {
-				if (fileError.nativeValue == error) {
-					return fileError
-				}
-			}
-			return null
-		}
+void initialize_betsy_module(ModuleInitializationLevel p_level) {
+	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
+		return;
+	}
+
+	Image::_image_compress_bptc_rd_func = _betsy_compress_bptc;
+}
+
+void uninitialize_betsy_module(ModuleInitializationLevel p_level) {
+	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
+		return;
 	}
 }
