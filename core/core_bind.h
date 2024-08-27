@@ -132,6 +132,7 @@ public:
 		RENDERING_DRIVER_VULKAN,
 		RENDERING_DRIVER_OPENGL3,
 		RENDERING_DRIVER_D3D12,
+		RENDERING_DRIVER_METAL,
 	};
 
 	PackedByteArray get_entropy(int p_bytes);
@@ -459,6 +460,7 @@ public:
 	int class_get_method_argument_count(const StringName &p_class, const StringName &p_method, bool p_no_inheritance = false) const;
 
 	TypedArray<Dictionary> class_get_method_list(const StringName &p_class, bool p_no_inheritance = false) const;
+	Variant class_call_static_method(const Variant **p_arguments, int p_argcount, Callable::CallError &r_call_error);
 
 	PackedStringArray class_get_integer_constant_list(const StringName &p_class, bool p_no_inheritance = false) const;
 	bool class_has_integer_constant(const StringName &p_class, const StringName &p_name) const;
