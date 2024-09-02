@@ -133,9 +133,17 @@ String DisplayServerWindows::get_name() const {
 }
 
 void DisplayServerWindows::_set_mouse_mode_impl(MouseMode p_mode) {
+	if (p_mode == MOUSE_MODE_HIDDEN || p_mode == MOUSE_MODE_CAPTURED || p_mode == MOUSE_MODE_CONFINED_HIDDEN) {
+		// Hide cursor before moving.
+		if (hCursor == nullptr) {
+			hCursor = SetCursor(nullptr);
+		} else {
+			SetCursor(nullptr);
+		}
+	}
+
 	if (windows.has(MAIN_WINDOW_ID) && (p_mode == MOUSE_MODE_CAPTURED || p_mode == MOUSE_MODE_CONFINED || p_mode == MOUSE_MODE_CONFINED_HIDDEN)) {
 		// Mouse is grabbed (captured or confined).
-
 		WindowID window_id = _get_focused_window_or_popup();
 		if (!windows.has(window_id)) {
 			window_id = MAIN_WINDOW_ID;
@@ -165,13 +173,8 @@ void DisplayServerWindows::_set_mouse_mode_impl(MouseMode p_mode) {
 		_register_raw_input_devices(INVALID_WINDOW_ID);
 	}
 
-	if (p_mode == MOUSE_MODE_HIDDEN || p_mode == MOUSE_MODE_CAPTURED || p_mode == MOUSE_MODE_CONFINED_HIDDEN) {
-		if (hCursor == nullptr) {
-			hCursor = SetCursor(nullptr);
-		} else {
-			SetCursor(nullptr);
-		}
-	} else {
+	if (p_mode == MOUSE_MODE_VISIBLE || p_mode == MOUSE_MODE_CONFINED) {
+		// Show cursor.
 		CursorShape c = cursor_shape;
 		cursor_shape = CURSOR_MAX;
 		cursor_set_shape(c);
@@ -314,7 +317,7 @@ public:
 		if (!lpw_path) {
 			return S_FALSE;
 		}
-		String path = String::utf16((const char16_t *)lpw_path).simplify_path();
+		String path = String::utf16((const char16_t *)lpw_path).replace("\\", "/").trim_prefix(R"(\\?\)").simplify_path();
 		if (!path.begins_with(root.simplify_path())) {
 			return S_FALSE;
 		}
@@ -539,7 +542,26 @@ void DisplayServerWindows::_thread_fd_monitor(void *p_ud) {
 		pfd->SetOptions(flags | FOS_FORCEFILESYSTEM);
 		pfd->SetTitle((LPCWSTR)fd->title.utf16().ptr());
 
-		String dir = fd->current_directory.replace("/", "\\");
+		String dir = ProjectSettings::get_singleton()->globalize_path(fd->current_directory);
+		if (dir == ".") {
+			dir = OS::get_singleton()->get_executable_path().get_base_dir();
+		}
+		if (dir.is_relative_path() || dir == ".") {
+			Char16String current_dir_name;
+			size_t str_len = GetCurrentDirectoryW(0, nullptr);
+			current_dir_name.resize(str_len + 1);
+			GetCurrentDirectoryW(current_dir_name.size(), (LPWSTR)current_dir_name.ptrw());
+			if (dir == ".") {
+				dir = String::utf16((const char16_t *)current_dir_name.get_data()).trim_prefix(R"(\\?\)").replace("\\", "/");
+			} else {
+				dir = String::utf16((const char16_t *)current_dir_name.get_data()).trim_prefix(R"(\\?\)").replace("\\", "/").path_join(dir);
+			}
+		}
+		dir = dir.simplify_path();
+		dir = dir.replace("/", "\\");
+		if (!dir.is_network_share_path() && !dir.begins_with(R"(\\?\)")) {
+			dir = R"(\\?\)" + dir;
+		}
 
 		IShellItem *shellitem = nullptr;
 		hr = SHCreateItemFromParsingName((LPCWSTR)dir.utf16().ptr(), nullptr, IID_IShellItem, (void **)&shellitem);
@@ -582,7 +604,7 @@ void DisplayServerWindows::_thread_fd_monitor(void *p_ud) {
 						PWSTR file_path = nullptr;
 						hr = result->GetDisplayName(SIGDN_FILESYSPATH, &file_path);
 						if (SUCCEEDED(hr)) {
-							file_names.push_back(String::utf16((const char16_t *)file_path));
+							file_names.push_back(String::utf16((const char16_t *)file_path).replace("\\", "/").trim_prefix(R"(\\?\)"));
 							CoTaskMemFree(file_path);
 						}
 						result->Release();
@@ -596,7 +618,7 @@ void DisplayServerWindows::_thread_fd_monitor(void *p_ud) {
 					PWSTR file_path = nullptr;
 					hr = result->GetDisplayName(SIGDN_FILESYSPATH, &file_path);
 					if (SUCCEEDED(hr)) {
-						file_names.push_back(String::utf16((const char16_t *)file_path));
+						file_names.push_back(String::utf16((const char16_t *)file_path).replace("\\", "/").trim_prefix(R"(\\?\)"));
 						CoTaskMemFree(file_path);
 					}
 					result->Release();

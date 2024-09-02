@@ -1181,7 +1181,16 @@ void SceneTreeDock::_tool_selected(int p_tool, bool p_confirm_override) {
 		case TOOL_OPEN_DOCUMENTATION: {
 			List<Node *> selection = editor_selection->get_selected_node_list();
 			for (const Node *node : selection) {
-				ScriptEditor::get_singleton()->goto_help("class_name:" + node->get_class());
+				String class_name;
+				Ref<Script> script_base = node->get_script();
+				if (script_base.is_valid()) {
+					class_name = script_base->get_global_name();
+				}
+				if (class_name.is_empty()) {
+					class_name = node->get_class();
+				}
+
+				ScriptEditor::get_singleton()->goto_help("class_name:" + class_name);
 			}
 			EditorNode::get_singleton()->set_visible_editor(EditorNode::EDITOR_SCRIPT);
 		} break;
@@ -2641,6 +2650,13 @@ void SceneTreeDock::_delete_confirm(bool p_cut) {
 		}
 	}
 
+	if (!entire_scene) {
+		for (const Node *E : remove_list) {
+			// `move_child` + `get_index` doesn't really work for internal nodes.
+			ERR_FAIL_COND_MSG(E->get_internal_mode() != INTERNAL_MODE_DISABLED, "Trying to remove internal node, this is not supported.");
+		}
+	}
+
 	EditorNode::get_singleton()->hide_unused_editors(this);
 
 	EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
@@ -2653,10 +2669,6 @@ void SceneTreeDock::_delete_confirm(bool p_cut) {
 		undo_redo->add_undo_method(scene_tree, "update_tree");
 		undo_redo->add_undo_reference(edited_scene);
 	} else {
-		for (const Node *E : remove_list) {
-			// `move_child` + `get_index` doesn't really work for internal nodes.
-			ERR_FAIL_COND_MSG(E->get_internal_mode() != INTERNAL_MODE_DISABLED, "Trying to remove internal node, this is not supported.");
-		}
 		if (delete_tracks_checkbox->is_pressed() || p_cut) {
 			remove_list.sort_custom<Node::Comparator>(); // Sort nodes to keep positions.
 			HashMap<Node *, NodePath> path_renames;

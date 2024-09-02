@@ -35,6 +35,7 @@
 #include "editor/editor_node.h"
 #include "editor/editor_settings.h"
 #include "scene/gui/menu_button.h"
+#include "scene/gui/split_container.h"
 
 void TextEditor::add_syntax_highlighter(Ref<EditorSyntaxHighlighter> p_highlighter) {
 	ERR_FAIL_COND(p_highlighter.is_null());
@@ -304,8 +305,8 @@ void TextEditor::tag_saved_version() {
 	code_editor->get_text_editor()->tag_saved_version();
 }
 
-void TextEditor::goto_line(int p_line, bool p_with_error) {
-	code_editor->goto_line(p_line);
+void TextEditor::goto_line(int p_line, int p_column) {
+	code_editor->goto_line(p_line, p_column);
 }
 
 void TextEditor::goto_line_selection(int p_line, int p_begin, int p_end) {
@@ -606,6 +607,7 @@ TextEditor::TextEditor() {
 	code_editor->set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT);
 	code_editor->set_v_size_flags(Control::SIZE_EXPAND_FILL);
 	code_editor->show_toggle_scripts_button();
+	code_editor->set_toggle_list_control(ScriptEditor::get_singleton()->get_left_list_split());
 
 	update_settings();
 
