@@ -355,7 +355,7 @@ void GDExtension::_register_extension_class_internal(GDExtensionClassLibraryPtr 
 
 	StringName class_name = *reinterpret_cast<const StringName *>(p_class_name);
 	StringName parent_class_name = *reinterpret_cast<const StringName *>(p_parent_class_name);
-	ERR_FAIL_COND_MSG(!String(class_name).is_valid_identifier(), "Attempt to register extension class '" + class_name + "', which is not a valid class identifier.");
+	ERR_FAIL_COND_MSG(!String(class_name).is_valid_ascii_identifier(), "Attempt to register extension class '" + class_name + "', which is not a valid class identifier.");
 	ERR_FAIL_COND_MSG(ClassDB::class_exists(class_name), "Attempt to register extension class '" + class_name + "', which appears to be already registered.");
 
 	Extension *parent_extension = nullptr;
@@ -678,12 +678,10 @@ Error GDExtension::open_library(const String &p_path, const Ref<GDExtensionLoade
 	ERR_FAIL_NULL_V_MSG(p_loader, FAILED, "Can't open GDExtension without a loader.");
 	loader = p_loader;
 
-	String abs_path = ProjectSettings::get_singleton()->globalize_path(p_path);
+	Error err = loader->open_library(p_path);
 
-	Error err = loader->open_library(abs_path);
-
-	ERR_FAIL_COND_V_MSG(err == ERR_FILE_NOT_FOUND, err, "GDExtension dynamic library not found: " + abs_path);
-	ERR_FAIL_COND_V_MSG(err != OK, err, "Can't open GDExtension dynamic library: " + abs_path);
+	ERR_FAIL_COND_V_MSG(err == ERR_FILE_NOT_FOUND, err, "GDExtension dynamic library not found: " + p_path);
+	ERR_FAIL_COND_V_MSG(err != OK, err, "Can't open GDExtension dynamic library: " + p_path);
 
 	err = loader->initialize(&gdextension_get_proc_address, this, &initialization);
 
