@@ -4013,6 +4013,7 @@ static uint64_t navigation_process_max = 0;
 // will terminate the program. In case of failure, the OS exit code needs
 // to be set explicitly here (defaults to EXIT_SUCCESS).
 bool Main::iteration() {
+	FrameMark;
 	ZoneScoped;
 
 	iterating++;

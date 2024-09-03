@@ -36,6 +36,8 @@
 #include "core/io/marshalls.h"
 #include "scene/main/node.h"
 
+#include "modules/tracy/profiler.h"
+
 #define MAKE_ROOM(m_amount)             \
 	if (packet_cache.size() < m_amount) \
 		packet_cache.resize(m_amount);
@@ -128,6 +130,7 @@ void SceneReplicationInterface::on_reset() {
 }
 
 void SceneReplicationInterface::on_network_process() {
+
 	// Prevent endless stalling in case of unforeseen spawn errors.
 	if (spawn_queue.size()) {
 		ERR_PRINT("An error happened during last spawn, this usually means the 'ready' signal was not emitted by the spawned node.");
@@ -144,6 +147,7 @@ void SceneReplicationInterface::on_network_process() {
 	// Process syncs.
 	uint64_t usec = OS::get_singleton()->get_ticks_usec();
 	for (KeyValue<int, PeerInfo> &E : peers_info) {
+
 		const HashSet<ObjectID> to_sync = E.value.sync_nodes;
 		if (to_sync.is_empty()) {
 			continue; // Nothing to sync
@@ -155,6 +159,7 @@ void SceneReplicationInterface::on_network_process() {
 }
 
 Error SceneReplicationInterface::on_spawn(Object *p_obj, Variant p_config) {
+	ZoneScoped;
 	Node *node = Object::cast_to<Node>(p_obj);
 	ERR_FAIL_COND_V(!node || p_config.get_type() != Variant::OBJECT, ERR_INVALID_PARAMETER);
 	MultiplayerSpawner *spawner = Object::cast_to<MultiplayerSpawner>(p_config.get_validated_object());
@@ -173,6 +178,8 @@ Error SceneReplicationInterface::on_spawn(Object *p_obj, Variant p_config) {
 
 void SceneReplicationInterface::_node_ready(const ObjectID &p_oid) {
 	ERR_FAIL_COND(!spawn_queue.has(p_oid)); // Bug.
+
+	ZoneScoped;
 
 	// If we are a nested spawn, we need to wait until the parent is ready.
 	if (p_oid != *(spawn_queue.begin())) {
@@ -195,6 +202,8 @@ void SceneReplicationInterface::_node_ready(const ObjectID &p_oid) {
 }
 
 Error SceneReplicationInterface::on_despawn(Object *p_obj, Variant p_config) {
+	ZoneScoped;
+
 	Node *node = Object::cast_to<Node>(p_obj);
 	ERR_FAIL_COND_V(!node || p_config.get_type() != Variant::OBJECT, ERR_INVALID_PARAMETER);
 	MultiplayerSpawner *spawner = Object::cast_to<MultiplayerSpawner>(p_config.get_validated_object());
@@ -223,6 +232,8 @@ Error SceneReplicationInterface::on_despawn(Object *p_obj, Variant p_config) {
 }
 
 Error SceneReplicationInterface::on_replication_start(Object *p_obj, Variant p_config) {
+	ZoneScoped;
+
 	Node *node = Object::cast_to<Node>(p_obj);
 	ERR_FAIL_COND_V(!node || p_config.get_type() != Variant::OBJECT, ERR_INVALID_PARAMETER);
 	MultiplayerSynchronizer *sync = Object::cast_to<MultiplayerSynchronizer>(p_config.get_validated_object());
@@ -268,6 +279,8 @@ Error SceneReplicationInterface::on_replication_start(Object *p_obj, Variant p_c
 }
 
 Error SceneReplicationInterface::on_replication_stop(Object *p_obj, Variant p_config) {
+	ZoneScoped;
+
 	Node *node = Object::cast_to<Node>(p_obj);
 	ERR_FAIL_COND_V(!node || p_config.get_type() != Variant::OBJECT, ERR_INVALID_PARAMETER);
 	MultiplayerSynchronizer *sync = Object::cast_to<MultiplayerSynchronizer>(p_config.get_validated_object());
@@ -291,6 +304,8 @@ Error SceneReplicationInterface::on_replication_stop(Object *p_obj, Variant p_co
 }
 
 void SceneReplicationInterface::_visibility_changed(int p_peer, ObjectID p_sid) {
+	ZoneScoped;
+
 	MultiplayerSynchronizer *sync = get_id_as<MultiplayerSynchronizer>(p_sid);
 	ERR_FAIL_NULL(sync); // Bug.
 	Node *node = sync->get_root_node();
@@ -303,6 +318,8 @@ void SceneReplicationInterface::_visibility_changed(int p_peer, ObjectID p_sid) 
 }
 
 bool SceneReplicationInterface::is_rpc_visible(const ObjectID &p_oid, int p_peer) const {
+	ZoneScoped;
+
 	if (!tracked_nodes.has(p_oid)) {
 		return true; // Untracked nodes are always visible to RPCs.
 	}
@@ -343,6 +360,9 @@ bool SceneReplicationInterface::is_rpc_visible(const ObjectID &p_oid, int p_peer
 
 Error SceneReplicationInterface::_update_sync_visibility(int p_peer, MultiplayerSynchronizer *p_sync) {
 	ERR_FAIL_NULL_V(p_sync, ERR_BUG);
+
+	ZoneScoped;
+
 	if (!_has_authority(p_sync) || p_peer == multiplayer->get_unique_id()) {
 		return OK;
 	}
@@ -380,6 +400,8 @@ Error SceneReplicationInterface::_update_sync_visibility(int p_peer, Multiplayer
 }
 
 Error SceneReplicationInterface::_update_spawn_visibility(int p_peer, const ObjectID &p_oid) {
+	ZoneScoped;
+
 	const TrackedNode *tnode = tracked_nodes.getptr(p_oid);
 	ERR_FAIL_NULL_V(tnode, ERR_BUG);
 	MultiplayerSpawner *spawner = get_id_as<MultiplayerSpawner>(tnode->spawner);
@@ -458,6 +480,8 @@ Error SceneReplicationInterface::_update_spawn_visibility(int p_peer, const Obje
 Error SceneReplicationInterface::_send_raw(const uint8_t *p_buffer, int p_size, int p_peer, bool p_reliable) {
 	ERR_FAIL_COND_V(!p_buffer || p_size < 1, ERR_INVALID_PARAMETER);
 
+	ZoneScoped;
+
 	Ref<MultiplayerPeer> peer = multiplayer->get_multiplayer_peer();
 	ERR_FAIL_COND_V(peer.is_null(), ERR_UNCONFIGURED);
 	peer->set_transfer_channel(0);
@@ -467,6 +491,8 @@ Error SceneReplicationInterface::_send_raw(const uint8_t *p_buffer, int p_size, 
 
 Error SceneReplicationInterface::_make_spawn_packet(Node *p_node, MultiplayerSpawner *p_spawner, int &r_len) {
 	ERR_FAIL_COND_V(!multiplayer || !p_node || !p_spawner, ERR_BUG);
+
+	ZoneScoped;
 
 	const ObjectID oid = p_node->get_instance_id();
 	TrackedNode *tnode = tracked_nodes.getptr(oid);
@@ -554,6 +580,8 @@ Error SceneReplicationInterface::_make_spawn_packet(Node *p_node, MultiplayerSpa
 }
 
 Error SceneReplicationInterface::_make_despawn_packet(Node *p_node, int &r_len) {
+	ZoneScoped;
+
 	const ObjectID oid = p_node->get_instance_id();
 	const TrackedNode *tnode = tracked_nodes.getptr(oid);
 	ERR_FAIL_NULL_V(tnode, ERR_INVALID_PARAMETER);
@@ -569,6 +597,9 @@ Error SceneReplicationInterface::_make_despawn_packet(Node *p_node, int &r_len) 
 
 Error SceneReplicationInterface::on_spawn_receive(int p_from, const uint8_t *p_buffer, int p_buffer_len) {
 	ERR_FAIL_COND_V_MSG(p_buffer_len < 18, ERR_INVALID_DATA, "Invalid spawn packet received");
+
+	ZoneScoped;
+
 	int ofs = 1; // The spawn/despawn command.
 	uint8_t scene_id = p_buffer[ofs];
 	ofs += 1;
@@ -654,6 +685,9 @@ Error SceneReplicationInterface::on_spawn_receive(int p_from, const uint8_t *p_b
 
 Error SceneReplicationInterface::on_despawn_receive(int p_from, const uint8_t *p_buffer, int p_buffer_len) {
 	ERR_FAIL_COND_V_MSG(p_buffer_len < 5, ERR_INVALID_DATA, "Invalid spawn packet received");
+
+	ZoneScoped;
+
 	int ofs = 1; // The spawn/despawn command.
 	uint32_t net_id = decode_uint32(&p_buffer[ofs]);
 	ofs += 4;
@@ -682,6 +716,7 @@ Error SceneReplicationInterface::on_despawn_receive(int p_from, const uint8_t *p
 }
 
 bool SceneReplicationInterface::_verify_synchronizer(int p_peer, MultiplayerSynchronizer *p_sync, uint32_t &r_net_id) {
+
 	r_net_id = p_sync->get_net_id();
 	if (r_net_id == 0 || (r_net_id & 0x80000000)) {
 		int path_id = 0;
@@ -698,6 +733,8 @@ bool SceneReplicationInterface::_verify_synchronizer(int p_peer, MultiplayerSync
 }
 
 MultiplayerSynchronizer *SceneReplicationInterface::_find_synchronizer(int p_peer, uint32_t p_net_id) {
+	ZoneScoped;
+
 	MultiplayerSynchronizer *sync = nullptr;
 	if (p_net_id & 0x80000000) {
 		sync = Object::cast_to<MultiplayerSynchronizer>(multiplayer_cache->get_cached_object(p_peer, p_net_id & 0x7FFFFFFF));
@@ -709,6 +746,8 @@ MultiplayerSynchronizer *SceneReplicationInterface::_find_synchronizer(int p_pee
 }
 
 void SceneReplicationInterface::_send_delta(int p_peer, const HashSet<ObjectID> &p_synchronizers, uint64_t p_usec, const HashMap<ObjectID, uint64_t> &p_last_watch_usecs) {
+	ZoneScoped;
+
 	MAKE_ROOM(/* header */ 1 + /* element */ 4 + 8 + 4 + delta_mtu);
 	uint8_t *ptr = packet_cache.ptrw();
 	ptr[0] = SceneMultiplayer::NETWORK_COMMAND_SYNC | (1 << SceneMultiplayer::CMD_FLAG_0_SHIFT);
@@ -766,6 +805,8 @@ void SceneReplicationInterface::_send_delta(int p_peer, const HashSet<ObjectID> 
 }
 
 Error SceneReplicationInterface::on_delta_receive(int p_from, const uint8_t *p_buffer, int p_buffer_len) {
+	ZoneScoped;
+
 	int ofs = 1;
 	while (ofs + 4 + 8 + 4 < p_buffer_len) {
 		uint32_t net_id = decode_uint32(&p_buffer[ofs]);
@@ -801,6 +842,8 @@ Error SceneReplicationInterface::on_delta_receive(int p_from, const uint8_t *p_b
 }
 
 void SceneReplicationInterface::_send_sync(int p_peer, const HashSet<ObjectID> &p_synchronizers, uint16_t p_sync_net_time, uint64_t p_usec) {
+	ZoneScoped;
+
 	MAKE_ROOM(/* header */ 3 + /* element */ 4 + 4 + sync_mtu);
 	uint8_t *ptr = packet_cache.ptrw();
 	ptr[0] = SceneMultiplayer::NETWORK_COMMAND_SYNC;
@@ -810,6 +853,9 @@ void SceneReplicationInterface::_send_sync(int p_peer, const HashSet<ObjectID> &
 	// This is a lazy implementation, we could optimize much more here with by grouping by replication config.
 	for (const ObjectID &oid : p_synchronizers) {
 		MultiplayerSynchronizer *sync = get_id_as<MultiplayerSynchronizer>(oid);
+
+		ZoneScopedN( "Synchronizers" );
+
 		ERR_CONTINUE(!sync || !sync->get_replication_config_ptr() || !_has_authority(sync));
 		if (!sync->update_outbound_sync_time(p_usec)) {
 			continue; // nothing to sync.
@@ -854,6 +900,8 @@ void SceneReplicationInterface::_send_sync(int p_peer, const HashSet<ObjectID> &
 }
 
 Error SceneReplicationInterface::on_sync_receive(int p_from, const uint8_t *p_buffer, int p_buffer_len) {
+	ZoneScoped;
+
 	ERR_FAIL_COND_V_MSG(p_buffer_len < 11, ERR_INVALID_DATA, "Invalid sync packet received");
 	bool is_delta = (p_buffer[0] & (1 << SceneMultiplayer::CMD_FLAG_0_SHIFT)) != 0;
 	if (is_delta) {

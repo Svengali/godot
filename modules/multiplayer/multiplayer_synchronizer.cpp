@@ -31,6 +31,7 @@
 #include "multiplayer_synchronizer.h"
 
 #include "core/config/engine.h"
+#include "modules/tracy/tracy/public/tracy/Tracy.hpp"
 #include "scene/main/multiplayer_api.h"
 
 Object *MultiplayerSynchronizer::_get_prop_target(Object *p_obj, const NodePath &p_path) {
@@ -154,6 +155,8 @@ PackedStringArray MultiplayerSynchronizer::get_configuration_warnings() const {
 }
 
 Error MultiplayerSynchronizer::get_state(const List<NodePath> &p_properties, Object *p_obj, Vector<Variant> &r_variant, Vector<const Variant *> &r_variant_ptrs) {
+	ZoneScoped;
+
 	ERR_FAIL_NULL_V(p_obj, ERR_INVALID_PARAMETER);
 	r_variant.resize(p_properties.size());
 	r_variant_ptrs.resize(r_variant.size());

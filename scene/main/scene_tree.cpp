@@ -506,6 +506,9 @@ bool SceneTree::physics_process(double p_time) {
 }
 
 bool SceneTree::process(double p_time) {
+
+	ZoneScoped;
+
 	if (MainLoop::process(p_time)) {
 		_quit = true;
 	}
@@ -513,6 +516,7 @@ bool SceneTree::process(double p_time) {
 	process_time = p_time;
 
 	if (multiplayer_poll) {
+
 		multiplayer->poll();
 		for (KeyValue<NodePath, Ref<MultiplayerAPI>> &E : custom_multiplayers) {
 			E.value->poll();
@@ -576,6 +580,8 @@ bool SceneTree::process(double p_time) {
 }
 
 void SceneTree::process_timers(double p_delta, bool p_physics_frame) {
+	ZoneScoped;
+
 	_THREAD_SAFE_METHOD_
 	List<Ref<SceneTreeTimer>>::Element *L = timers.back(); //last element
 
@@ -609,6 +615,8 @@ void SceneTree::process_timers(double p_delta, bool p_physics_frame) {
 }
 
 void SceneTree::process_tweens(double p_delta, bool p_physics) {
+	ZoneScoped;
+
 	_THREAD_SAFE_METHOD_
 	// This methods works similarly to how SceneTreeTimers are handled.
 	List<Ref<Tween>>::Element *L = tweens.back();
@@ -636,6 +644,8 @@ void SceneTree::process_tweens(double p_delta, bool p_physics) {
 }
 
 void SceneTree::finalize() {
+	ZoneScoped;
+
 	_flush_delete_queue();
 
 	_flush_ugc();
@@ -693,6 +703,8 @@ void SceneTree::_main_window_focus_in() {
 }
 
 void SceneTree::_notification(int p_notification) {
+	ZoneScoped;
+
 	switch (p_notification) {
 		case NOTIFICATION_TRANSLATION_CHANGED: {
 			if (!Engine::get_singleton()->is_editor_hint()) {
@@ -909,6 +921,8 @@ bool SceneTree::is_paused() const {
 }
 
 void SceneTree::_process_group(ProcessGroup *p_group, bool p_physics) {
+	ZoneScoped;
+
 	// When reading this function, keep in mind that this code must work in a way where
 	// if any node is removed, this needs to continue working.
 
@@ -970,6 +984,8 @@ void SceneTree::_process_group(ProcessGroup *p_group, bool p_physics) {
 }
 
 void SceneTree::_process_groups_thread(uint32_t p_index, bool p_physics) {
+	ZoneScoped;
+
 	Node::current_process_thread_group = local_process_group_cache[p_index]->owner;
 	_process_group(local_process_group_cache[p_index], p_physics);
 	Node::current_process_thread_group = nullptr;

@@ -32,6 +32,7 @@
 
 #include "core/debugger/engine_debugger.h"
 #include "core/io/marshalls.h"
+#include "modules/tracy/tracy/public/tracy/Tracy.hpp"
 
 #ifdef DEBUG_ENABLED
 #include "core/os/os.h"
@@ -52,6 +53,8 @@ _FORCE_INLINE_ void SceneMultiplayer::_profile_bandwidth(const String &p_what, i
 #endif
 
 void SceneMultiplayer::_update_status() {
+	ZoneScoped;
+
 	MultiplayerPeer::ConnectionStatus status = multiplayer_peer.is_valid() ? multiplayer_peer->get_connection_status() : MultiplayerPeer::CONNECTION_DISCONNECTED;
 	if (last_connection_status != status) {
 		if (status == MultiplayerPeer::CONNECTION_DISCONNECTED) {
@@ -67,6 +70,9 @@ void SceneMultiplayer::_update_status() {
 }
 
 Error SceneMultiplayer::poll() {
+
+	ZoneScoped;
+
 	_update_status();
 	if (last_connection_status == MultiplayerPeer::CONNECTION_DISCONNECTED) {
 		return OK;
@@ -81,6 +87,8 @@ Error SceneMultiplayer::poll() {
 	}
 
 	while (multiplayer_peer->get_available_packet_count()) {
+		ZoneScopedN( "Packets" );
+
 		int sender = multiplayer_peer->get_packet_peer();
 		const uint8_t *packet;
 		int len;
@@ -96,6 +104,8 @@ Error SceneMultiplayer::poll() {
 #endif
 
 		if (pending_peers.has(sender)) {
+			ZoneScopedN( "Pending Peers" );
+
 			ERR_CONTINUE(len < 2 || (packet[0] & CMD_MASK) != NETWORK_COMMAND_SYS || packet[1] != SYS_COMMAND_AUTH);
 			// Auth message.
 			PackedByteArray pba;
@@ -124,6 +134,8 @@ Error SceneMultiplayer::poll() {
 		ERR_CONTINUE(!connected_peers.has(sender));
 
 		if (len && (packet[0] & CMD_MASK) == NETWORK_COMMAND_SYS) {
+			ZoneScopedN( "Sys Packets" );
+
 			// Sys messages are processed separately since they might call _process_packet themselves.
 			if (len > 1 && packet[1] == SYS_COMMAND_AUTH) {
 				ERR_CONTINUE(len != 2);
@@ -133,6 +145,8 @@ Error SceneMultiplayer::poll() {
 
 			_process_sys(sender, packet, len, mode, channel);
 		} else {
+			ZoneScopedN( "NON Sys Packets" );
+
 			remote_sender_id = sender;
 			_process_packet(sender, packet, len);
 			remote_sender_id = 0;
@@ -144,6 +158,8 @@ Error SceneMultiplayer::poll() {
 		}
 	}
 	if (pending_peers.size() && auth_timeout) {
+		ZoneScopedN( "Auth" );
+
 		HashSet<int> to_drop;
 		uint64_t time = OS::get_singleton()->get_ticks_msec();
 		for (const KeyValue<int, PendingPeer> &pending : pending_peers) {
@@ -215,6 +231,8 @@ Ref<MultiplayerPeer> SceneMultiplayer::get_multiplayer_peer() {
 }
 
 void SceneMultiplayer::_process_packet(int p_from, const uint8_t *p_packet, int p_packet_len) {
+	ZoneScoped;
+
 	ERR_FAIL_COND_MSG(root_path.is_empty(), "Multiplayer root was not initialized. If you are using custom multiplayer, remember to set the root path via SceneMultiplayer.set_root_path before using it.");
 	ERR_FAIL_COND_MSG(p_packet_len < 1, "Invalid packet received. Size too small.");
 
@@ -260,6 +278,8 @@ _FORCE_INLINE_ Error SceneMultiplayer::_send(const uint8_t *p_packet, int p_pack
 #endif
 
 Error SceneMultiplayer::send_command(int p_to, const uint8_t *p_packet, int p_packet_len) {
+	ZoneScoped;
+
 	if (server_relay && get_unique_id() != 1 && p_to != 1 && multiplayer_peer->is_server_relay_supported()) {
 		// Send relay packet.
 		relay_buffer->seek(0);
@@ -288,6 +308,8 @@ Error SceneMultiplayer::send_command(int p_to, const uint8_t *p_packet, int p_pa
 }
 
 void SceneMultiplayer::_process_sys(int p_from, const uint8_t *p_packet, int p_packet_len, MultiplayerPeer::TransferMode p_mode, int p_channel) {
+	ZoneScoped;
+
 	ERR_FAIL_COND_MSG(p_packet_len < SYS_CMD_SIZE, "Invalid packet received. Size too small.");
 	uint8_t sys_cmd_type = p_packet[1];
 	int32_t peer = int32_t(decode_uint32(&p_packet[2]));
@@ -354,6 +376,8 @@ void SceneMultiplayer::_process_sys(int p_from, const uint8_t *p_packet, int p_p
 }
 
 void SceneMultiplayer::_add_peer(int p_id) {
+	ZoneScoped;
+
 	if (auth_callback.is_valid()) {
 		pending_peers[p_id] = PendingPeer();
 		pending_peers[p_id].time = OS::get_singleton()->get_ticks_msec();
@@ -365,6 +389,8 @@ void SceneMultiplayer::_add_peer(int p_id) {
 }
 
 void SceneMultiplayer::_admit_peer(int p_id) {
+	ZoneScoped;
+
 	if (server_relay && get_unique_id() == 1 && multiplayer_peer->is_server_relay_supported()) {
 		// Notify others of connection, and send connected peers to newly connected one.
 		uint8_t buf[SYS_CMD_SIZE];
@@ -394,6 +420,8 @@ void SceneMultiplayer::_admit_peer(int p_id) {
 }
 
 void SceneMultiplayer::_del_peer(int p_id) {
+	ZoneScoped;
+
 	if (pending_peers.has(p_id)) {
 		pending_peers.erase(p_id);
 		emit_signal(SNAME("peer_authentication_failed"), p_id);
@@ -426,6 +454,8 @@ void SceneMultiplayer::_del_peer(int p_id) {
 }
 
 void SceneMultiplayer::disconnect_peer(int p_id) {
+	ZoneScoped;
+
 	ERR_FAIL_COND(multiplayer_peer.is_null() || multiplayer_peer->get_connection_status() != MultiplayerPeer::CONNECTION_CONNECTED);
 	// Block signals to avoid emitting peer_disconnected.
 	bool blocking = is_blocking_signals();
@@ -436,6 +466,8 @@ void SceneMultiplayer::disconnect_peer(int p_id) {
 }
 
 Error SceneMultiplayer::send_bytes(Vector<uint8_t> p_data, int p_to, MultiplayerPeer::TransferMode p_mode, int p_channel) {
+	ZoneScoped;
+
 	ERR_FAIL_COND_V_MSG(p_data.is_empty(), ERR_INVALID_DATA, "Trying to send an empty raw packet.");
 	ERR_FAIL_COND_V_MSG(!multiplayer_peer.is_valid(), ERR_UNCONFIGURED, "Trying to send a raw packet while no multiplayer peer is active.");
 	ERR_FAIL_COND_V_MSG(multiplayer_peer->get_connection_status() != MultiplayerPeer::CONNECTION_CONNECTED, ERR_UNCONFIGURED, "Trying to send a raw packet via a multiplayer peer which is not connected.");
@@ -454,6 +486,8 @@ Error SceneMultiplayer::send_bytes(Vector<uint8_t> p_data, int p_to, Multiplayer
 }
 
 Error SceneMultiplayer::send_auth(int p_to, Vector<uint8_t> p_data) {
+	ZoneScoped;
+
 	ERR_FAIL_COND_V(multiplayer_peer.is_null() || multiplayer_peer->get_connection_status() != MultiplayerPeer::CONNECTION_CONNECTED, ERR_UNCONFIGURED);
 	ERR_FAIL_COND_V(!pending_peers.has(p_to), ERR_INVALID_PARAMETER);
 	ERR_FAIL_COND_V(p_data.is_empty(), ERR_INVALID_PARAMETER);
@@ -475,6 +509,8 @@ Error SceneMultiplayer::send_auth(int p_to, Vector<uint8_t> p_data) {
 }
 
 Error SceneMultiplayer::complete_auth(int p_peer) {
+	ZoneScoped;
+
 	ERR_FAIL_COND_V(multiplayer_peer.is_null() || multiplayer_peer->get_connection_status() != MultiplayerPeer::CONNECTION_CONNECTED, ERR_UNCONFIGURED);
 	ERR_FAIL_COND_V(!pending_peers.has(p_peer), ERR_INVALID_PARAMETER);
 	ERR_FAIL_COND_V_MSG(pending_peers[p_peer].local, ERR_FILE_CANT_WRITE, "The authentication session was already marked as completed.");
@@ -514,6 +550,8 @@ double SceneMultiplayer::get_auth_timeout() const {
 }
 
 void SceneMultiplayer::_process_raw(int p_from, const uint8_t *p_packet, int p_packet_len) {
+	ZoneScoped;
+
 	ERR_FAIL_COND_MSG(p_packet_len < 2, "Invalid packet received. Size too small.");
 
 	Vector<uint8_t> out;
