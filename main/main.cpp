@@ -2341,14 +2341,11 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 		}
 	}
 
-	// note this is the desired rendering driver, it doesn't mean we will get it.
-	// TODO - make sure this is updated in the case of fallbacks, so that the user interface
-	// shows the correct driver string.
-	OS::get_singleton()->set_current_rendering_driver_name(rendering_driver);
-	OS::get_singleton()->set_current_rendering_method(rendering_method);
-
 	// always convert to lower case for consistency in the code
 	rendering_driver = rendering_driver.to_lower();
+
+	OS::get_singleton()->set_current_rendering_driver_name(rendering_driver);
+	OS::get_singleton()->set_current_rendering_method(rendering_method);
 
 	if (use_custom_res) {
 		if (!force_res) {
@@ -2920,6 +2917,8 @@ Error Main::setup2(bool p_show_boot_logo) {
 		Error err;
 		display_server = DisplayServer::create(display_driver_idx, rendering_driver, window_mode, window_vsync_mode, window_flags, window_position, window_size, init_screen, context, err);
 		if (err != OK || display_server == nullptr) {
+			String last_name = DisplayServer::get_create_function_name(display_driver_idx);
+
 			// We can't use this display server, try other ones as fallback.
 			// Skip headless (always last registered) because that's not what users
 			// would expect if they didn't request it explicitly.
@@ -2927,6 +2926,9 @@ Error Main::setup2(bool p_show_boot_logo) {
 				if (i == display_driver_idx) {
 					continue; // Don't try the same twice.
 				}
+				String name = DisplayServer::get_create_function_name(i);
+				WARN_PRINT(vformat("Display driver %s failed, falling back to %s.", last_name, name));
+
 				display_server = DisplayServer::create(i, rendering_driver, window_mode, window_vsync_mode, window_flags, window_position, window_size, init_screen, context, err);
 				if (err == OK && display_server != nullptr) {
 					break;
