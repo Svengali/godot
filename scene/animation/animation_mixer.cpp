@@ -81,9 +81,8 @@ bool AnimationMixer::_set(const StringName &p_name, const Variant &p_value) {
 		List<Variant> keys;
 		d.get_key_list(&keys);
 		for (const Variant &K : keys) {
-			StringName lib_name = K;
-			Ref<AnimationLibrary> lib = d[lib_name];
-			add_animation_library(lib_name, lib);
+			Ref<AnimationLibrary> lib = d[K];
+			add_animation_library(K, lib);
 		}
 		emit_signal(SNAME("animation_libraries_updated"));
 
@@ -1637,6 +1636,9 @@ void AnimationMixer::_blend_process(double p_delta, bool p_update_only) {
 						}
 
 						if (t_obj->call(SNAME("get_is_sample"))) {
+							if (t->audio_stream_playback->get_sample_playback().is_valid()) {
+								AudioServer::get_singleton()->stop_sample_playback(t->audio_stream_playback->get_sample_playback());
+							}
 							Ref<AudioSamplePlayback> sample_playback;
 							sample_playback.instantiate();
 							sample_playback->stream = stream;
