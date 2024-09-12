@@ -108,8 +108,6 @@ static Time *_time = nullptr;
 static core_bind::Geometry2D *_geometry_2d = nullptr;
 static core_bind::Geometry3D *_geometry_3d = nullptr;
 
-static WorkerThreadPool *worker_thread_pool = nullptr;
-
 extern Mutex _global_mutex;
 
 static GDExtensionManager *gdextension_manager = nullptr;
@@ -299,8 +297,6 @@ void register_core_types() {
 	GDREGISTER_NATIVE_STRUCT(AudioFrame, "float left;float right");
 	GDREGISTER_NATIVE_STRUCT(ScriptLanguageExtensionProfilingInfo, "StringName signature;uint64_t call_count;uint64_t total_time;uint64_t self_time");
 
-	worker_thread_pool = memnew(WorkerThreadPool);
-
 	OS::get_singleton()->benchmark_end_measure("Core", "Register Types");
 }
 
@@ -353,7 +349,7 @@ void register_core_singletons() {
 	Engine::get_singleton()->add_singleton(Engine::Singleton("Time", Time::get_singleton()));
 	Engine::get_singleton()->add_singleton(Engine::Singleton("GDExtensionManager", GDExtensionManager::get_singleton()));
 	Engine::get_singleton()->add_singleton(Engine::Singleton("ResourceUID", ResourceUID::get_singleton()));
-	Engine::get_singleton()->add_singleton(Engine::Singleton("WorkerThreadPool", worker_thread_pool));
+	Engine::get_singleton()->add_singleton(Engine::Singleton("WorkerThreadPool", WorkerThreadPool::get_singleton()));
 
 	OS::get_singleton()->benchmark_end_measure("Core", "Register Singletons");
 }
@@ -386,9 +382,6 @@ void unregister_core_types() {
 
 	// Destroy singletons in reverse order to ensure dependencies are not broken.
 
-	memdelete(worker_thread_pool);
-
-	memdelete(_log_manager);
 	memdelete(_engine_debugger);
 	memdelete(_marshalls);
 	memdelete(_classdb);
