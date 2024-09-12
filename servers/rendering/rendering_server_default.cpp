@@ -213,10 +213,13 @@ void RenderingServerDefault::_draw(bool p_swap_buffers, double frame_step) {
 					continue;
 				}
 
-			if (print_gpu_profile_task_time.has(name)) {
-				print_gpu_profile_task_time[name] += time;
-			} else {
-				print_gpu_profile_task_time[name] = time;
+				double time = frame_profile[i + 1].gpu_msec - frame_profile[i].gpu_msec;
+
+				if (print_gpu_profile_task_time.has(name)) {
+					print_gpu_profile_task_time[name] += time;
+				} else {
+					print_gpu_profile_task_time[name] = time;
+				}
 			}
 
 			if (frame_profile.size()) {
