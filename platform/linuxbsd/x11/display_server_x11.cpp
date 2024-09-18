@@ -1787,12 +1787,6 @@ void DisplayServerX11::delete_sub_window(WindowID p_id) {
 		_send_window_event(windows[p_id], WINDOW_EVENT_MOUSE_EXIT);
 	}
 
-	window_set_rect_changed_callback(Callable(), p_id);
-	window_set_window_event_callback(Callable(), p_id);
-	window_set_input_event_callback(Callable(), p_id);
-	window_set_input_text_callback(Callable(), p_id);
-	window_set_drop_files_callback(Callable(), p_id);
-
 	while (wd.transient_children.size()) {
 		window_set_transient(*wd.transient_children.begin(), INVALID_WINDOW_ID);
 	}
@@ -1835,6 +1829,12 @@ void DisplayServerX11::delete_sub_window(WindowID p_id) {
 
 	XUnmapWindow(x11_display, wd.x11_window);
 	XDestroyWindow(x11_display, wd.x11_window);
+
+	window_set_rect_changed_callback(Callable(), p_id);
+	window_set_window_event_callback(Callable(), p_id);
+	window_set_input_event_callback(Callable(), p_id);
+	window_set_input_text_callback(Callable(), p_id);
+	window_set_drop_files_callback(Callable(), p_id);
 
 	windows.erase(p_id);
 }
@@ -2998,7 +2998,11 @@ bool DisplayServerX11::window_is_focused(WindowID p_window) const {
 
 	const WindowData &wd = windows[p_window];
 
-	return wd.focused;
+	Window focused_window;
+	int focus_ret_state;
+	XGetInputFocus(x11_display, &focused_window, &focus_ret_state);
+
+	return wd.x11_window == focused_window;
 }
 
 bool DisplayServerX11::window_can_draw(WindowID p_window) const {

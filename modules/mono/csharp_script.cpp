@@ -1525,9 +1525,10 @@ void CSharpInstance::get_property_list(List<PropertyInfo> *p_properties) const {
 		}
 	}
 
+	props.reverse();
 	for (PropertyInfo &prop : props) {
 		validate_property(prop);
-		p_properties->push_back(prop);
+		p_properties->push_front(prop);
 	}
 }
 
@@ -2753,7 +2754,7 @@ int CSharpScript::get_member_line(const StringName &p_member) const {
 	return -1;
 }
 
-const Variant CSharpScript::get_rpc_config() const {
+Variant CSharpScript::get_rpc_config() const {
 	return rpc_config;
 }
 

@@ -166,6 +166,7 @@ public:
 	virtual String get_name() const;
 
 	virtual bool supports_platform(const Ref<EditorExportPlatform> &p_export_platform) const;
+	PackedStringArray get_export_features(const Ref<EditorExportPlatform> &p_export_platform, bool p_debug) const;
 
 	virtual PackedStringArray get_android_dependencies(const Ref<EditorExportPlatform> &p_export_platform, bool p_debug) const;
 	virtual PackedStringArray get_android_dependencies_maven_repos(const Ref<EditorExportPlatform> &p_export_platform, bool p_debug) const;
@@ -183,8 +184,6 @@ public:
 	String get_ios_cpp_code() const;
 	const Vector<String> &get_macos_plugin_files() const;
 	Variant get_option(const StringName &p_name) const;
-
-	EditorExportPlugin();
 };
 
 #endif // EDITOR_EXPORT_PLUGIN_H
