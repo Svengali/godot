@@ -229,6 +229,10 @@ bool EditorExportPlugin::supports_platform(const Ref<EditorExportPlatform> &p_ex
 	return ret;
 }
 
+PackedStringArray EditorExportPlugin::get_export_features(const Ref<EditorExportPlatform> &p_export_platform, bool p_debug) const {
+	return _get_export_features(p_export_platform, p_debug);
+}
+
 PackedStringArray EditorExportPlugin::get_android_dependencies(const Ref<EditorExportPlatform> &p_export_platform, bool p_debug) const {
 	PackedStringArray ret;
 	GDVIRTUAL_CALL(_get_android_dependencies, p_export_platform, p_debug, ret);
@@ -363,9 +367,4 @@ void EditorExportPlugin::_bind_methods() {
 	GDVIRTUAL_BIND(_get_android_manifest_activity_element_contents, "platform", "debug");
 	GDVIRTUAL_BIND(_get_android_manifest_application_element_contents, "platform", "debug");
 	GDVIRTUAL_BIND(_get_android_manifest_element_contents, "platform", "debug");
-}
-
-EditorExportPlugin::EditorExportPlugin() {
-	EDITOR_DEF("export/ssh/ssh", "");
-	EDITOR_DEF("export/ssh/scp", "");
 }
