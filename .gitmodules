@@ -1,3 +1,6 @@
 [submodule "modules/tracy"]
 	path = modules/tracy
 	url = https://github.com/Svengali/godot_tracy.git
+[submodule "modules/voxel"]
+	path = modules/voxel
+	url = https://github.com/Svengali/gd_voxel.git
