@@ -191,7 +191,7 @@ class EditorFileSystem : public Node {
 
 	void _scan_filesystem();
 	void _first_scan_filesystem();
-	void _first_scan_process_scripts(const ScannedDirectory *p_scan_dir, HashSet<String> &p_existing_class_names, HashSet<String> &p_extensions);
+	void _first_scan_process_scripts(const ScannedDirectory *p_scan_dir, List<String> &p_gdextension_extensions, HashSet<String> &p_existing_class_names, HashSet<String> &p_extensions);
 
 	HashSet<String> late_update_files;
 
@@ -239,7 +239,7 @@ class EditorFileSystem : public Node {
 
 	bool _find_file(const String &p_file, EditorFileSystemDirectory **r_d, int &r_file_pos) const;
 
-	void _scan_fs_changes(EditorFileSystemDirectory *p_dir, ScanProgress &p_progress);
+	void _scan_fs_changes(EditorFileSystemDirectory *p_dir, ScanProgress &p_progress, bool p_recursive = true);
 
 	void _delete_internal_files(const String &p_file);
 	int _insert_actions_delete_files_directory(EditorFileSystemDirectory *p_dir);
@@ -324,6 +324,19 @@ class EditorFileSystem : public Node {
 	HashSet<String> group_file_cache;
 	HashMap<String, String> file_icon_cache;
 
+	struct CopiedFile {
+		String from;
+		String to;
+	};
+
+	bool refresh_queued = false;
+	HashSet<ObjectID> folders_to_sort;
+
+	Error _copy_file(const String &p_from, const String &p_to);
+	bool _copy_directory(const String &p_from, const String &p_to, List<CopiedFile> *p_files);
+	void _queue_refresh_filesystem();
+	void _refresh_filesystem();
+
 	struct ImportThreadData {
 		const ImportFile *reimport_files;
 		int reimport_from;
@@ -378,6 +391,8 @@ public:
 	void move_group_file(const String &p_path, const String &p_new_path);
 
 	Error make_dir_recursive(const String &p_path, const String &p_base_path = String());
+	Error copy_file(const String &p_from, const String &p_to);
+	Error copy_directory(const String &p_from, const String &p_to);
 
 	static bool _should_skip_directory(const String &p_path);
 

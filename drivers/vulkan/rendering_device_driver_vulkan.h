@@ -172,7 +172,12 @@ private:
 	VmaPool _find_or_create_small_allocs_pool(uint32_t p_mem_type_index);
 
 private:
+#if defined(DEBUG_ENABLED) || defined(DEV_ENABLED)
+	// It's a circular buffer.
 	BufferID breadcrumb_buffer;
+	uint32_t breadcrumb_offset = 0u;
+	uint32_t breadcrumb_id = 0u;
+#endif
 
 public:
 	/*****************/
@@ -365,6 +370,15 @@ public:
 	/*********************/
 	/**** FRAMEBUFFER ****/
 	/*********************/
+
+	struct Framebuffer {
+		VkFramebuffer vk_framebuffer = VK_NULL_HANDLE;
+
+		// Only filled in by a framebuffer created by a swap chain. Unused otherwise.
+		VkImage swap_chain_image = VK_NULL_HANDLE;
+		VkImageSubresourceRange swap_chain_image_subresource_range = {};
+		bool swap_chain_acquired = false;
+	};
 
 	virtual FramebufferID framebuffer_create(RenderPassID p_render_pass, VectorView<TextureID> p_attachments, uint32_t p_width, uint32_t p_height) override final;
 	virtual void framebuffer_free(FramebufferID p_framebuffer) override final;

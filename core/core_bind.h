@@ -32,7 +32,6 @@
 #define CORE_BIND_H
 
 #include "core/debugger/engine_profiler.h"
-#include "core/io/image.h"
 #include "core/io/resource_loader.h"
 #include "core/io/resource_saver.h"
 #include "core/object/script_language.h"
@@ -324,6 +323,8 @@ public:
 	TypedArray<PackedVector2Array> offset_polyline(const Vector<Vector2> &p_polygon, real_t p_delta, PolyJoinType p_join_type = JOIN_SQUARE, PolyEndType p_end_type = END_SQUARE);
 
 	Dictionary make_atlas(const Vector<Size2> &p_rects);
+
+	TypedArray<Point2i> bresenham_line(const Point2i &p_from, const Point2i &p_to);
 
 	Geometry2D() { singleton = this; }
 };
