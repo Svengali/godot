@@ -43,14 +43,14 @@
 void Path2DEditor::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_THEME_CHANGED: {
-			curve_edit->set_icon(get_editor_theme_icon(SNAME("CurveEdit")));
-			curve_edit_curve->set_icon(get_editor_theme_icon(SNAME("CurveCurve")));
-			curve_create->set_icon(get_editor_theme_icon(SNAME("CurveCreate")));
-			curve_del->set_icon(get_editor_theme_icon(SNAME("CurveDelete")));
-			curve_close->set_icon(get_editor_theme_icon(SNAME("CurveClose")));
-			curve_clear_points->set_icon(get_editor_theme_icon(SNAME("Clear")));
+			curve_edit->set_button_icon(get_editor_theme_icon(SNAME("CurveEdit")));
+			curve_edit_curve->set_button_icon(get_editor_theme_icon(SNAME("CurveCurve")));
+			curve_create->set_button_icon(get_editor_theme_icon(SNAME("CurveCreate")));
+			curve_del->set_button_icon(get_editor_theme_icon(SNAME("CurveDelete")));
+			curve_close->set_button_icon(get_editor_theme_icon(SNAME("CurveClose")));
+			curve_clear_points->set_button_icon(get_editor_theme_icon(SNAME("Clear")));
 
-			create_curve_button->set_icon(get_editor_theme_icon(SNAME("Curve2D")));
+			create_curve_button->set_button_icon(get_editor_theme_icon(SNAME("Curve2D")));
 		} break;
 	}
 }
@@ -79,10 +79,11 @@ bool Path2DEditor::forward_gui_input(const Ref<InputEvent> &p_event) {
 
 	Ref<InputEventMouseButton> mb = p_event;
 	if (mb.is_valid()) {
-		Transform2D xform = canvas_item_editor->get_canvas_transform() * node->get_global_transform();
+		Transform2D xform = canvas_item_editor->get_canvas_transform() * node->get_screen_transform();
 
 		Vector2 gpoint = mb->get_position();
-		Vector2 cpoint = node->to_local(canvas_item_editor->snap_point(canvas_item_editor->get_canvas_transform().affine_inverse().xform(mb->get_position())));
+		Vector2 cpoint = canvas_item_editor->snap_point(canvas_item_editor->get_canvas_transform().affine_inverse().xform(gpoint));
+		cpoint = node->to_local(node->get_viewport()->get_popup_base_transform().affine_inverse().xform(cpoint));
 
 		if (mb->is_pressed() && action == ACTION_NONE) {
 			Ref<Curve2D> curve = node->get_curve();
@@ -297,7 +298,7 @@ bool Path2DEditor::forward_gui_input(const Ref<InputEvent> &p_event) {
 			// Handle Edge Follow
 			bool old_edge = on_edge;
 
-			Transform2D xform = canvas_item_editor->get_canvas_transform() * node->get_global_transform();
+			Transform2D xform = canvas_item_editor->get_canvas_transform() * node->get_screen_transform();
 			Vector2 gpoint = mm->get_position();
 
 			Ref<Curve2D> curve = node->get_curve();
@@ -342,9 +343,10 @@ bool Path2DEditor::forward_gui_input(const Ref<InputEvent> &p_event) {
 
 		if (action != ACTION_NONE) {
 			// Handle point/control movement.
-			Transform2D xform = canvas_item_editor->get_canvas_transform() * node->get_global_transform();
+			Transform2D xform = canvas_item_editor->get_canvas_transform() * node->get_screen_transform();
 			Vector2 gpoint = mm->get_position();
-			Vector2 cpoint = node->get_global_transform().affine_inverse().xform(canvas_item_editor->snap_point(canvas_item_editor->get_canvas_transform().affine_inverse().xform(mm->get_position())));
+			Vector2 cpoint = canvas_item_editor->snap_point(canvas_item_editor->get_canvas_transform().affine_inverse().xform(gpoint));
+			cpoint = node->to_local(node->get_viewport()->get_popup_base_transform().affine_inverse().xform(cpoint));
 
 			Ref<Curve2D> curve = node->get_curve();
 
@@ -391,7 +393,7 @@ void Path2DEditor::forward_canvas_draw_over_viewport(Control *p_overlay) {
 		return;
 	}
 
-	Transform2D xform = canvas_item_editor->get_canvas_transform() * node->get_global_transform();
+	Transform2D xform = canvas_item_editor->get_canvas_transform() * node->get_screen_transform();
 
 	const Ref<Texture2D> path_sharp_handle = get_editor_theme_icon(SNAME("EditorPathSharpHandle"));
 	const Ref<Texture2D> path_smooth_handle = get_editor_theme_icon(SNAME("EditorPathSmoothHandle"));

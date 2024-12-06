@@ -46,7 +46,7 @@
 
 #ifdef TOOLS_ENABLED
 #include "editor/plugins/control_editor_plugin.h"
-#endif
+#endif // TOOLS_ENABLED
 
 // Editor plugin interoperability.
 
@@ -122,11 +122,11 @@ void Control::_edit_set_state(const Dictionary &p_state) {
 void Control::_edit_set_position(const Point2 &p_position) {
 	ERR_FAIL_COND_MSG(!Engine::get_singleton()->is_editor_hint(), "This function can only be used from editor plugins.");
 	set_position(p_position, ControlEditorToolbar::get_singleton()->is_anchors_mode_enabled() && get_parent_control());
-};
+}
 
 Point2 Control::_edit_get_position() const {
 	return get_position();
-};
+}
 
 void Control::_edit_set_scale(const Size2 &p_scale) {
 	set_scale(p_scale);
@@ -140,14 +140,6 @@ void Control::_edit_set_rect(const Rect2 &p_edit_rect) {
 	ERR_FAIL_COND_MSG(!Engine::get_singleton()->is_editor_hint(), "This function can only be used from editor plugins.");
 	set_position((get_position() + get_transform().basis_xform(p_edit_rect.position)).snappedf(1), ControlEditorToolbar::get_singleton()->is_anchors_mode_enabled());
 	set_size(p_edit_rect.size.snappedf(1), ControlEditorToolbar::get_singleton()->is_anchors_mode_enabled());
-}
-
-Rect2 Control::_edit_get_rect() const {
-	return Rect2(Point2(), get_size());
-}
-
-bool Control::_edit_use_rect() const {
-	return true;
 }
 
 void Control::_edit_set_rotation(real_t p_rotation) {
@@ -180,7 +172,17 @@ bool Control::_edit_use_pivot() const {
 Size2 Control::_edit_get_minimum_size() const {
 	return get_combined_minimum_size();
 }
-#endif
+#endif // TOOLS_ENABLED
+
+#ifdef DEBUG_ENABLED
+Rect2 Control::_edit_get_rect() const {
+	return Rect2(Point2(), get_size());
+}
+
+bool Control::_edit_use_rect() const {
+	return true;
+}
+#endif // DEBUG_ENABLED
 
 void Control::reparent(Node *p_parent, bool p_keep_global_transform) {
 	ERR_MAIN_THREAD_GUARD;
@@ -241,7 +243,7 @@ void Control::get_argument_options(const StringName &p_function, int p_idx, List
 	}
 	CanvasItem::get_argument_options(p_function, p_idx, r_options);
 }
-#endif
+#endif // TOOLS_ENABLED
 
 PackedStringArray Control::get_configuration_warnings() const {
 	ERR_READ_THREAD_GUARD_V(PackedStringArray());
@@ -665,7 +667,7 @@ Rect2 Control::get_parent_anchorable_rect() const {
 
 #else
 		parent_rect = get_viewport()->get_visible_rect();
-#endif
+#endif // TOOLS_ENABLED
 	}
 
 	return parent_rect;
@@ -1398,7 +1400,7 @@ void Control::set_position(const Point2 &p_point, bool p_keep_offsets) {
 		data.pos_cache = p_point;
 		return;
 	}
-#endif
+#endif // TOOLS_ENABLED
 
 	if (p_keep_offsets) {
 		_compute_anchors(Rect2(p_point, data.size_cache), data.offset, data.anchor);
@@ -1442,7 +1444,7 @@ void Control::_set_size(const Size2 &p_size) {
 	if (data.size_warning && (data.anchor[SIDE_LEFT] != data.anchor[SIDE_RIGHT] || data.anchor[SIDE_TOP] != data.anchor[SIDE_BOTTOM])) {
 		WARN_PRINT("Nodes with non-equal opposite anchors will have their size overridden after _ready(). \nIf you want to set size, change the anchors or consider using set_deferred().");
 	}
-#endif
+#endif // DEBUG_ENABLED
 	set_size(p_size);
 }
 
@@ -1464,7 +1466,7 @@ void Control::set_size(const Size2 &p_size, bool p_keep_offsets) {
 		data.size_cache = new_size;
 		return;
 	}
-#endif
+#endif // TOOLS_ENABLED
 
 	if (p_keep_offsets) {
 		_compute_anchors(Rect2(data.pos_cache, new_size), data.offset, data.anchor);
@@ -1674,7 +1676,7 @@ Size2 Control::get_custom_minimum_size() const {
 	return data.custom_minimum_size;
 }
 
-void Control::_update_minimum_size_cache() {
+void Control::_update_minimum_size_cache() const {
 	Size2 minsize = get_minimum_size();
 	minsize = minsize.max(data.custom_minimum_size);
 
@@ -1685,7 +1687,7 @@ void Control::_update_minimum_size_cache() {
 Size2 Control::get_combined_minimum_size() const {
 	ERR_READ_THREAD_GUARD_V(Size2());
 	if (!data.minimum_size_valid) {
-		const_cast<Control *>(this)->_update_minimum_size_cache();
+		_update_minimum_size_cache();
 	}
 	return data.minimum_size_cache;
 }
@@ -2749,7 +2751,7 @@ Variant Control::get_theme_item(Theme::DataType p_data_type, const StringName &p
 Ref<Texture2D> Control::get_editor_theme_icon(const StringName &p_name) const {
 	return get_theme_icon(p_name, SNAME("EditorIcons"));
 }
-#endif
+#endif // TOOLS_ENABLED
 
 bool Control::has_theme_icon(const StringName &p_name, const StringName &p_theme_type) const {
 	ERR_READ_THREAD_GUARD_V(false);
@@ -3061,11 +3063,11 @@ Control::LayoutDirection Control::get_layout_direction() const {
 bool Control::is_layout_rtl() const {
 	ERR_READ_THREAD_GUARD_V(false);
 	if (data.is_rtl_dirty) {
-		const_cast<Control *>(this)->data.is_rtl_dirty = false;
+		data.is_rtl_dirty = false;
 		if (data.layout_dir == LAYOUT_DIRECTION_INHERITED) {
 #ifdef TOOLS_ENABLED
 			if (is_part_of_edited_scene() && GLOBAL_GET(SNAME("internationalization/rendering/force_right_to_left_layout_direction"))) {
-				const_cast<Control *>(this)->data.is_rtl = true;
+				data.is_rtl = true;
 				return data.is_rtl;
 			}
 			if (is_inside_tree()) {
@@ -3073,58 +3075,58 @@ bool Control::is_layout_rtl() const {
 				if (edited_scene_root == this) {
 					int proj_root_layout_direction = GLOBAL_GET(SNAME("internationalization/rendering/root_node_layout_direction"));
 					if (proj_root_layout_direction == 1) {
-						const_cast<Control *>(this)->data.is_rtl = false;
+						data.is_rtl = false;
 					} else if (proj_root_layout_direction == 2) {
-						const_cast<Control *>(this)->data.is_rtl = true;
+						data.is_rtl = true;
 					} else if (proj_root_layout_direction == 3) {
 						String locale = OS::get_singleton()->get_locale();
-						const_cast<Control *>(this)->data.is_rtl = TS->is_locale_right_to_left(locale);
+						data.is_rtl = TS->is_locale_right_to_left(locale);
 					} else {
 						String locale = TranslationServer::get_singleton()->get_tool_locale();
-						const_cast<Control *>(this)->data.is_rtl = TS->is_locale_right_to_left(locale);
+						data.is_rtl = TS->is_locale_right_to_left(locale);
 					}
 					return data.is_rtl;
 				}
 			}
 #else
 			if (GLOBAL_GET(SNAME("internationalization/rendering/force_right_to_left_layout_direction"))) {
-				const_cast<Control *>(this)->data.is_rtl = true;
+				data.is_rtl = true;
 				return data.is_rtl;
 			}
-#endif
+#endif // TOOLS_ENABLED
 			Node *parent_node = get_parent();
 			while (parent_node) {
 				Control *parent_control = Object::cast_to<Control>(parent_node);
 				if (parent_control) {
-					const_cast<Control *>(this)->data.is_rtl = parent_control->is_layout_rtl();
+					data.is_rtl = parent_control->is_layout_rtl();
 					return data.is_rtl;
 				}
 
 				Window *parent_window = Object::cast_to<Window>(parent_node);
 				if (parent_window) {
-					const_cast<Control *>(this)->data.is_rtl = parent_window->is_layout_rtl();
+					data.is_rtl = parent_window->is_layout_rtl();
 					return data.is_rtl;
 				}
 				parent_node = parent_node->get_parent();
 			}
 
 			if (root_layout_direction == 1) {
-				const_cast<Control *>(this)->data.is_rtl = false;
+				data.is_rtl = false;
 			} else if (root_layout_direction == 2) {
-				const_cast<Control *>(this)->data.is_rtl = true;
+				data.is_rtl = true;
 			} else if (root_layout_direction == 3) {
 				String locale = OS::get_singleton()->get_locale();
-				const_cast<Control *>(this)->data.is_rtl = TS->is_locale_right_to_left(locale);
+				data.is_rtl = TS->is_locale_right_to_left(locale);
 			} else {
 				String locale = TranslationServer::get_singleton()->get_tool_locale();
-				const_cast<Control *>(this)->data.is_rtl = TS->is_locale_right_to_left(locale);
+				data.is_rtl = TS->is_locale_right_to_left(locale);
 			}
 		} else if (data.layout_dir == LAYOUT_DIRECTION_APPLICATION_LOCALE) {
 			if (GLOBAL_GET(SNAME("internationalization/rendering/force_right_to_left_layout_direction"))) {
-				const_cast<Control *>(this)->data.is_rtl = true;
+				data.is_rtl = true;
 			} else {
 				String locale = TranslationServer::get_singleton()->get_tool_locale();
-				const_cast<Control *>(this)->data.is_rtl = TS->is_locale_right_to_left(locale);
+				data.is_rtl = TS->is_locale_right_to_left(locale);
 			}
 		} else if (data.layout_dir == LAYOUT_DIRECTION_SYSTEM_LOCALE) {
 			if (GLOBAL_GET(SNAME("internationalization/rendering/force_right_to_left_layout_direction"))) {
@@ -3134,7 +3136,7 @@ bool Control::is_layout_rtl() const {
 				const_cast<Control *>(this)->data.is_rtl = TS->is_locale_right_to_left(locale);
 			}
 		} else {
-			const_cast<Control *>(this)->data.is_rtl = (data.layout_dir == LAYOUT_DIRECTION_RTL);
+			data.is_rtl = (data.layout_dir == LAYOUT_DIRECTION_RTL);
 		}
 	}
 	return data.is_rtl;
@@ -3166,7 +3168,7 @@ bool Control::is_auto_translating() const {
 	ERR_READ_THREAD_GUARD_V(false);
 	return can_auto_translate();
 }
-#endif
+#endif // DISABLE_DEPRECATED
 
 void Control::set_tooltip_auto_translate_mode(AutoTranslateMode p_mode) {
 	ERR_MAIN_THREAD_GUARD;
@@ -3219,7 +3221,7 @@ void Control::_notification(int p_notification) {
 		case NOTIFICATION_EDITOR_POST_SAVE: {
 			saving = false;
 		} break;
-#endif
+#endif // TOOLS_ENABLED
 		case NOTIFICATION_POSTINITIALIZE: {
 			data.initialized = true;
 
@@ -3265,7 +3267,7 @@ void Control::_notification(int p_notification) {
 		case NOTIFICATION_READY: {
 #ifdef DEBUG_ENABLED
 			connect(SceneStringName(ready), callable_mp(this, &Control::_clear_size_warning), CONNECT_DEFERRED | CONNECT_ONE_SHOT);
-#endif
+#endif // DEBUG_ENABLED
 		} break;
 
 		case NOTIFICATION_ENTER_CANVAS: {
@@ -3577,7 +3579,7 @@ void Control::_bind_methods() {
 #ifndef DISABLE_DEPRECATED
 	ClassDB::bind_method(D_METHOD("set_auto_translate", "enable"), &Control::set_auto_translate);
 	ClassDB::bind_method(D_METHOD("is_auto_translating"), &Control::is_auto_translating);
-#endif
+#endif // DISABLE_DEPRECATED
 
 	ClassDB::bind_method(D_METHOD("set_localize_numeral_system", "enable"), &Control::set_localize_numeral_system);
 	ClassDB::bind_method(D_METHOD("is_localizing_numeral_system"), &Control::is_localizing_numeral_system);
@@ -3632,7 +3634,7 @@ void Control::_bind_methods() {
 
 #ifndef DISABLE_DEPRECATED
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "auto_translate", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE), "set_auto_translate", "is_auto_translating");
-#endif
+#endif // DISABLE_DEPRECATED
 
 	ADD_GROUP("Tooltip", "tooltip_");
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "tooltip_text", PROPERTY_HINT_MULTILINE_TEXT), "set_tooltip_text", "get_tooltip_text");

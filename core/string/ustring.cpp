@@ -33,6 +33,7 @@
 #include "core/crypto/crypto_core.h"
 #include "core/math/color.h"
 #include "core/math/math_funcs.h"
+#include "core/object/object.h"
 #include "core/os/memory.h"
 #include "core/string/print_string.h"
 #include "core/string/string_name.h"
@@ -63,6 +64,15 @@ const char CharString::_null = 0;
 const char16_t Char16String::_null = 0;
 const char32_t String::_null = 0;
 const char32_t String::_replacement_char = 0xfffd;
+
+// strlen equivalent function for char32_t * arguments.
+_FORCE_INLINE_ size_t strlen(const char32_t *p_str) {
+	const char32_t *ptr = p_str;
+	while (*ptr != 0) {
+		++ptr;
+	}
+	return ptr - p_str;
+}
 
 bool select_word(const String &p_s, int p_col, int &r_beg, int &r_end) {
 	const String &s = p_s;
@@ -245,27 +255,27 @@ Error String::parse_url(String &r_scheme, String &r_host, int &r_port, String &r
 			base = base.substr(pos + 3, base.length() - pos - 3);
 		}
 	}
-	pos = base.find("#");
+	pos = base.find_char('#');
 	// Fragment
 	if (pos != -1) {
 		r_fragment = base.substr(pos + 1);
 		base = base.substr(0, pos);
 	}
-	pos = base.find("/");
+	pos = base.find_char('/');
 	// Path
 	if (pos != -1) {
 		r_path = base.substr(pos, base.length() - pos);
 		base = base.substr(0, pos);
 	}
 	// Host
-	pos = base.find("@");
+	pos = base.find_char('@');
 	if (pos != -1) {
 		// Strip credentials
 		base = base.substr(pos + 1, base.length() - pos - 1);
 	}
 	if (base.begins_with("[")) {
 		// Literal IPv6
-		pos = base.rfind("]");
+		pos = base.rfind_char(']');
 		if (pos == -1) {
 			return ERR_INVALID_PARAMETER;
 		}
@@ -276,7 +286,7 @@ Error String::parse_url(String &r_scheme, String &r_host, int &r_port, String &r
 		if (base.get_slice_count(":") > 2) {
 			return ERR_INVALID_PARAMETER;
 		}
-		pos = base.rfind(":");
+		pos = base.rfind_char(':');
 		if (pos == -1) {
 			r_host = base;
 			base = "";
@@ -423,11 +433,7 @@ void String::copy_from(const char32_t *p_cstr) {
 		return;
 	}
 
-	int len = 0;
-	const char32_t *ptr = p_cstr;
-	while (*(ptr++) != 0) {
-		len++;
-	}
+	const int len = strlen(p_cstr);
 
 	if (len == 0) {
 		resize(0);
@@ -628,12 +634,7 @@ String &String::operator+=(char32_t p_char) {
 
 bool String::operator==(const char *p_str) const {
 	// compare Latin-1 encoded c-string
-	int len = 0;
-	const char *aux = p_str;
-
-	while (*(aux++) != 0) {
-		len++;
-	}
+	int len = strlen(p_str);
 
 	if (length() != len) {
 		return false;
@@ -667,12 +668,7 @@ bool String::operator==(const wchar_t *p_str) const {
 }
 
 bool String::operator==(const char32_t *p_str) const {
-	int len = 0;
-	const char32_t *aux = p_str;
-
-	while (*(aux++) != 0) {
-		len++;
-	}
+	const int len = strlen(p_str);
 
 	if (length() != len) {
 		return false;
@@ -1108,17 +1104,21 @@ String String::_camelcase_to_underscore() const {
 	String new_string;
 	int start_index = 0;
 
-	for (int i = 1; i < size(); i++) {
-		bool is_prev_upper = is_unicode_upper_case(cstr[i - 1]);
-		bool is_prev_lower = is_unicode_lower_case(cstr[i - 1]);
-		bool is_prev_digit = is_digit(cstr[i - 1]);
+	if (length() == 0) {
+		return *this;
+	}
 
-		bool is_curr_upper = is_unicode_upper_case(cstr[i]);
-		bool is_curr_lower = is_unicode_lower_case(cstr[i]);
-		bool is_curr_digit = is_digit(cstr[i]);
+	bool is_prev_upper = is_unicode_upper_case(cstr[0]);
+	bool is_prev_lower = is_unicode_lower_case(cstr[0]);
+	bool is_prev_digit = is_digit(cstr[0]);
+
+	for (int i = 1; i < length(); i++) {
+		const bool is_curr_upper = is_unicode_upper_case(cstr[i]);
+		const bool is_curr_lower = is_unicode_lower_case(cstr[i]);
+		const bool is_curr_digit = is_digit(cstr[i]);
 
 		bool is_next_lower = false;
-		if (i + 1 < size()) {
+		if (i + 1 < length()) {
 			is_next_lower = is_unicode_lower_case(cstr[i + 1]);
 		}
 
@@ -1131,6 +1131,10 @@ String String::_camelcase_to_underscore() const {
 			new_string += substr(start_index, i - start_index) + "_";
 			start_index = i;
 		}
+
+		is_prev_upper = is_curr_upper;
+		is_prev_lower = is_curr_lower;
+		is_prev_digit = is_curr_digit;
 	}
 
 	new_string += substr(start_index, size() - start_index);
@@ -1277,7 +1281,7 @@ String String::get_slice(const char *p_splitter, int p_slice) const {
 	}
 
 	int i = 0;
-	int splitter_length = strlen(p_splitter);
+	const int splitter_length = strlen(p_splitter);
 	while (true) {
 		pos = find(p_splitter, pos);
 		if (pos == -1) {
@@ -1428,6 +1432,7 @@ Vector<String> String::split(const char *p_splitter, bool p_allow_empty, int p_m
 
 	int from = 0;
 	int len = length();
+	const int splitter_length = strlen(p_splitter);
 
 	while (true) {
 		int end;
@@ -1458,7 +1463,7 @@ Vector<String> String::split(const char *p_splitter, bool p_allow_empty, int p_m
 			break;
 		}
 
-		from = end + strlen(p_splitter);
+		from = end + splitter_length;
 	}
 
 	return ret;
@@ -1818,7 +1823,7 @@ String String::num(double p_num, int p_decimals) {
 #endif
 
 	buf[324] = 0;
-	//destroy trailing zeroes
+	// Destroy trailing zeroes, except one after period.
 	{
 		bool period = false;
 		int z = 0;
@@ -1835,7 +1840,7 @@ String String::num(double p_num, int p_decimals) {
 				if (buf[z] == '0') {
 					buf[z] = 0;
 				} else if (buf[z] == '.') {
-					buf[z] = 0;
+					buf[z + 1] = '0';
 					break;
 				} else {
 					break;
@@ -1928,14 +1933,28 @@ String String::num_real(double p_num, bool p_trailing) {
 			return num_int64((int64_t)p_num);
 		}
 	}
-#ifdef REAL_T_IS_DOUBLE
 	int decimals = 14;
-#else
-	int decimals = 6;
-#endif
 	// We want to align the digits to the above sane default, so we only need
 	// to subtract log10 for numbers with a positive power of ten magnitude.
-	double abs_num = Math::abs(p_num);
+	const double abs_num = Math::abs(p_num);
+	if (abs_num > 10) {
+		decimals -= (int)floor(log10(abs_num));
+	}
+	return num(p_num, decimals);
+}
+
+String String::num_real(float p_num, bool p_trailing) {
+	if (p_num == (float)(int64_t)p_num) {
+		if (p_trailing) {
+			return num_int64((int64_t)p_num) + ".0";
+		} else {
+			return num_int64((int64_t)p_num);
+		}
+	}
+	int decimals = 6;
+	// We want to align the digits to the above sane default, so we only need
+	// to subtract log10 for numbers with a positive power of ten magnitude.
+	const float abs_num = Math::abs(p_num);
 	if (abs_num > 10) {
 		decimals -= (int)floor(log10(abs_num));
 	}
@@ -2626,7 +2645,7 @@ int64_t String::to_int() const {
 		return 0;
 	}
 
-	int to = (find(".") >= 0) ? find(".") : length();
+	int to = (find_char('.') >= 0) ? find_char('.') : length();
 
 	int64_t integer = 0;
 	int64_t sign = 1;
@@ -3372,7 +3391,7 @@ int String::find(const char *p_str, int p_from) const {
 	return -1;
 }
 
-int String::find_char(const char32_t &p_char, int p_from) const {
+int String::find_char(char32_t p_char, int p_from) const {
 	return _cowdata.find(p_char, p_from);
 }
 
@@ -3609,6 +3628,10 @@ int String::rfind(const char *p_str, int p_from) const {
 	return -1;
 }
 
+int String::rfind_char(char32_t p_char, int p_from) const {
+	return _cowdata.rfind(p_char, p_from);
+}
+
 int String::rfindn(const String &p_str, int p_from) const {
 	// establish a limit
 	int limit = length() - p_str.length();
@@ -3820,6 +3843,15 @@ bool String::is_subsequence_ofn(const String &p_string) const {
 
 bool String::is_quoted() const {
 	return is_enclosed_in("\"") || is_enclosed_in("'");
+}
+
+bool String::is_lowercase() const {
+	for (const char32_t *str = &operator[](0); *str; str++) {
+		if (is_unicode_upper_case(*str)) {
+			return false;
+		}
+	}
+	return true;
 }
 
 int String::_count(const String &p_string, int p_from, int p_to, bool p_case_insensitive) const {
@@ -4064,8 +4096,18 @@ String String::format(const Variant &values, const String &placeholder) const {
 		for (const Variant &key : keys) {
 			new_string = new_string.replace(placeholder.replace("_", key), d[key]);
 		}
+	} else if (values.get_type() == Variant::OBJECT) {
+		Object *obj = values.get_validated_object();
+		ERR_FAIL_NULL_V(obj, new_string);
+
+		List<PropertyInfo> props;
+		obj->get_property_list(&props);
+
+		for (const PropertyInfo &E : props) {
+			new_string = new_string.replace(placeholder.replace("_", E.name), obj->get(E.name));
+		}
 	} else {
-		ERR_PRINT(String("Invalid type: use Array or Dictionary.").ascii().get_data());
+		ERR_PRINT(String("Invalid type: use Array, Dictionary or Object.").ascii().get_data());
 	}
 
 	return new_string;
@@ -4542,7 +4584,7 @@ String String::simplify_path() const {
 			if (p == -1) {
 				p = s.find(":\\");
 			}
-			if (p != -1 && p < s.find("/")) {
+			if (p != -1 && p < s.find_char('/')) {
 				drive = s.substr(0, p + 2);
 				s = s.substr(p + 2);
 			}
@@ -4605,7 +4647,7 @@ String String::humanize_size(uint64_t p_size) {
 	}
 
 	if (magnitude == 0) {
-		return String::num(p_size) + " " + RTR("B");
+		return String::num_uint64(p_size) + " " + RTR("B");
 	} else {
 		String suffix;
 		switch (magnitude) {
@@ -4987,7 +5029,7 @@ String String::xml_unescape() const {
 
 String String::pad_decimals(int p_digits) const {
 	String s = *this;
-	int c = s.find(".");
+	int c = s.find_char('.');
 
 	if (c == -1) {
 		if (p_digits <= 0) {
@@ -5011,7 +5053,7 @@ String String::pad_decimals(int p_digits) const {
 
 String String::pad_zeros(int p_digits) const {
 	String s = *this;
-	int end = s.find(".");
+	int end = s.find_char('.');
 
 	if (end == -1) {
 		end = s.length();
@@ -5247,7 +5289,7 @@ bool String::is_valid_html_color() const {
 }
 
 // Changes made to the set of invalid filename characters must also be reflected in the String documentation for is_valid_filename.
-static const char *invalid_filename_characters = ": / \\ ? * \" | % < >";
+static const char *invalid_filename_characters[] = { ":", "/", "\\", "?", "*", "\"", "|", "%", "<", ">" };
 
 bool String::is_valid_filename() const {
 	String stripped = strip_edges();
@@ -5259,8 +5301,7 @@ bool String::is_valid_filename() const {
 		return false;
 	}
 
-	Vector<String> chars = String(invalid_filename_characters).split(" ");
-	for (const String &ch : chars) {
+	for (const char *ch : invalid_filename_characters) {
 		if (contains(ch)) {
 			return false;
 		}
@@ -5269,16 +5310,15 @@ bool String::is_valid_filename() const {
 }
 
 String String::validate_filename() const {
-	Vector<String> chars = String(invalid_filename_characters).split(" ");
 	String name = strip_edges();
-	for (int i = 0; i < chars.size(); i++) {
-		name = name.replace(chars[i], "_");
+	for (const char *ch : invalid_filename_characters) {
+		name = name.replace(ch, "_");
 	}
 	return name;
 }
 
 bool String::is_valid_ip_address() const {
-	if (find(":") >= 0) {
+	if (find_char(':') >= 0) {
 		Vector<String> ip = split(":");
 		for (int i = 0; i < ip.size(); i++) {
 			const String &n = ip[i];
@@ -5348,13 +5388,13 @@ String String::get_base_dir() const {
 	// Windows UNC network share path.
 	if (end == 0) {
 		if (is_network_share_path()) {
-			basepos = find("/", 2);
+			basepos = find_char('/', 2);
 			if (basepos == -1) {
-				basepos = find("\\", 2);
+				basepos = find_char('\\', 2);
 			}
-			int servpos = find("/", basepos + 1);
+			int servpos = find_char('/', basepos + 1);
 			if (servpos == -1) {
-				servpos = find("\\", basepos + 1);
+				servpos = find_char('\\', basepos + 1);
 			}
 			if (servpos != -1) {
 				end = servpos + 1;
@@ -5378,7 +5418,7 @@ String String::get_base_dir() const {
 		rs = *this;
 	}
 
-	int sep = MAX(rs.rfind("/"), rs.rfind("\\"));
+	int sep = MAX(rs.rfind_char('/'), rs.rfind_char('\\'));
 	if (sep == -1) {
 		return base;
 	}
@@ -5387,7 +5427,7 @@ String String::get_base_dir() const {
 }
 
 String String::get_file() const {
-	int sep = MAX(rfind("/"), rfind("\\"));
+	int sep = MAX(rfind_char('/'), rfind_char('\\'));
 	if (sep == -1) {
 		return *this;
 	}
@@ -5396,8 +5436,8 @@ String String::get_file() const {
 }
 
 String String::get_extension() const {
-	int pos = rfind(".");
-	if (pos < 0 || pos < MAX(rfind("/"), rfind("\\"))) {
+	int pos = rfind_char('.');
+	if (pos < 0 || pos < MAX(rfind_char('/'), rfind_char('\\'))) {
 		return "";
 	}
 
@@ -5495,8 +5535,8 @@ String String::validate_node_name() const {
 }
 
 String String::get_basename() const {
-	int pos = rfind(".");
-	if (pos < 0 || pos < MAX(rfind("/"), rfind("\\"))) {
+	int pos = rfind_char('.');
+	if (pos < 0 || pos < MAX(rfind_char('/'), rfind_char('\\'))) {
 		return *this;
 	}
 

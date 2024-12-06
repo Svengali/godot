@@ -1049,7 +1049,7 @@ void LightStorage::reflection_probe_free(RID p_rid) {
 	ReflectionProbe *reflection_probe = reflection_probe_owner.get_or_null(p_rid);
 	reflection_probe->dependency.deleted_notify(p_rid);
 	reflection_probe_owner.free(p_rid);
-};
+}
 
 void LightStorage::reflection_probe_set_update_mode(RID p_probe, RS::ReflectionProbeUpdateMode p_mode) {
 	ReflectionProbe *reflection_probe = reflection_probe_owner.get_or_null(p_probe);
@@ -2328,7 +2328,7 @@ bool LightStorage::shadow_atlas_update_light(RID p_atlas, RID p_light_instance, 
 		old_quadrant = (old_key >> QUADRANT_SHIFT) & 0x3;
 		old_shadow = old_key & SHADOW_INDEX_MASK;
 
-		should_realloc = shadow_atlas->quadrants[old_quadrant].subdivision != (uint32_t)best_subdiv && (shadow_atlas->quadrants[old_quadrant].shadows[old_shadow].alloc_tick - tick > shadow_atlas_realloc_tolerance_msec);
+		should_realloc = shadow_atlas->quadrants[old_quadrant].subdivision != (uint32_t)best_subdiv && (tick - shadow_atlas->quadrants[old_quadrant].shadows[old_shadow].alloc_tick > shadow_atlas_realloc_tolerance_msec);
 		should_redraw = shadow_atlas->quadrants[old_quadrant].shadows[old_shadow].version != p_light_version;
 
 		if (!should_realloc) {

@@ -1259,6 +1259,15 @@ void EditorFileSystem::_process_file_system(const ScannedDirectory *p_scan_dir, 
 					}
 				}
 			}
+
+			if (fi->uid == ResourceUID::INVALID_ID && ResourceLoader::exists(path) && !ResourceLoader::has_custom_uid_support(path) && !FileAccess::exists(path + ".uid")) {
+				// Create a UID.
+				Ref<FileAccess> f = FileAccess::open(path + ".uid", FileAccess::WRITE);
+				if (f.is_valid()) {
+					fi->uid = ResourceUID::get_singleton()->create_id();
+					f->store_line(ResourceUID::get_singleton()->id_to_text(fi->uid));
+				}
+			}
 		}
 
 		if (fi->uid != ResourceUID::INVALID_ID) {
@@ -1506,6 +1515,9 @@ void EditorFileSystem::_delete_internal_files(const String &p_file) {
 			da->remove(E);
 		}
 		da->remove(p_file + ".import");
+	}
+	if (FileAccess::exists(p_file + ".uid")) {
+		DirAccess::remove_absolute(p_file + ".uid");
 	}
 }
 
@@ -2376,8 +2388,16 @@ void EditorFileSystem::update_files(const Vector<String> &p_script_paths) {
 		if (!is_scanning()) {
 			_process_update_pending();
 		}
-		call_deferred(SNAME("emit_signal"), "filesystem_changed"); // Update later
+		if (!filesystem_changed_queued) {
+			filesystem_changed_queued = true;
+			callable_mp(this, &EditorFileSystem::_notify_filesystem_changed).call_deferred();
+		}
 	}
+}
+
+void EditorFileSystem::_notify_filesystem_changed() {
+	emit_signal("filesystem_changed");
+	filesystem_changed_queued = false;
 }
 
 HashSet<String> EditorFileSystem::get_valid_extensions() const {
@@ -2573,7 +2593,7 @@ Error EditorFileSystem::_reimport_group(const String &p_group_file, const Vector
 		EditorFileSystemDirectory *fs = nullptr;
 		int cpos = -1;
 		bool found = _find_file(file, &fs, cpos);
-		ERR_FAIL_COND_V_MSG(!found, ERR_UNCONFIGURED, "Can't find file '" + file + "'.");
+		ERR_FAIL_COND_V_MSG(!found, ERR_UNCONFIGURED, vformat("Can't find file '%s' during group reimport.", file));
 
 		//update modified times, to avoid reimport
 		fs->files[cpos]->modified_time = FileAccess::get_modified_time(file);
@@ -2623,7 +2643,7 @@ Error EditorFileSystem::_reimport_file(const String &p_file, const HashMap<Strin
 	int cpos = -1;
 	if (p_update_file_system) {
 		bool found = _find_file(p_file, &fs, cpos);
-		ERR_FAIL_COND_V_MSG(!found, ERR_FILE_NOT_FOUND, "Can't find file '" + p_file + "'.");
+		ERR_FAIL_COND_V_MSG(!found, ERR_FILE_NOT_FOUND, vformat("Can't find file '%s' during file reimport.", p_file));
 	}
 
 	//try to obtain existing params
@@ -2732,13 +2752,17 @@ Error EditorFileSystem::_reimport_file(const String &p_file, const HashMap<Strin
 		}
 	}
 
+	if (uid == ResourceUID::INVALID_ID) {
+		uid = ResourceUID::get_singleton()->create_id();
+	}
+
 	//finally, perform import!!
 	String base_path = ResourceFormatImporter::get_singleton()->get_import_base_path(p_file);
 
 	List<String> import_variants;
 	List<String> gen_files;
 	Variant meta;
-	Error err = importer->import(p_file, base_path, params, &import_variants, &gen_files, &meta);
+	Error err = importer->import(uid, p_file, base_path, params, &import_variants, &gen_files, &meta);
 
 	// As import is complete, save the .import file.
 
@@ -2757,10 +2781,6 @@ Error EditorFileSystem::_reimport_file(const String &p_file, const HashMap<Strin
 		}
 		if (!importer->get_resource_type().is_empty()) {
 			f->store_line("type=\"" + importer->get_resource_type() + "\"");
-		}
-
-		if (uid == ResourceUID::INVALID_ID) {
-			uid = ResourceUID::get_singleton()->create_id();
 		}
 
 		f->store_line("uid=\"" + ResourceUID::get_singleton()->id_to_text(uid) + "\""); // Store in readable format.
@@ -3536,5 +3556,9 @@ EditorFileSystem::EditorFileSystem() {
 }
 
 EditorFileSystem::~EditorFileSystem() {
+	if (filesystem) {
+		memdelete(filesystem);
+	}
+	filesystem = nullptr;
 	ResourceSaver::set_get_resource_id_for_path(nullptr);
 }

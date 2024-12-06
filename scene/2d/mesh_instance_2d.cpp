@@ -65,6 +65,9 @@ void MeshInstance2D::set_mesh(const Ref<Mesh> &p_mesh) {
 	mesh = p_mesh;
 
 	if (mesh.is_valid()) {
+		// If mesh is a PrimitiveMesh, calling get_rid on it can trigger a changed callback
+		// so do this before connecting to the change signal.
+		mesh->get_rid();
 		mesh->connect_changed(callable_mp((CanvasItem *)this, &CanvasItem::queue_redraw));
 	}
 
@@ -88,7 +91,7 @@ Ref<Texture2D> MeshInstance2D::get_texture() const {
 	return texture;
 }
 
-#ifdef TOOLS_ENABLED
+#ifdef DEBUG_ENABLED
 Rect2 MeshInstance2D::_edit_get_rect() const {
 	if (mesh.is_valid()) {
 		AABB aabb = mesh->get_aabb();
@@ -101,7 +104,7 @@ Rect2 MeshInstance2D::_edit_get_rect() const {
 bool MeshInstance2D::_edit_use_rect() const {
 	return mesh.is_valid();
 }
-#endif
+#endif // DEBUG_ENABLED
 
 MeshInstance2D::MeshInstance2D() {
 }

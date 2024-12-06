@@ -271,9 +271,11 @@ public:
 	};
 
 	static void set_root_layout_direction(int p_root_dir);
+	static Window *get_from_id(DisplayServer::WindowID p_window_id);
 
 	void set_title(const String &p_title);
 	String get_title() const;
+	String get_translated_title() const;
 
 	void set_initial_position(WindowInitialPosition p_initial_position);
 	WindowInitialPosition get_initial_position() const;
@@ -374,7 +376,7 @@ public:
 	bool is_wrapping_controls() const;
 	void child_controls_changed();
 
-	Window *get_exclusive_child() const { return exclusive_child; };
+	Window *get_exclusive_child() const { return exclusive_child; }
 	Window *get_parent_visible_window() const;
 	Viewport *get_parent_viewport() const;
 

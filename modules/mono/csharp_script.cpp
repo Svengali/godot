@@ -501,8 +501,8 @@ Vector<ScriptLanguage::StackInfo> CSharpLanguage::debug_get_current_stack_info()
 	}
 	_recursion_flag_ = true;
 	SCOPE_EXIT {
-		_recursion_flag_ = false;
-	};
+		_recursion_flag_ = false; // clang-format off
+	}; // clang-format on
 
 	if (!gdmono || !gdmono->is_runtime_initialized()) {
 		return Vector<StackInfo>();
@@ -2854,7 +2854,7 @@ Ref<Resource> ResourceFormatLoaderCSharpScript::load(const String &p_path, const
 	if (p_path.begins_with("csharp://")) {
 		// This is a virtual path used by generic types, extract the real path.
 		real_path = "res://" + p_path.trim_prefix("csharp://");
-		real_path = real_path.substr(0, real_path.rfind(":"));
+		real_path = real_path.substr(0, real_path.rfind_char(':'));
 	}
 
 	Ref<CSharpScript> scr;
@@ -2863,7 +2863,7 @@ Ref<Resource> ResourceFormatLoaderCSharpScript::load(const String &p_path, const
 		GDMonoCache::managed_callbacks.ScriptManagerBridge_GetOrCreateScriptBridgeForPath(&p_path, &scr);
 		ERR_FAIL_COND_V_MSG(scr.is_null(), Ref<Resource>(), "Could not create C# script '" + real_path + "'.");
 	} else {
-		scr = Ref<CSharpScript>(memnew(CSharpScript));
+		scr.instantiate();
 	}
 
 #if defined(DEBUG_ENABLED) || defined(TOOLS_ENABLED)

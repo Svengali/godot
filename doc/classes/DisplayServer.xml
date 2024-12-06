@@ -10,6 +10,13 @@
 	<tutorials>
 	</tutorials>
 	<methods>
+		<method name="beep" qualifiers="const">
+			<return type="void" />
+			<description>
+				Plays the beep sound from the operative system, if possible. Because it comes from the OS, the beep sound will be audible even if the application is muted. It may also be disabled for the entire OS by the user.
+				[b]Note:[/b] This method is implemented on macOS, Linux (X11/Wayland), and Windows.
+			</description>
+		</method>
 		<method name="clipboard_get" qualifiers="const">
 			<return type="String" />
 			<description>
@@ -105,7 +112,7 @@
 			<param index="3" name="callback" type="Callable" />
 			<description>
 				Shows a text input dialog which uses the operating system's native look-and-feel. [param callback] should accept a single [String] parameter which contains the text field's contents.
-				[b]Note:[/b] This method is implemented if the display server has the [constant FEATURE_NATIVE_DIALOG_INPUT] feature. Supported platforms include macOS and Windows.
+				[b]Note:[/b] This method is implemented if the display server has the [constant FEATURE_NATIVE_DIALOG_INPUT] feature. Supported platforms include macOS, Windows, and Android.
 			</description>
 		</method>
 		<method name="dialog_show">
@@ -139,11 +146,12 @@
 			<description>
 				Displays OS native dialog for selecting files or directories in the file system.
 				Each filter string in the [param filters] array should be formatted like this: [code]*.txt,*.doc;Text Files[/code]. The description text of the filter is optional and can be omitted. See also [member FileDialog.filters].
-				Callbacks have the following arguments: [code]status: bool, selected_paths: PackedStringArray, selected_filter_index: int[/code].
-				[b]Note:[/b] This method is implemented if the display server has the [constant FEATURE_NATIVE_DIALOG_FILE] feature. Supported platforms include Linux (X11/Wayland), Windows, and macOS.
+				Callbacks have the following arguments: [code]status: bool, selected_paths: PackedStringArray, selected_filter_index: int[/code]. [b]On Android,[/b] callback argument [code]selected_filter_index[/code] is always zero.
+				[b]Note:[/b] This method is implemented if the display server has the [constant FEATURE_NATIVE_DIALOG_FILE] feature. Supported platforms include Linux (X11/Wayland), Windows, macOS, and Android.
 				[b]Note:[/b] [param current_directory] might be ignored.
-				[b]Note:[/b] On Linux, [param show_hidden] is ignored.
-				[b]Note:[/b] On macOS, native file dialogs have no title.
+				[b]Note:[/b] On Android, the filter strings in the [param filters] array should be specified using MIME types, for example:[code]image/png, image/jpeg"[/code]. Additionally, the [param mode] [constant FILE_DIALOG_MODE_OPEN_ANY] is not supported on Android.
+				[b]Note:[/b] On Android and Linux, [param show_hidden] is ignored.
+				[b]Note:[/b] On Android and macOS, native file dialogs have no title.
 				[b]Note:[/b] On macOS, sandboxed apps will save security-scoped bookmarks to retain access to the opened folders across multiple sessions. Use [method OS.get_granted_permissions] to get a list of saved bookmarks.
 			</description>
 		</method>
@@ -166,7 +174,7 @@
 				- [code]"values"[/code] - [PackedStringArray] of values. If empty, boolean option (check box) is used.
 				- [code]"default"[/code] - default selected option index ([int]) or default boolean value ([bool]).
 				Callbacks have the following arguments: [code]status: bool, selected_paths: PackedStringArray, selected_filter_index: int, selected_option: Dictionary[/code].
-				[b]Note:[/b] This method is implemented if the display server has the [constant FEATURE_NATIVE_DIALOG_FILE] feature. Supported platforms include Linux (X11/Wayland), Windows, and macOS.
+				[b]Note:[/b] This method is implemented if the display server has the [constant FEATURE_NATIVE_DIALOG_FILE_EXTRA] feature. Supported platforms include Linux (X11/Wayland), Windows, and macOS.
 				[b]Note:[/b] [param current_directory] might be ignored.
 				[b]Note:[/b] On Linux (X11), [param show_hidden] is ignored.
 				[b]Note:[/b] On macOS, native file dialogs have no title.
@@ -184,7 +192,7 @@
 			<return type="Color" />
 			<description>
 				Returns OS theme accent color. Returns [code]Color(0, 0, 0, 0)[/code], if accent color is unknown.
-				[b]Note:[/b] This method is implemented on macOS and Windows.
+				[b]Note:[/b] This method is implemented on macOS, Windows, and Android.
 			</description>
 		</method>
 		<method name="get_base_color" qualifiers="const">
@@ -236,7 +244,7 @@
 			<return type="int" />
 			<param index="0" name="rect" type="Rect2" />
 			<description>
-				Returns index of the screen which contains specified rectangle.
+				Returns the index of the screen that overlaps the most with the given rectangle. Returns [code]-1[/code] if the rectangle doesn't overlap with any screen or has no area.
 			</description>
 		</method>
 		<method name="get_swap_cancel_ok">
@@ -1134,7 +1142,7 @@
 				Returns the scale factor of the specified screen by index.
 				[b]Note:[/b] On macOS, the returned value is [code]2.0[/code] for hiDPI (Retina) screens, and [code]1.0[/code] for all other cases.
 				[b]Note:[/b] On Linux (Wayland), the returned value is accurate only when [param screen] is [constant SCREEN_OF_MAIN_WINDOW]. Due to API limitations, passing a direct index will return a rounded-up integer, if the screen has a fractional scale (e.g. [code]1.25[/code] would get rounded up to [code]2.0[/code]).
-				[b]Note:[/b] This method is implemented only on macOS and Linux (Wayland).
+				[b]Note:[/b] This method is implemented on Android, iOS, Web, macOS, and Linux (Wayland).
 			</description>
 		</method>
 		<method name="screen_get_size" qualifiers="const">
@@ -1814,6 +1822,14 @@
 				[b]Warning:[/b] Advanced users only! Adding such a callback to a [Window] node will override its default implementation, which can introduce bugs.
 			</description>
 		</method>
+		<method name="window_start_drag">
+			<return type="void" />
+			<param index="0" name="window_id" type="int" default="0" />
+			<description>
+				Starts a drag operation on the window with the given [param window_id], using the current mouse position. Call this method when handling a mouse button being pressed to simulate a pressed event on the window's title bar. Using this method allows the window to participate in space switching, tiling, and other system features.
+				[b]Note:[/b] This method is implemented only on macOS.
+			</description>
+		</method>
 	</methods>
 	<constants>
 		<constant name="FEATURE_GLOBAL_MENU" value="0" enum="Feature" deprecated="Use [NativeMenu] or [PopupMenu] instead.">
@@ -1889,7 +1905,13 @@
 			Display server supports spawning text input dialogs using the operating system's native look-and-feel. See [method dialog_input_text]. [b]Windows, macOS[/b]
 		</constant>
 		<constant name="FEATURE_NATIVE_DIALOG_FILE" value="25" enum="Feature">
-			Display server supports spawning dialogs for selecting files or directories using the operating system's native look-and-feel. See [method file_dialog_show] and [method file_dialog_with_options_show]. [b]Windows, macOS, Linux (X11/Wayland)[/b]
+			Display server supports spawning dialogs for selecting files or directories using the operating system's native look-and-feel. See [method file_dialog_show]. [b]Windows, macOS, Linux (X11/Wayland), Android[/b]
+		</constant>
+		<constant name="FEATURE_NATIVE_DIALOG_FILE_EXTRA" value="26" enum="Feature">
+			The display server supports all features of [constant FEATURE_NATIVE_DIALOG_FILE], with the added functionality of Options and native dialog file access to [code]res://[/code] and [code]user://[/code] paths. See [method file_dialog_show] and [method file_dialog_with_options_show]. [b]Windows, macOS, Linux (X11/Wayland)[/b]
+		</constant>
+		<constant name="FEATURE_WINDOW_DRAG" value="27" enum="Feature">
+			The display server supports initiating window drag operation on demand. See [method window_start_drag].
 		</constant>
 		<constant name="MOUSE_MODE_VISIBLE" value="0" enum="MouseMode">
 			Makes the mouse cursor visible if it is hidden.
@@ -2166,12 +2188,12 @@
 		</constant>
 		<constant name="WINDOW_VIEW" value="2" enum="HandleType">
 			Window view:
-			- Windows: [code]HDC[/code] for the window (only with the GL Compatibility renderer).
+			- Windows: [code]HDC[/code] for the window (only with the Compatibility renderer).
 			- macOS: [code]NSView*[/code] for the window main view.
 			- iOS: [code]UIView*[/code] for the window main view.
 		</constant>
 		<constant name="OPENGL_CONTEXT" value="3" enum="HandleType">
-			OpenGL context (only with the GL Compatibility renderer):
+			OpenGL context (only with the Compatibility renderer):
 			- Windows: [code]HGLRC[/code] for the window (native GL), or [code]EGLContext[/code] for the window (ANGLE).
 			- Linux (X11): [code]GLXContext*[/code] for the window.
 			- Linux (Wayland): [code]EGLContext[/code] for the window.

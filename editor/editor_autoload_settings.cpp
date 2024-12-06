@@ -55,12 +55,12 @@ void EditorAutoloadSettings::_notification(int p_what) {
 				file_dialog->add_filter("*." + E);
 			}
 
-			browse_button->set_icon(get_editor_theme_icon(SNAME("Folder")));
+			browse_button->set_button_icon(get_editor_theme_icon(SNAME("Folder")));
 		} break;
 
 		case NOTIFICATION_THEME_CHANGED: {
-			browse_button->set_icon(get_editor_theme_icon(SNAME("Folder")));
-			add_autoload->set_icon(get_editor_theme_icon(SNAME("Add")));
+			browse_button->set_button_icon(get_editor_theme_icon(SNAME("Folder")));
+			add_autoload->set_button_icon(get_editor_theme_icon(SNAME("Add")));
 		} break;
 
 		case NOTIFICATION_VISIBILITY_CHANGED: {
@@ -921,7 +921,7 @@ EditorAutoloadSettings::EditorAutoloadSettings() {
 
 	autoload_add_name = memnew(LineEdit);
 	autoload_add_name->set_h_size_flags(SIZE_EXPAND_FILL);
-	autoload_add_name->connect("text_submitted", callable_mp(this, &EditorAutoloadSettings::_autoload_text_submitted));
+	autoload_add_name->connect(SceneStringName(text_submitted), callable_mp(this, &EditorAutoloadSettings::_autoload_text_submitted));
 	autoload_add_name->connect(SceneStringName(text_changed), callable_mp(this, &EditorAutoloadSettings::_autoload_text_changed));
 	hbc->add_child(autoload_add_name);
 
@@ -975,7 +975,7 @@ EditorAutoloadSettings::~EditorAutoloadSettings() {
 
 void EditorAutoloadSettings::_set_autoload_add_path(const String &p_text) {
 	autoload_add_path->set_text(p_text);
-	autoload_add_path->emit_signal(SNAME("text_submitted"), p_text);
+	autoload_add_path->emit_signal(SceneStringName(text_submitted), p_text);
 }
 
 void EditorAutoloadSettings::_browse_autoload_add_path() {
