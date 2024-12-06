@@ -590,7 +590,7 @@ public:
 
 	/* LIGHT INSTANCE API */
 
-	bool owns_light_instance(RID p_rid) { return light_instance_owner.owns(p_rid); };
+	bool owns_light_instance(RID p_rid) { return light_instance_owner.owns(p_rid); }
 
 	virtual RID light_instance_create(RID p_light) override;
 	virtual void light_instance_free(RID p_light) override;
@@ -799,6 +799,16 @@ public:
 	RID get_spot_light_buffer() { return spot_light_buffer; }
 	RID get_directional_light_buffer() { return directional_light_buffer; }
 	uint32_t get_max_directional_lights() { return max_directional_lights; }
+	uint32_t get_directional_light_blend_splits(uint32_t p_directional_light_count) const {
+		uint32_t blend_splits = 0;
+		for (uint32_t i = 0; i < p_directional_light_count; i++) {
+			if (directional_lights[i].blend_splits) {
+				blend_splits |= 1U << i;
+			}
+		}
+
+		return blend_splits;
+	}
 	bool has_directional_shadows(const uint32_t p_directional_light_count) {
 		for (uint32_t i = 0; i < p_directional_light_count; i++) {
 			if (directional_lights[i].shadow_opacity > 0.001) {
@@ -811,7 +821,7 @@ public:
 
 	/* REFLECTION PROBE */
 
-	bool owns_reflection_probe(RID p_rid) { return reflection_probe_owner.owns(p_rid); };
+	bool owns_reflection_probe(RID p_rid) { return reflection_probe_owner.owns(p_rid); }
 
 	virtual RID reflection_probe_allocate() override;
 	virtual void reflection_probe_initialize(RID p_reflection_probe) override;
@@ -953,7 +963,7 @@ public:
 
 	/* LIGHTMAP */
 
-	bool owns_lightmap(RID p_rid) { return lightmap_owner.owns(p_rid); };
+	bool owns_lightmap(RID p_rid) { return lightmap_owner.owns(p_rid); }
 
 	virtual RID lightmap_allocate() override;
 	virtual void lightmap_initialize(RID p_lightmap) override;
@@ -1019,7 +1029,7 @@ public:
 
 	/* LIGHTMAP INSTANCE */
 
-	bool owns_lightmap_instance(RID p_rid) { return lightmap_instance_owner.owns(p_rid); };
+	bool owns_lightmap_instance(RID p_rid) { return lightmap_instance_owner.owns(p_rid); }
 
 	virtual RID lightmap_instance_create(RID p_lightmap) override;
 	virtual void lightmap_instance_free(RID p_lightmap) override;
@@ -1039,7 +1049,7 @@ public:
 
 	/* SHADOW ATLAS API */
 
-	bool owns_shadow_atlas(RID p_rid) { return shadow_atlas_owner.owns(p_rid); };
+	bool owns_shadow_atlas(RID p_rid) { return shadow_atlas_owner.owns(p_rid); }
 
 	virtual RID shadow_atlas_create() override;
 	virtual void shadow_atlas_free(RID p_atlas) override;

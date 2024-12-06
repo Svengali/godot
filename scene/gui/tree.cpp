@@ -1099,7 +1099,7 @@ void TreeItem::clear_children() {
 	first_child = nullptr;
 	last_child = nullptr;
 	children_cache.clear();
-};
+}
 
 int TreeItem::get_index() {
 	int idx = 0;
@@ -1574,7 +1574,7 @@ Size2 TreeItem::get_minimum_size(int p_column) {
 
 	const TreeItem::Cell &cell = cells[p_column];
 
-	if (cell.cached_minimum_size_dirty) {
+	if (cell.cached_minimum_size_dirty || cell.text_buf->is_dirty() || cell.dirty) {
 		Size2 size = Size2(
 				parent_tree->theme_cache.inner_item_margin_left + parent_tree->theme_cache.inner_item_margin_right,
 				parent_tree->theme_cache.inner_item_margin_top + parent_tree->theme_cache.inner_item_margin_bottom);
@@ -1593,7 +1593,9 @@ Size2 TreeItem::get_minimum_size(int p_column) {
 
 		// Icon.
 		if (cell.mode == CELL_MODE_CHECK) {
-			size.width += parent_tree->theme_cache.checked->get_width() + parent_tree->theme_cache.h_separation;
+			Size2i check_size = parent_tree->theme_cache.checked->get_size();
+			size.width += check_size.width + parent_tree->theme_cache.h_separation;
+			size.height = MAX(size.height, check_size.height);
 		}
 		if (cell.icon.is_valid()) {
 			Size2i icon_size = parent_tree->_get_cell_icon_size(cell);
@@ -1605,7 +1607,8 @@ Size2 TreeItem::get_minimum_size(int p_column) {
 		for (int i = 0; i < cell.buttons.size(); i++) {
 			Ref<Texture2D> texture = cell.buttons[i].texture;
 			if (texture.is_valid()) {
-				Size2 button_size = texture->get_size() + parent_tree->theme_cache.button_pressed->get_minimum_size();
+				Size2 button_size = texture->get_size();
+				button_size.width += parent_tree->theme_cache.button_pressed->get_minimum_size().width;
 				size.width += button_size.width + parent_tree->theme_cache.button_margin;
 				size.height = MAX(size.height, button_size.height);
 			}
@@ -1889,44 +1892,7 @@ int Tree::compute_item_height(TreeItem *p_item) const {
 	int height = 0;
 
 	for (int i = 0; i < columns.size(); i++) {
-		if (p_item->cells[i].dirty) {
-			const_cast<Tree *>(this)->update_item_cell(p_item, i);
-		}
-		height = MAX(height, p_item->cells[i].text_buf->get_size().y);
-		for (int j = 0; j < p_item->cells[i].buttons.size(); j++) {
-			Size2i s; // = cache.button_pressed->get_minimum_size();
-			s += p_item->cells[i].buttons[j].texture->get_size();
-			if (s.height > height) {
-				height = s.height;
-			}
-		}
-
-		switch (p_item->cells[i].mode) {
-			case TreeItem::CELL_MODE_CHECK: {
-				int check_icon_h = theme_cache.checked->get_height();
-				if (height < check_icon_h) {
-					height = check_icon_h;
-				}
-				[[fallthrough]];
-			}
-			case TreeItem::CELL_MODE_STRING:
-			case TreeItem::CELL_MODE_CUSTOM:
-			case TreeItem::CELL_MODE_ICON: {
-				Ref<Texture2D> icon = p_item->cells[i].icon;
-				if (!icon.is_null()) {
-					Size2i s = _get_cell_icon_size(p_item->cells[i]);
-					if (s.height > height) {
-						height = s.height;
-					}
-				}
-				if (p_item->cells[i].mode == TreeItem::CELL_MODE_CUSTOM && p_item->cells[i].custom_button) {
-					height += theme_cache.custom_button->get_minimum_size().height;
-				}
-
-			} break;
-			default: {
-			}
-		}
+		height = MAX(height, p_item->get_minimum_size(i).y);
 	}
 	int item_min_height = MAX(theme_cache.font->get_height(theme_cache.font_size), p_item->get_custom_minimum_height());
 	if (height < item_min_height) {
@@ -2036,7 +2002,7 @@ void Tree::update_column(int p_col) {
 	columns.write[p_col].cached_minimum_width_dirty = true;
 }
 
-void Tree::update_item_cell(TreeItem *p_item, int p_col) {
+void Tree::update_item_cell(TreeItem *p_item, int p_col) const {
 	String valtext;
 
 	p_item->cells.write[p_col].text_buf->clear();
@@ -2124,7 +2090,7 @@ void Tree::update_item_cell(TreeItem *p_item, int p_col) {
 	p_item->cells.write[p_col].dirty = false;
 }
 
-void Tree::update_item_cache(TreeItem *p_item) {
+void Tree::update_item_cache(TreeItem *p_item) const {
 	for (int i = 0; i < p_item->cells.size(); i++) {
 		update_item_cell(p_item, i);
 	}
@@ -2376,7 +2342,7 @@ int Tree::draw_item(const Point2i &p_pos, const Point2 &p_draw_ofs, const Size2 
 			Color icon_col = p_item->cells[i].icon_color;
 
 			if (p_item->cells[i].dirty) {
-				const_cast<Tree *>(this)->update_item_cell(p_item, i);
+				update_item_cell(p_item, i);
 			}
 
 			if (rtl) {
@@ -4702,6 +4668,7 @@ void Tree::item_edited(int p_column, TreeItem *p_item, MouseButton p_custom_mous
 	edited_col = p_column;
 	if (p_item != nullptr && p_column >= 0 && p_column < p_item->cells.size()) {
 		edited_item->cells.write[p_column].dirty = true;
+		edited_item->cells.write[p_column].cached_minimum_size_dirty = true;
 	}
 	emit_signal(SNAME("item_edited"));
 	if (p_custom_mouse_index != MouseButton::NONE) {
@@ -4827,7 +4794,7 @@ void Tree::clear() {
 	_determine_hovered_item();
 
 	queue_redraw();
-};
+}
 
 void Tree::set_hide_root(bool p_enabled) {
 	if (hide_root == p_enabled) {
@@ -5362,14 +5329,16 @@ void Tree::scroll_to_item(TreeItem *p_item, bool p_center_on_item) {
 
 	int y_offset = get_item_offset(p_item);
 	if (y_offset != -1) {
-		const int tbh = _get_title_button_height();
-		y_offset -= tbh;
+		const int title_button_height = _get_title_button_height();
+		y_offset -= title_button_height;
 
 		const int cell_h = compute_item_height(p_item) + theme_cache.v_separation;
-		int screen_h = area_size.height - tbh;
+		int screen_h = area_size.height - title_button_height;
 
 		if (p_center_on_item) {
-			v_scroll->set_value(y_offset - (screen_h - cell_h) / 2.0f);
+			// This makes sure that centering the offset doesn't overflow.
+			const double v_scroll_value = y_offset - MAX((screen_h - cell_h) / 2.0, 0.0);
+			v_scroll->set_value(v_scroll_value);
 		} else {
 			if (cell_h > screen_h) { // Screen size is too small, maybe it was not resized yet.
 				v_scroll->set_value(y_offset);
@@ -5781,7 +5750,7 @@ String Tree::get_tooltip(const Point2 &p_pos) const {
 
 	if (it) {
 		const String item_tooltip = it->get_tooltip_text(col);
-		if (item_tooltip.is_empty()) {
+		if (enable_auto_tooltip && item_tooltip.is_empty()) {
 			return it->get_text(col);
 		}
 		return item_tooltip;
@@ -5861,6 +5830,14 @@ void Tree::set_allow_search(bool p_allow) {
 
 bool Tree::get_allow_search() const {
 	return allow_search;
+}
+
+void Tree::set_auto_tooltip(bool p_enable) {
+	enable_auto_tooltip = p_enable;
+}
+
+bool Tree::is_auto_tooltip_enabled() const {
+	return enable_auto_tooltip;
 }
 
 void Tree::_bind_methods() {
@@ -5946,6 +5923,9 @@ void Tree::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_allow_search", "allow"), &Tree::set_allow_search);
 	ClassDB::bind_method(D_METHOD("get_allow_search"), &Tree::get_allow_search);
 
+	ClassDB::bind_method(D_METHOD("set_auto_tooltip", "enable"), &Tree::set_auto_tooltip);
+	ClassDB::bind_method(D_METHOD("is_auto_tooltip_enabled"), &Tree::is_auto_tooltip_enabled);
+
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "columns"), "set_columns", "get_columns");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "column_titles_visible"), "set_column_titles_visible", "are_column_titles_visible");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "allow_reselect"), "set_allow_reselect", "get_allow_reselect");
@@ -5958,6 +5938,7 @@ void Tree::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "select_mode", PROPERTY_HINT_ENUM, "Single,Row,Multi"), "set_select_mode", "get_select_mode");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "scroll_horizontal_enabled"), "set_h_scroll_enabled", "is_h_scroll_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "scroll_vertical_enabled"), "set_v_scroll_enabled", "is_v_scroll_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "auto_tooltip"), "set_auto_tooltip", "is_auto_tooltip_enabled");
 
 	ADD_SIGNAL(MethodInfo("item_selected"));
 	ADD_SIGNAL(MethodInfo("cell_selected"));
@@ -6107,7 +6088,7 @@ Tree::Tree() {
 
 	h_scroll->connect(SceneStringName(value_changed), callable_mp(this, &Tree::_scroll_moved));
 	v_scroll->connect(SceneStringName(value_changed), callable_mp(this, &Tree::_scroll_moved));
-	line_editor->connect("text_submitted", callable_mp(this, &Tree::_line_editor_submit));
+	line_editor->connect(SceneStringName(text_submitted), callable_mp(this, &Tree::_line_editor_submit));
 	text_editor->connect(SceneStringName(gui_input), callable_mp(this, &Tree::_text_editor_gui_input));
 	popup_editor->connect("popup_hide", callable_mp(this, &Tree::_text_editor_popup_modal_close));
 	popup_menu->connect(SceneStringName(id_pressed), callable_mp(this, &Tree::popup_select));

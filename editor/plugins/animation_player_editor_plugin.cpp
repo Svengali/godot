@@ -113,7 +113,7 @@ void AnimationPlayerEditor::_notification(int p_what) {
 				// Need the last frame after it stopped.
 				frame->set_value(player->get_current_animation_position());
 				track_editor->set_anim_pos(player->get_current_animation_position());
-				stop->set_icon(stop_icon);
+				stop->set_button_icon(stop_icon);
 			}
 
 			last_active = player->is_playing();
@@ -145,16 +145,16 @@ void AnimationPlayerEditor::_notification(int p_what) {
 			stop_icon = get_editor_theme_icon(SNAME("Stop"));
 			pause_icon = get_editor_theme_icon(SNAME("Pause"));
 			if (player && player->is_playing()) {
-				stop->set_icon(pause_icon);
+				stop->set_button_icon(pause_icon);
 			} else {
-				stop->set_icon(stop_icon);
+				stop->set_button_icon(stop_icon);
 			}
 
-			autoplay->set_icon(get_editor_theme_icon(SNAME("AutoPlay")));
-			play->set_icon(get_editor_theme_icon(SNAME("PlayStart")));
-			play_from->set_icon(get_editor_theme_icon(SNAME("Play")));
-			play_bw->set_icon(get_editor_theme_icon(SNAME("PlayStartBackwards")));
-			play_bw_from->set_icon(get_editor_theme_icon(SNAME("PlayBackwards")));
+			autoplay->set_button_icon(get_editor_theme_icon(SNAME("AutoPlay")));
+			play->set_button_icon(get_editor_theme_icon(SNAME("PlayStart")));
+			play_from->set_button_icon(get_editor_theme_icon(SNAME("Play")));
+			play_bw->set_button_icon(get_editor_theme_icon(SNAME("PlayStartBackwards")));
+			play_bw_from->set_button_icon(get_editor_theme_icon(SNAME("PlayBackwards")));
 
 			autoplay_icon = get_editor_theme_icon(SNAME("AutoPlay"));
 			reset_icon = get_editor_theme_icon(SNAME("Reload"));
@@ -168,10 +168,10 @@ void AnimationPlayerEditor::_notification(int p_what) {
 				autoplay_reset_icon = ImageTexture::create_from_image(autoplay_reset_img);
 			}
 
-			onion_toggle->set_icon(get_editor_theme_icon(SNAME("Onion")));
-			onion_skinning->set_icon(get_editor_theme_icon(SNAME("GuiTabMenuHl")));
+			onion_toggle->set_button_icon(get_editor_theme_icon(SNAME("Onion")));
+			onion_skinning->set_button_icon(get_editor_theme_icon(SNAME("GuiTabMenuHl")));
 
-			pin->set_icon(get_editor_theme_icon(SNAME("Pin")));
+			pin->set_button_icon(get_editor_theme_icon(SNAME("Pin")));
 
 			tool_anim->add_theme_style_override(CoreStringName(normal), get_theme_stylebox(CoreStringName(normal), SNAME("Button")));
 			track_editor->get_edit_menu()->add_theme_style_override(CoreStringName(normal), get_theme_stylebox(CoreStringName(normal), SNAME("Button")));
@@ -307,7 +307,7 @@ void AnimationPlayerEditor::_play_pressed() {
 	}
 
 	//unstop
-	stop->set_icon(pause_icon);
+	stop->set_button_icon(pause_icon);
 }
 
 void AnimationPlayerEditor::_play_from_pressed() {
@@ -331,7 +331,7 @@ void AnimationPlayerEditor::_play_from_pressed() {
 	}
 
 	//unstop
-	stop->set_icon(pause_icon);
+	stop->set_button_icon(pause_icon);
 }
 
 String AnimationPlayerEditor::_get_current() const {
@@ -359,7 +359,7 @@ void AnimationPlayerEditor::_play_bw_pressed() {
 	}
 
 	//unstop
-	stop->set_icon(pause_icon);
+	stop->set_button_icon(pause_icon);
 }
 
 void AnimationPlayerEditor::_play_bw_from_pressed() {
@@ -383,7 +383,7 @@ void AnimationPlayerEditor::_play_bw_from_pressed() {
 	}
 
 	//unstop
-	stop->set_icon(pause_icon);
+	stop->set_button_icon(pause_icon);
 }
 
 void AnimationPlayerEditor::_stop_pressed() {
@@ -400,7 +400,7 @@ void AnimationPlayerEditor::_stop_pressed() {
 		frame->set_value(0);
 		track_editor->set_anim_pos(0);
 	}
-	stop->set_icon(stop_icon);
+	stop->set_button_icon(stop_icon);
 }
 
 void AnimationPlayerEditor::_animation_selected(int p_which) {
@@ -580,8 +580,10 @@ float AnimationPlayerEditor::_get_editor_step() const {
 	const Ref<Animation> anim = player->get_animation(current);
 	ERR_FAIL_COND_V(anim.is_null(), 0.0);
 
+	float step = track_editor->get_snap_unit();
+
 	// Use more precise snapping when holding Shift
-	return Input::get_singleton()->is_key_pressed(Key::SHIFT) ? anim->get_step() * 0.25 : anim->get_step();
+	return Input::get_singleton()->is_key_pressed(Key::SHIFT) ? step * 0.25 : step;
 }
 
 void AnimationPlayerEditor::_animation_name_edited() {
@@ -899,7 +901,7 @@ void AnimationPlayerEditor::set_state(const Dictionary &p_state) {
 					player->connect(SNAME("animation_list_changed"), callable_mp(this, &AnimationPlayerEditor::_animation_libraries_updated), CONNECT_DEFERRED);
 				}
 				if (!player->is_connected(SNAME("current_animation_changed"), callable_mp(this, &AnimationPlayerEditor::_current_animation_changed))) {
-					player->connect(SNAME("current_animation_changed"), callable_mp(this, &AnimationPlayerEditor::_current_animation_changed), CONNECT_DEFERRED);
+					player->connect(SNAME("current_animation_changed"), callable_mp(this, &AnimationPlayerEditor::_current_animation_changed));
 				}
 			}
 
@@ -959,9 +961,9 @@ void AnimationPlayerEditor::_update_animation() {
 	updating = true;
 
 	if (player->is_playing()) {
-		stop->set_icon(pause_icon);
+		stop->set_button_icon(pause_icon);
 	} else {
-		stop->set_icon(stop_icon);
+		stop->set_button_icon(stop_icon);
 	}
 
 	scale->set_text(String::num(player->get_speed_scale(), 2));
@@ -1397,7 +1399,7 @@ void AnimationPlayerEditor::_seek_value_changed(float p_value, bool p_timeline_o
 	}
 
 	track_editor->set_anim_pos(pos);
-};
+}
 
 void AnimationPlayerEditor::_animation_player_changed(Object *p_pl) {
 	_update_player();
@@ -2195,7 +2197,7 @@ AnimationPlayerEditor::AnimationPlayerEditor(AnimationPlayerEditorPlugin *p_plug
 	animation->connect(SceneStringName(item_selected), callable_mp(this, &AnimationPlayerEditor::_animation_selected));
 
 	frame->connect(SceneStringName(value_changed), callable_mp(this, &AnimationPlayerEditor::_seek_value_changed).bind(false));
-	scale->connect(SNAME("text_submitted"), callable_mp(this, &AnimationPlayerEditor::_scale_changed));
+	scale->connect(SceneStringName(text_submitted), callable_mp(this, &AnimationPlayerEditor::_scale_changed));
 
 	add_child(track_editor);
 	track_editor->set_v_size_flags(SIZE_EXPAND_FILL);

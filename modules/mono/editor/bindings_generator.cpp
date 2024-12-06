@@ -190,7 +190,7 @@ String BindingsGenerator::bbcode_to_text(const String &p_bbcode, const TypeInter
 
 	int pos = 0;
 	while (pos < bbcode.length()) {
-		int brk_pos = bbcode.find("[", pos);
+		int brk_pos = bbcode.find_char('[', pos);
 
 		if (brk_pos < 0) {
 			brk_pos = bbcode.length();
@@ -210,7 +210,7 @@ String BindingsGenerator::bbcode_to_text(const String &p_bbcode, const TypeInter
 			break;
 		}
 
-		int brk_end = bbcode.find("]", brk_pos + 1);
+		int brk_end = bbcode.find_char(']', brk_pos + 1);
 
 		if (brk_end == -1) {
 			String text = bbcode.substr(brk_pos, bbcode.length() - brk_pos);
@@ -239,7 +239,7 @@ String BindingsGenerator::bbcode_to_text(const String &p_bbcode, const TypeInter
 			output.append("[");
 			pos = brk_pos + 1;
 		} else if (tag.begins_with("method ") || tag.begins_with("constructor ") || tag.begins_with("operator ") || tag.begins_with("member ") || tag.begins_with("signal ") || tag.begins_with("enum ") || tag.begins_with("constant ") || tag.begins_with("theme_item ") || tag.begins_with("param ")) {
-			const int tag_end = tag.find(" ");
+			const int tag_end = tag.find_char(' ');
 			const String link_tag = tag.substr(0, tag_end);
 			const String link_target = tag.substr(tag_end + 1, tag.length()).lstrip(" ");
 
@@ -385,7 +385,7 @@ String BindingsGenerator::bbcode_to_text(const String &p_bbcode, const TypeInter
 			pos = brk_end + 1;
 			tag_stack.push_front(tag);
 		} else if (tag == "url") {
-			int end = bbcode.find("[", brk_end);
+			int end = bbcode.find_char('[', brk_end);
 			if (end == -1) {
 				end = bbcode.length();
 			}
@@ -403,7 +403,7 @@ String BindingsGenerator::bbcode_to_text(const String &p_bbcode, const TypeInter
 			pos = brk_end + 1;
 			tag_stack.push_front("url");
 		} else if (tag == "img") {
-			int end = bbcode.find("[", brk_end);
+			int end = bbcode.find_char('[', brk_end);
 			if (end == -1) {
 				end = bbcode.length();
 			}
@@ -455,7 +455,7 @@ String BindingsGenerator::bbcode_to_xml(const String &p_bbcode, const TypeInterf
 
 	int pos = 0;
 	while (pos < bbcode.length()) {
-		int brk_pos = bbcode.find("[", pos);
+		int brk_pos = bbcode.find_char('[', pos);
 
 		if (brk_pos < 0) {
 			brk_pos = bbcode.length();
@@ -488,7 +488,7 @@ String BindingsGenerator::bbcode_to_xml(const String &p_bbcode, const TypeInterf
 			break;
 		}
 
-		int brk_end = bbcode.find("]", brk_pos + 1);
+		int brk_end = bbcode.find_char(']', brk_pos + 1);
 
 		if (brk_end == -1) {
 			if (!line_del) {
@@ -551,7 +551,7 @@ String BindingsGenerator::bbcode_to_xml(const String &p_bbcode, const TypeInterf
 			xml_output.append("[");
 			pos = brk_pos + 1;
 		} else if (tag.begins_with("method ") || tag.begins_with("constructor ") || tag.begins_with("operator ") || tag.begins_with("member ") || tag.begins_with("signal ") || tag.begins_with("enum ") || tag.begins_with("constant ") || tag.begins_with("theme_item ") || tag.begins_with("param ")) {
-			const int tag_end = tag.find(" ");
+			const int tag_end = tag.find_char(' ');
 			const String link_tag = tag.substr(0, tag_end);
 			const String link_target = tag.substr(tag_end + 1, tag.length()).lstrip(" ");
 
@@ -696,7 +696,7 @@ String BindingsGenerator::bbcode_to_xml(const String &p_bbcode, const TypeInterf
 			pos = brk_end + 1;
 			tag_stack.push_front(tag);
 		} else if (tag == "code" || tag.begins_with("code ")) {
-			int end = bbcode.find("[", brk_end);
+			int end = bbcode.find_char('[', brk_end);
 			if (end == -1) {
 				end = bbcode.length();
 			}
@@ -751,7 +751,7 @@ String BindingsGenerator::bbcode_to_xml(const String &p_bbcode, const TypeInterf
 			pos = brk_end + 1;
 			tag_stack.push_front(tag);
 		} else if (tag == "url") {
-			int end = bbcode.find("[", brk_end);
+			int end = bbcode.find_char('[', brk_end);
 			if (end == -1) {
 				end = bbcode.length();
 			}
@@ -772,7 +772,7 @@ String BindingsGenerator::bbcode_to_xml(const String &p_bbcode, const TypeInterf
 			pos = brk_end + 1;
 			tag_stack.push_front("url");
 		} else if (tag == "img") {
-			int end = bbcode.find("[", brk_end);
+			int end = bbcode.find_char('[', brk_end);
 			if (end == -1) {
 				end = bbcode.length();
 			}
@@ -1619,7 +1619,7 @@ void BindingsGenerator::_generate_global_constants(StringBuilder &p_output) {
 
 		bool enum_in_static_class = false;
 
-		if (enum_proxy_name.find(".") > 0) {
+		if (enum_proxy_name.find_char('.') > 0) {
 			enum_in_static_class = true;
 			String enum_class_name = enum_proxy_name.get_slicec('.', 0);
 			enum_proxy_name = enum_proxy_name.get_slicec('.', 1);
@@ -4372,9 +4372,45 @@ bool BindingsGenerator::_populate_object_type_interfaces() {
 	return true;
 }
 
+static String _get_vector2_cs_ctor_args(const Vector2 &p_vec2) {
+	return String::num_real(p_vec2.x, true) + "f, " +
+			String::num_real(p_vec2.y, true) + "f";
+}
+
+static String _get_vector3_cs_ctor_args(const Vector3 &p_vec3) {
+	return String::num_real(p_vec3.x, true) + "f, " +
+			String::num_real(p_vec3.y, true) + "f, " +
+			String::num_real(p_vec3.z, true) + "f";
+}
+
+static String _get_vector4_cs_ctor_args(const Vector4 &p_vec4) {
+	return String::num_real(p_vec4.x, true) + "f, " +
+			String::num_real(p_vec4.y, true) + "f, " +
+			String::num_real(p_vec4.z, true) + "f, " +
+			String::num_real(p_vec4.w, true) + "f";
+}
+
+static String _get_vector2i_cs_ctor_args(const Vector2i &p_vec2i) {
+	return itos(p_vec2i.x) + ", " + itos(p_vec2i.y);
+}
+
+static String _get_vector3i_cs_ctor_args(const Vector3i &p_vec3i) {
+	return itos(p_vec3i.x) + ", " + itos(p_vec3i.y) + ", " + itos(p_vec3i.z);
+}
+
+static String _get_vector4i_cs_ctor_args(const Vector4i &p_vec4i) {
+	return itos(p_vec4i.x) + ", " + itos(p_vec4i.y) + ", " + itos(p_vec4i.z) + ", " + itos(p_vec4i.w);
+}
+
+static String _get_color_cs_ctor_args(const Color &p_color) {
+	return String::num(p_color.r, 4) + "f, " +
+			String::num(p_color.g, 4) + "f, " +
+			String::num(p_color.b, 4) + "f, " +
+			String::num(p_color.a, 4) + "f";
+}
+
 bool BindingsGenerator::_arg_default_value_from_variant(const Variant &p_val, ArgumentInterface &r_iarg) {
 	r_iarg.def_param_value = p_val;
-	r_iarg.default_argument = p_val.operator String();
 
 	switch (p_val.get_type()) {
 		case Variant::NIL:
@@ -4387,10 +4423,14 @@ bool BindingsGenerator::_arg_default_value_from_variant(const Variant &p_val, Ar
 			break;
 		case Variant::INT:
 			if (r_iarg.type.cname != name_cache.type_int) {
-				r_iarg.default_argument = "(%s)(" + r_iarg.default_argument + ")";
+				r_iarg.default_argument = "(%s)(" + p_val.operator String() + ")";
+			} else {
+				r_iarg.default_argument = p_val.operator String();
 			}
 			break;
 		case Variant::FLOAT:
+			r_iarg.default_argument = p_val.operator String();
+
 			if (r_iarg.type.cname == name_cache.type_float) {
 				r_iarg.default_argument += "f";
 			}
@@ -4400,7 +4440,7 @@ bool BindingsGenerator::_arg_default_value_from_variant(const Variant &p_val, Ar
 		case Variant::NODE_PATH:
 			if (r_iarg.type.cname == name_cache.type_StringName || r_iarg.type.cname == name_cache.type_NodePath) {
 				if (r_iarg.default_argument.length() > 0) {
-					r_iarg.default_argument = "(%s)\"" + r_iarg.default_argument + "\"";
+					r_iarg.default_argument = "(%s)\"" + p_val.operator String() + "\"";
 					r_iarg.def_param_mode = ArgumentInterface::NULLABLE_REF;
 				} else {
 					// No need for a special `in` statement to change `null` to `""`. Marshaling takes care of this already.
@@ -4408,40 +4448,62 @@ bool BindingsGenerator::_arg_default_value_from_variant(const Variant &p_val, Ar
 				}
 			} else {
 				CRASH_COND(r_iarg.type.cname != name_cache.type_String);
-				r_iarg.default_argument = "\"" + r_iarg.default_argument + "\"";
+				r_iarg.default_argument = "\"" + p_val.operator String() + "\"";
 			}
 			break;
 		case Variant::PLANE: {
 			Plane plane = p_val.operator Plane();
-			r_iarg.default_argument = "new Plane(new Vector3" + plane.normal.operator String() + ", " + rtos(plane.d) + ")";
+			r_iarg.default_argument = "new Plane(new Vector3(" +
+					_get_vector3_cs_ctor_args(plane.normal) + "), " + rtos(plane.d) + "f)";
 			r_iarg.def_param_mode = ArgumentInterface::NULLABLE_VAL;
 		} break;
 		case Variant::AABB: {
 			AABB aabb = p_val.operator ::AABB();
-			r_iarg.default_argument = "new Aabb(new Vector3" + aabb.position.operator String() + ", new Vector3" + aabb.size.operator String() + ")";
+			r_iarg.default_argument = "new Aabb(new Vector3(" +
+					_get_vector3_cs_ctor_args(aabb.position) + "), new Vector3(" +
+					_get_vector3_cs_ctor_args(aabb.size) + "))";
 			r_iarg.def_param_mode = ArgumentInterface::NULLABLE_VAL;
 		} break;
 		case Variant::RECT2: {
 			Rect2 rect = p_val.operator Rect2();
-			r_iarg.default_argument = "new Rect2(new Vector2" + rect.position.operator String() + ", new Vector2" + rect.size.operator String() + ")";
+			r_iarg.default_argument = "new Rect2(new Vector2(" +
+					_get_vector2_cs_ctor_args(rect.position) + "), new Vector2(" +
+					_get_vector2_cs_ctor_args(rect.size) + "))";
 			r_iarg.def_param_mode = ArgumentInterface::NULLABLE_VAL;
 		} break;
 		case Variant::RECT2I: {
 			Rect2i rect = p_val.operator Rect2i();
-			r_iarg.default_argument = "new Rect2I(new Vector2I" + rect.position.operator String() + ", new Vector2I" + rect.size.operator String() + ")";
+			r_iarg.default_argument = "new Rect2I(new Vector2I(" +
+					_get_vector2i_cs_ctor_args(rect.position) + "), new Vector2I(" +
+					_get_vector2i_cs_ctor_args(rect.size) + "))";
 			r_iarg.def_param_mode = ArgumentInterface::NULLABLE_VAL;
 		} break;
 		case Variant::COLOR:
+			r_iarg.default_argument = "new Color(" + _get_color_cs_ctor_args(p_val.operator Color()) + ")";
+			r_iarg.def_param_mode = ArgumentInterface::NULLABLE_VAL;
+			break;
 		case Variant::VECTOR2:
+			r_iarg.default_argument = "new Vector2(" + _get_vector2_cs_ctor_args(p_val.operator Vector2()) + ")";
+			r_iarg.def_param_mode = ArgumentInterface::NULLABLE_VAL;
+			break;
 		case Variant::VECTOR2I:
+			r_iarg.default_argument = "new Vector2I(" + _get_vector2i_cs_ctor_args(p_val.operator Vector2i()) + ")";
+			r_iarg.def_param_mode = ArgumentInterface::NULLABLE_VAL;
+			break;
 		case Variant::VECTOR3:
+			r_iarg.default_argument = "new Vector3(" + _get_vector3_cs_ctor_args(p_val.operator Vector3()) + ")";
+			r_iarg.def_param_mode = ArgumentInterface::NULLABLE_VAL;
+			break;
 		case Variant::VECTOR3I:
-			r_iarg.default_argument = "new %s" + r_iarg.default_argument;
+			r_iarg.default_argument = "new Vector3I(" + _get_vector3i_cs_ctor_args(p_val.operator Vector3i()) + ")";
 			r_iarg.def_param_mode = ArgumentInterface::NULLABLE_VAL;
 			break;
 		case Variant::VECTOR4:
+			r_iarg.default_argument = "new Vector4(" + _get_vector4_cs_ctor_args(p_val.operator Vector4()) + ")";
+			r_iarg.def_param_mode = ArgumentInterface::NULLABLE_VAL;
+			break;
 		case Variant::VECTOR4I:
-			r_iarg.default_argument = "new %s" + r_iarg.default_argument;
+			r_iarg.default_argument = "new Vector4I(" + _get_vector4i_cs_ctor_args(p_val.operator Vector4i()) + ")";
 			r_iarg.def_param_mode = ArgumentInterface::NULLABLE_VAL;
 			break;
 		case Variant::OBJECT:
@@ -4491,7 +4553,10 @@ bool BindingsGenerator::_arg_default_value_from_variant(const Variant &p_val, Ar
 			if (transform == Transform2D()) {
 				r_iarg.default_argument = "Transform2D.Identity";
 			} else {
-				r_iarg.default_argument = "new Transform2D(new Vector2" + transform.columns[0].operator String() + ", new Vector2" + transform.columns[1].operator String() + ", new Vector2" + transform.columns[2].operator String() + ")";
+				r_iarg.default_argument = "new Transform2D(new Vector2(" +
+						_get_vector2_cs_ctor_args(transform.columns[0]) + "), new Vector2(" +
+						_get_vector2_cs_ctor_args(transform.columns[1]) + "), new Vector2(" +
+						_get_vector2_cs_ctor_args(transform.columns[2]) + "))";
 			}
 			r_iarg.def_param_mode = ArgumentInterface::NULLABLE_VAL;
 		} break;
@@ -4501,7 +4566,11 @@ bool BindingsGenerator::_arg_default_value_from_variant(const Variant &p_val, Ar
 				r_iarg.default_argument = "Transform3D.Identity";
 			} else {
 				Basis basis = transform.basis;
-				r_iarg.default_argument = "new Transform3D(new Vector3" + basis.get_column(0).operator String() + ", new Vector3" + basis.get_column(1).operator String() + ", new Vector3" + basis.get_column(2).operator String() + ", new Vector3" + transform.origin.operator String() + ")";
+				r_iarg.default_argument = "new Transform3D(new Vector3(" +
+						_get_vector3_cs_ctor_args(basis.get_column(0)) + "), new Vector3(" +
+						_get_vector3_cs_ctor_args(basis.get_column(1)) + "), new Vector3(" +
+						_get_vector3_cs_ctor_args(basis.get_column(2)) + "), new Vector3(" +
+						_get_vector3_cs_ctor_args(transform.origin) + "))";
 			}
 			r_iarg.def_param_mode = ArgumentInterface::NULLABLE_VAL;
 		} break;
@@ -4510,7 +4579,11 @@ bool BindingsGenerator::_arg_default_value_from_variant(const Variant &p_val, Ar
 			if (projection == Projection()) {
 				r_iarg.default_argument = "Projection.Identity";
 			} else {
-				r_iarg.default_argument = "new Projection(new Vector4" + projection.columns[0].operator String() + ", new Vector4" + projection.columns[1].operator String() + ", new Vector4" + projection.columns[2].operator String() + ", new Vector4" + projection.columns[3].operator String() + ")";
+				r_iarg.default_argument = "new Projection(new Vector4(" +
+						_get_vector4_cs_ctor_args(projection.columns[0]) + "), new Vector4(" +
+						_get_vector4_cs_ctor_args(projection.columns[1]) + "), new Vector4(" +
+						_get_vector4_cs_ctor_args(projection.columns[2]) + "), new Vector4(" +
+						_get_vector4_cs_ctor_args(projection.columns[3]) + "))";
 			}
 			r_iarg.def_param_mode = ArgumentInterface::NULLABLE_VAL;
 		} break;
@@ -4519,7 +4592,10 @@ bool BindingsGenerator::_arg_default_value_from_variant(const Variant &p_val, Ar
 			if (basis == Basis()) {
 				r_iarg.default_argument = "Basis.Identity";
 			} else {
-				r_iarg.default_argument = "new Basis(new Vector3" + basis.get_column(0).operator String() + ", new Vector3" + basis.get_column(1).operator String() + ", new Vector3" + basis.get_column(2).operator String() + ")";
+				r_iarg.default_argument = "new Basis(new Vector3(" +
+						_get_vector3_cs_ctor_args(basis.get_column(0)) + "), new Vector3(" +
+						_get_vector3_cs_ctor_args(basis.get_column(1)) + "), new Vector3(" +
+						_get_vector3_cs_ctor_args(basis.get_column(2)) + "))";
 			}
 			r_iarg.def_param_mode = ArgumentInterface::NULLABLE_VAL;
 		} break;
@@ -4528,7 +4604,11 @@ bool BindingsGenerator::_arg_default_value_from_variant(const Variant &p_val, Ar
 			if (quaternion == Quaternion()) {
 				r_iarg.default_argument = "Quaternion.Identity";
 			} else {
-				r_iarg.default_argument = "new Quaternion" + quaternion.operator String();
+				r_iarg.default_argument = "new Quaternion(" +
+						String::num_real(quaternion.x, false) + "f, " +
+						String::num_real(quaternion.y, false) + "f, " +
+						String::num_real(quaternion.z, false) + "f, " +
+						String::num_real(quaternion.w, false) + "f)";
 			}
 			r_iarg.def_param_mode = ArgumentInterface::NULLABLE_VAL;
 		} break;
@@ -4960,22 +5040,25 @@ void BindingsGenerator::_populate_global_constants() {
 		}
 	}
 
-	// HARDCODED
-	List<StringName> hardcoded_enums;
-	hardcoded_enums.push_back("Vector2.Axis");
-	hardcoded_enums.push_back("Vector2I.Axis");
-	hardcoded_enums.push_back("Vector3.Axis");
-	hardcoded_enums.push_back("Vector3I.Axis");
-	for (const StringName &enum_cname : hardcoded_enums) {
-		// These enums are not generated and must be written manually (e.g.: Vector3.Axis)
-		// Here, we assume core types do not begin with underscore
-		TypeInterface enum_itype;
-		enum_itype.is_enum = true;
-		enum_itype.name = enum_cname.operator String();
-		enum_itype.cname = enum_cname;
-		enum_itype.proxy_name = pascal_to_pascal_case(enum_itype.name);
-		TypeInterface::postsetup_enum_type(enum_itype);
-		enum_types.insert(enum_itype.cname, enum_itype);
+	for (int i = 0; i < Variant::VARIANT_MAX; i++) {
+		if (i == Variant::OBJECT) {
+			continue;
+		}
+
+		const Variant::Type type = Variant::Type(i);
+
+		List<StringName> enum_names;
+		Variant::get_enums_for_type(type, &enum_names);
+
+		for (const StringName &enum_name : enum_names) {
+			TypeInterface enum_itype;
+			enum_itype.is_enum = true;
+			enum_itype.name = Variant::get_type_name(type) + "." + enum_name;
+			enum_itype.cname = enum_itype.name;
+			enum_itype.proxy_name = pascal_to_pascal_case(enum_itype.name);
+			TypeInterface::postsetup_enum_type(enum_itype);
+			enum_types.insert(enum_itype.cname, enum_itype);
+		}
 	}
 }
 

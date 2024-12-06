@@ -276,7 +276,7 @@ void RendererSceneCull::_instance_pair(Instance *p_A, Instance *p_B) {
 }
 
 void RendererSceneCull::_instance_unpair(Instance *p_A, Instance *p_B) {
-	RendererSceneCull *self = (RendererSceneCull *)singleton;
+	RendererSceneCull *self = singleton;
 	Instance *A = p_A;
 	Instance *B = p_B;
 
@@ -363,7 +363,7 @@ void RendererSceneCull::_instance_unpair(Instance *p_A, Instance *p_B) {
 			}
 
 			lightmap_data->geometries.erase(A);
-			((RendererSceneCull *)self)->_instance_queue_update(A, false, false); //need to update capture
+			self->_instance_queue_update(A, false, false); //need to update capture
 		}
 
 	} else if (self->geometry_instance_pair_mask & (1 << RS::INSTANCE_VOXEL_GI) && B->base_type == RS::INSTANCE_VOXEL_GI && ((1 << A->base_type) & RS::INSTANCE_GEOMETRY_MASK)) {
@@ -489,7 +489,7 @@ void RendererSceneCull::scenario_add_viewport_visibility_mask(RID p_scenario, RI
 
 /* INSTANCING API */
 
-void RendererSceneCull::_instance_queue_update(Instance *p_instance, bool p_update_aabb, bool p_update_dependencies) {
+void RendererSceneCull::_instance_queue_update(Instance *p_instance, bool p_update_aabb, bool p_update_dependencies) const {
 	if (p_update_aabb) {
 		p_instance->update_aabb = true;
 	}
@@ -513,7 +513,7 @@ void RendererSceneCull::instance_initialize(RID p_rid) {
 	instance->self = p_rid;
 }
 
-void RendererSceneCull::_instance_update_mesh_instance(Instance *p_instance) {
+void RendererSceneCull::_instance_update_mesh_instance(Instance *p_instance) const {
 	bool needs_instance = RSG::mesh_storage->mesh_needs_instance(p_instance->base, p_instance->skeleton.is_valid());
 	if (needs_instance != p_instance->mesh_instance.is_valid()) {
 		if (needs_instance) {
@@ -1242,7 +1242,7 @@ Vector<ObjectID> RendererSceneCull::instances_cull_aabb(const AABB &p_aabb, RID 
 	Scenario *scenario = scenario_owner.get_or_null(p_scenario);
 	ERR_FAIL_NULL_V(scenario, instances);
 
-	const_cast<RendererSceneCull *>(this)->update_dirty_instances(); // check dirty instances before culling
+	update_dirty_instances(); // check dirty instances before culling
 
 	struct CullAABB {
 		Vector<ObjectID> instances;
@@ -1265,7 +1265,7 @@ Vector<ObjectID> RendererSceneCull::instances_cull_ray(const Vector3 &p_from, co
 	Vector<ObjectID> instances;
 	Scenario *scenario = scenario_owner.get_or_null(p_scenario);
 	ERR_FAIL_NULL_V(scenario, instances);
-	const_cast<RendererSceneCull *>(this)->update_dirty_instances(); // check dirty instances before culling
+	update_dirty_instances(); // check dirty instances before culling
 
 	struct CullRay {
 		Vector<ObjectID> instances;
@@ -1288,7 +1288,7 @@ Vector<ObjectID> RendererSceneCull::instances_cull_convex(const Vector<Plane> &p
 	Vector<ObjectID> instances;
 	Scenario *scenario = scenario_owner.get_or_null(p_scenario);
 	ERR_FAIL_NULL_V(scenario, instances);
-	const_cast<RendererSceneCull *>(this)->update_dirty_instances(); // check dirty instances before culling
+	update_dirty_instances(); // check dirty instances before culling
 
 	Vector<Vector3> points = Geometry3D::compute_convex_mesh_points(&p_convex[0], p_convex.size());
 
@@ -1531,7 +1531,7 @@ bool RendererSceneCull::_update_instance_visibility_depth(Instance *p_instance) 
 	return cycle_detected;
 }
 
-void RendererSceneCull::_update_instance_visibility_dependencies(Instance *p_instance) {
+void RendererSceneCull::_update_instance_visibility_dependencies(Instance *p_instance) const {
 	bool is_geometry_instance = ((1 << p_instance->base_type) & RS::INSTANCE_GEOMETRY_MASK) && p_instance->base_data;
 	bool has_visibility_range = p_instance->visibility_range_begin > 0.0 || p_instance->visibility_range_end > 0.0;
 	bool needs_visibility_cull = has_visibility_range && is_geometry_instance && p_instance->array_index != -1;
@@ -1671,7 +1671,7 @@ void RendererSceneCull::instance_geometry_set_shader_parameter(RID p_instance, c
 }
 
 Variant RendererSceneCull::instance_geometry_get_shader_parameter(RID p_instance, const StringName &p_parameter) const {
-	const Instance *instance = const_cast<RendererSceneCull *>(this)->instance_owner.get_or_null(p_instance);
+	const Instance *instance = instance_owner.get_or_null(p_instance);
 	ERR_FAIL_NULL_V(instance, Variant());
 
 	if (instance->instance_shader_uniforms.has(p_parameter)) {
@@ -1681,7 +1681,7 @@ Variant RendererSceneCull::instance_geometry_get_shader_parameter(RID p_instance
 }
 
 Variant RendererSceneCull::instance_geometry_get_shader_parameter_default_value(RID p_instance, const StringName &p_parameter) const {
-	const Instance *instance = const_cast<RendererSceneCull *>(this)->instance_owner.get_or_null(p_instance);
+	const Instance *instance = instance_owner.get_or_null(p_instance);
 	ERR_FAIL_NULL_V(instance, Variant());
 
 	if (instance->instance_shader_uniforms.has(p_parameter)) {
@@ -1699,10 +1699,10 @@ uint32_t RendererSceneCull::get_pipeline_compilations(RS::PipelineSource p_sourc
 }
 
 void RendererSceneCull::instance_geometry_get_shader_parameter_list(RID p_instance, List<PropertyInfo> *p_parameters) const {
-	const Instance *instance = const_cast<RendererSceneCull *>(this)->instance_owner.get_or_null(p_instance);
+	const Instance *instance = instance_owner.get_or_null(p_instance);
 	ERR_FAIL_NULL(instance);
 
-	const_cast<RendererSceneCull *>(this)->update_dirty_instances();
+	update_dirty_instances();
 
 	Vector<StringName> names;
 	for (const KeyValue<StringName, Instance::InstanceShaderParameter> &E : instance->instance_shader_uniforms) {
@@ -1715,7 +1715,7 @@ void RendererSceneCull::instance_geometry_get_shader_parameter_list(RID p_instan
 	}
 }
 
-void RendererSceneCull::_update_instance(Instance *p_instance) {
+void RendererSceneCull::_update_instance(Instance *p_instance) const {
 	p_instance->version++;
 
 	// When not using interpolation the transform is used straight.
@@ -2093,7 +2093,7 @@ void RendererSceneCull::_unpair_instance(Instance *p_instance) {
 	_update_instance_visibility_dependencies(p_instance);
 }
 
-void RendererSceneCull::_update_instance_aabb(Instance *p_instance) {
+void RendererSceneCull::_update_instance_aabb(Instance *p_instance) const {
 	AABB new_aabb;
 
 	ERR_FAIL_COND(p_instance->base_type != RS::INSTANCE_NONE && !p_instance->base.is_valid());
@@ -2168,7 +2168,7 @@ void RendererSceneCull::_update_instance_aabb(Instance *p_instance) {
 	p_instance->aabb = new_aabb;
 }
 
-void RendererSceneCull::_update_instance_lightmap_captures(Instance *p_instance) {
+void RendererSceneCull::_update_instance_lightmap_captures(Instance *p_instance) const {
 	bool first_set = p_instance->lightmap_sh.size() == 0;
 	p_instance->lightmap_sh.resize(9); //using SH
 	p_instance->lightmap_target_sh.resize(9); //using SH
@@ -2738,6 +2738,7 @@ void RendererSceneCull::render_camera(const Ref<RenderSceneBuffers> &p_render_bu
 		Projection projection;
 		bool vaspect = camera->vaspect;
 		bool is_orthogonal = false;
+		bool is_frustum = false;
 
 		switch (camera->type) {
 			case Camera::ORTHOGONAL: {
@@ -2766,10 +2767,11 @@ void RendererSceneCull::render_camera(const Ref<RenderSceneBuffers> &p_render_bu
 						camera->znear,
 						camera->zfar,
 						camera->vaspect);
+				is_frustum = true;
 			} break;
 		}
 
-		camera_data.set_camera(transform, projection, is_orthogonal, vaspect, jitter, taa_frame_count, camera->visible_layers);
+		camera_data.set_camera(transform, projection, is_orthogonal, is_frustum, vaspect, jitter, taa_frame_count, camera->visible_layers);
 	} else {
 		// Setup our camera for our XR interface.
 		// We can support multiple views here each with their own camera
@@ -2791,9 +2793,9 @@ void RendererSceneCull::render_camera(const Ref<RenderSceneBuffers> &p_render_bu
 		}
 
 		if (view_count == 1) {
-			camera_data.set_camera(transforms[0], projections[0], false, camera->vaspect, jitter, p_jitter_phase_count, camera->visible_layers);
+			camera_data.set_camera(transforms[0], projections[0], false, false, camera->vaspect, jitter, p_jitter_phase_count, camera->visible_layers);
 		} else if (view_count == 2) {
-			camera_data.set_multiview_camera(view_count, transforms, projections, false, camera->vaspect);
+			camera_data.set_multiview_camera(view_count, transforms, projections, false, false, camera->vaspect);
 		} else {
 			// this won't be called (see fail check above) but keeping this comment to indicate we may support more then 2 views in the future...
 		}
@@ -3015,7 +3017,8 @@ void RendererSceneCull::_scene_cull(CullData &cull_data, InstanceCullResult &cul
 							cull_data.cull->lock.lock();
 							RSG::particles_storage->particles_request_process(idata.base_rid);
 							cull_data.cull->lock.unlock();
-							RSG::particles_storage->particles_set_view_axis(idata.base_rid, -cull_data.cam_transform.basis.get_column(2).normalized(), cull_data.cam_transform.basis.get_column(1).normalized());
+
+							RS::get_singleton()->call_on_render_thread(callable_mp_static(&RendererSceneCull::_scene_particles_set_view_axis).bind(idata.base_rid, -cull_data.cam_transform.basis.get_column(2).normalized(), cull_data.cam_transform.basis.get_column(1).normalized()));
 							//particles visible? request redraw
 							RenderingServerDefault::redraw_request();
 						}
@@ -3188,6 +3191,10 @@ void RendererSceneCull::_scene_cull(CullData &cull_data, InstanceCullResult &cul
 			cull_result.mesh_instances.push_back(cull_data.scenario->instance_data[i].instance->mesh_instance);
 		}
 	}
+}
+
+void RendererSceneCull::_scene_particles_set_view_axis(RID p_particles, const Vector3 &p_axis, const Vector3 &p_up_axis) {
+	RSG::particles_storage->particles_set_view_axis(p_particles, p_axis, p_up_axis);
 }
 
 void RendererSceneCull::_render_scene(const RendererSceneRender::CameraData *p_camera_data, const Ref<RenderSceneBuffers> &p_render_buffers, RID p_environment, RID p_force_camera_attributes, RID p_compositor, uint32_t p_visible_layers, RID p_scenario, RID p_viewport, RID p_shadow_atlas, RID p_reflection_probe, int p_reflection_probe_pass, float p_screen_mesh_lod_threshold, bool p_using_shadows, RenderingMethod::RenderInfo *r_render_info) {
@@ -3641,7 +3648,7 @@ void RendererSceneCull::render_empty_scene(const Ref<RenderSceneBuffers> &p_rend
 	RENDER_TIMESTAMP("Render Empty 3D Scene");
 
 	RendererSceneRender::CameraData camera_data;
-	camera_data.set_camera(Transform3D(), Projection(), true, false);
+	camera_data.set_camera(Transform3D(), Projection(), true, false, false);
 
 	scene_render->render_scene(p_render_buffers, &camera_data, &camera_data, PagedArray<RenderGeometryInstance *>(), PagedArray<RID>(), PagedArray<RID>(), PagedArray<RID>(), PagedArray<RID>(), PagedArray<RID>(), PagedArray<RID>(), environment, RID(), compositor, p_shadow_atlas, RID(), scenario->reflection_atlas, RID(), 0, 0, nullptr, 0, nullptr, 0, nullptr);
 #endif
@@ -3719,7 +3726,7 @@ bool RendererSceneCull::_render_reflection_probe_step(Instance *p_instance, int 
 
 		RENDER_TIMESTAMP("Render ReflectionProbe, Step " ); // + itos(p_step));
 		RendererSceneRender::CameraData camera_data;
-		camera_data.set_camera(xform, cm, false, false);
+		camera_data.set_camera(xform, cm, false, false, false);
 
 		Ref<RenderSceneBuffers> render_buffers = RSG::light_storage->reflection_probe_atlas_get_render_buffers(scenario->reflection_atlas);
 		_render_scene(&camera_data, render_buffers, environment, RID(), RID(), RSG::light_storage->reflection_probe_get_cull_mask(p_instance->base), p_instance->scenario->self, RID(), shadow_atlas, reflection_probe->instance, p_step, mesh_lod_threshold, use_shadows);
@@ -4024,7 +4031,7 @@ void RendererSceneCull::render_particle_colliders() {
 	}
 }
 
-void RendererSceneCull::_update_instance_shader_uniforms_from_material(HashMap<StringName, Instance::InstanceShaderParameter> &isparams, const HashMap<StringName, Instance::InstanceShaderParameter> &existing_isparams, RID p_material) {
+void RendererSceneCull::_update_instance_shader_uniforms_from_material(HashMap<StringName, Instance::InstanceShaderParameter> &isparams, const HashMap<StringName, Instance::InstanceShaderParameter> &existing_isparams, RID p_material) const {
 	List<RendererMaterialStorage::InstanceShaderParam> plist;
 	RSG::material_storage->material_get_instance_shader_parameters(p_material, &plist);
 	for (const RendererMaterialStorage::InstanceShaderParam &E : plist) {
@@ -4052,7 +4059,7 @@ void RendererSceneCull::_update_instance_shader_uniforms_from_material(HashMap<S
 	}
 }
 
-void RendererSceneCull::_update_dirty_instance(Instance *p_instance) {
+void RendererSceneCull::_update_dirty_instance(Instance *p_instance) const {
 	if (p_instance->update_aabb) {
 		_update_instance_aabb(p_instance);
 	}
@@ -4286,7 +4293,7 @@ void RendererSceneCull::_update_dirty_instance(Instance *p_instance) {
 	p_instance->update_dependencies = false;
 }
 
-void RendererSceneCull::update_dirty_instances() {
+void RendererSceneCull::update_dirty_instances() const {
 	while (_instance_update_list.first()) {
 		_update_dirty_instance(_instance_update_list.first()->self());
 	}

@@ -1666,7 +1666,9 @@ void TextureStorage::texture_rd_initialize(RID p_texture, const RID &p_rd_textur
 			ERR_FAIL_COND(tf.array_layers != 1);
 			texture.type = TextureStorage::TYPE_2D;
 		} break;
-		case RD::TEXTURE_TYPE_2D_ARRAY: {
+		case RD::TEXTURE_TYPE_2D_ARRAY:
+		case RD::TEXTURE_TYPE_CUBE:
+		case RD::TEXTURE_TYPE_CUBE_ARRAY: {
 			// RenderingDevice doesn't distinguish between Array textures and Cube textures
 			// this condition covers TextureArrays, TextureCube, and TextureCubeArray.
 			ERR_FAIL_COND(tf.array_layers == 1);
@@ -2892,7 +2894,7 @@ void TextureStorage::update_decal_atlas() {
 				Vector<Color> cc;
 				cc.push_back(clear_color);
 
-				RD::DrawListID draw_list = RD::get_singleton()->draw_list_begin(mm.fb, RD::INITIAL_ACTION_CLEAR, RD::FINAL_ACTION_STORE, RD::INITIAL_ACTION_DISCARD, RD::FINAL_ACTION_DISCARD, cc);
+				RD::DrawListID draw_list = RD::get_singleton()->draw_list_begin(mm.fb, RD::DRAW_CLEAR_ALL, cc);
 
 				for (const KeyValue<RID, DecalAtlas::Texture> &E : decal_atlas.textures) {
 					DecalAtlas::Texture *t = decal_atlas.textures.getptr(E.key);
@@ -3573,7 +3575,7 @@ void TextureStorage::render_target_do_msaa_resolve(RID p_render_target) {
 	if (!rt->msaa_needs_resolve) {
 		return;
 	}
-	RD::get_singleton()->draw_list_begin(rt->get_framebuffer(), RD::INITIAL_ACTION_LOAD, RD::FINAL_ACTION_STORE, RD::INITIAL_ACTION_LOAD, RD::FINAL_ACTION_DISCARD);
+	RD::get_singleton()->draw_list_begin(rt->get_framebuffer());
 	RD::get_singleton()->draw_list_end();
 	rt->msaa_needs_resolve = false;
 }
@@ -3690,7 +3692,7 @@ void TextureStorage::render_target_do_clear_request(RID p_render_target) {
 	}
 	Vector<Color> clear_colors;
 	clear_colors.push_back(rt->use_hdr ? rt->clear_color.srgb_to_linear() : rt->clear_color);
-	RD::get_singleton()->draw_list_begin(rt->get_framebuffer(), RD::INITIAL_ACTION_CLEAR, RD::FINAL_ACTION_STORE, RD::INITIAL_ACTION_LOAD, RD::FINAL_ACTION_DISCARD, clear_colors);
+	RD::get_singleton()->draw_list_begin(rt->get_framebuffer(), RD::DRAW_CLEAR_COLOR_0, clear_colors);
 	RD::get_singleton()->draw_list_end();
 	rt->clear_requested = false;
 	rt->msaa_needs_resolve = false;

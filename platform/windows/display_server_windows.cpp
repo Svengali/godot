@@ -30,6 +30,7 @@
 
 #include "display_server_windows.h"
 
+#include "drop_target_windows.h"
 #include "os_windows.h"
 #include "wgl_detect_version.h"
 
@@ -129,6 +130,7 @@ bool DisplayServerWindows::has_feature(Feature p_feature) const {
 		case FEATURE_NATIVE_DIALOG:
 		case FEATURE_NATIVE_DIALOG_INPUT:
 		case FEATURE_NATIVE_DIALOG_FILE:
+		case FEATURE_NATIVE_DIALOG_FILE_EXTRA:
 		case FEATURE_SWAP_BUFFERS:
 		case FEATURE_KEEP_SCREEN_ON:
 		case FEATURE_TEXT_TO_SPEECH:
@@ -316,8 +318,8 @@ public:
 	}
 
 	// IFileDialogEvents methods
-	HRESULT STDMETHODCALLTYPE OnFileOk(IFileDialog *) { return S_OK; };
-	HRESULT STDMETHODCALLTYPE OnFolderChange(IFileDialog *) { return S_OK; };
+	HRESULT STDMETHODCALLTYPE OnFileOk(IFileDialog *) { return S_OK; }
+	HRESULT STDMETHODCALLTYPE OnFolderChange(IFileDialog *) { return S_OK; }
 
 	HRESULT STDMETHODCALLTYPE OnFolderChanging(IFileDialog *p_pfd, IShellItem *p_item) {
 		if (root.is_empty()) {
@@ -336,11 +338,11 @@ public:
 		return S_OK;
 	}
 
-	HRESULT STDMETHODCALLTYPE OnHelp(IFileDialog *) { return S_OK; };
-	HRESULT STDMETHODCALLTYPE OnSelectionChange(IFileDialog *) { return S_OK; };
-	HRESULT STDMETHODCALLTYPE OnShareViolation(IFileDialog *, IShellItem *, FDE_SHAREVIOLATION_RESPONSE *) { return S_OK; };
-	HRESULT STDMETHODCALLTYPE OnTypeChange(IFileDialog *pfd) { return S_OK; };
-	HRESULT STDMETHODCALLTYPE OnOverwrite(IFileDialog *, IShellItem *, FDE_OVERWRITE_RESPONSE *) { return S_OK; };
+	HRESULT STDMETHODCALLTYPE OnHelp(IFileDialog *) { return S_OK; }
+	HRESULT STDMETHODCALLTYPE OnSelectionChange(IFileDialog *) { return S_OK; }
+	HRESULT STDMETHODCALLTYPE OnShareViolation(IFileDialog *, IShellItem *, FDE_SHAREVIOLATION_RESPONSE *) { return S_OK; }
+	HRESULT STDMETHODCALLTYPE OnTypeChange(IFileDialog *pfd) { return S_OK; }
+	HRESULT STDMETHODCALLTYPE OnOverwrite(IFileDialog *, IShellItem *, FDE_OVERWRITE_RESPONSE *) { return S_OK; }
 
 	// IFileDialogControlEvents methods
 	HRESULT STDMETHODCALLTYPE OnItemSelected(IFileDialogCustomize *p_pfdc, DWORD p_ctl_id, DWORD p_item_idx) {
@@ -350,14 +352,14 @@ public:
 		return S_OK;
 	}
 
-	HRESULT STDMETHODCALLTYPE OnButtonClicked(IFileDialogCustomize *, DWORD) { return S_OK; };
+	HRESULT STDMETHODCALLTYPE OnButtonClicked(IFileDialogCustomize *, DWORD) { return S_OK; }
 	HRESULT STDMETHODCALLTYPE OnCheckButtonToggled(IFileDialogCustomize *p_pfdc, DWORD p_ctl_id, BOOL p_checked) {
 		if (ctls.has(p_ctl_id)) {
 			selected[ctls[p_ctl_id]] = (bool)p_checked;
 		}
 		return S_OK;
 	}
-	HRESULT STDMETHODCALLTYPE OnControlActivating(IFileDialogCustomize *, DWORD) { return S_OK; };
+	HRESULT STDMETHODCALLTYPE OnControlActivating(IFileDialogCustomize *, DWORD) { return S_OK; }
 
 	Dictionary get_selected() {
 		return selected;
@@ -503,7 +505,7 @@ void DisplayServerWindows::_thread_fd_monitor(void *p_ud) {
 	}
 	if (filter_names.is_empty()) {
 		filter_exts.push_back(String("*.*").utf16());
-		filter_names.push_back(RTR("All Files").utf16());
+		filter_names.push_back((RTR("All Files") + " (*.*)").utf16());
 	}
 
 	Vector<COMDLG_FILTERSPEC> filters;
@@ -570,10 +572,7 @@ void DisplayServerWindows::_thread_fd_monitor(void *p_ud) {
 			}
 		}
 		dir = dir.simplify_path();
-		dir = dir.replace("/", "\\");
-		if (!dir.is_network_share_path() && !dir.begins_with(R"(\\?\)")) {
-			dir = R"(\\?\)" + dir;
-		}
+		dir = dir.trim_prefix(R"(\\?\)").replace("/", "\\");
 
 		IShellItem *shellitem = nullptr;
 		hr = SHCreateItemFromParsingName((LPCWSTR)dir.utf16().ptr(), nullptr, IID_IShellItem, (void **)&shellitem);
@@ -734,7 +733,7 @@ Error DisplayServerWindows::_file_dialog_with_options_show(const String &p_title
 		GetWindowRect(fd->hwnd_owner, &crect);
 		fd->wrect = Rect2i(crect.left, crect.top, crect.right - crect.left, crect.bottom - crect.top);
 	} else {
-		fd->hwnd_owner = 0;
+		fd->hwnd_owner = nullptr;
 		fd->wrect = Rect2i(CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT);
 	}
 	fd->appid = appname;
@@ -785,6 +784,10 @@ void DisplayServerWindows::process_file_dialog_callbacks() {
 			}
 		}
 	}
+}
+
+void DisplayServerWindows::beep() const {
+	MessageBeep(MB_OK);
 }
 
 void DisplayServerWindows::mouse_set_mode(MouseMode p_mode) {
@@ -1616,11 +1619,17 @@ void DisplayServerWindows::delete_sub_window(WindowID p_window) {
 	}
 #endif
 
-	if ((tablet_get_current_driver() == "wintab") && wintab_available && windows[p_window].wtctx) {
-		wintab_WTClose(windows[p_window].wtctx);
-		windows[p_window].wtctx = nullptr;
+	if ((tablet_get_current_driver() == "wintab") && wintab_available && wd.wtctx) {
+		wintab_WTClose(wd.wtctx);
+		wd.wtctx = nullptr;
 	}
-	DestroyWindow(windows[p_window].hWnd);
+
+	if (wd.drop_target != nullptr) {
+		RevokeDragDrop(wd.hWnd);
+		wd.drop_target->Release();
+	}
+
+	DestroyWindow(wd.hWnd);
 	windows.erase(p_window);
 
 	if (last_focused_window == p_window) {
@@ -1730,7 +1739,14 @@ void DisplayServerWindows::window_set_drop_files_callback(const Callable &p_call
 	_THREAD_SAFE_METHOD_
 
 	ERR_FAIL_COND(!windows.has(p_window));
-	windows[p_window].drop_files_callback = p_callable;
+	WindowData &window_data = windows[p_window];
+
+	window_data.drop_files_callback = p_callable;
+
+	if (window_data.drop_target == nullptr) {
+		window_data.drop_target = memnew(DropTargetWindows(&window_data));
+		ERR_FAIL_COND(RegisterDragDrop(window_data.hWnd, window_data.drop_target) != S_OK);
+	}
 }
 
 void DisplayServerWindows::window_set_title(const String &p_title, WindowID p_window) {
@@ -2152,6 +2168,10 @@ void DisplayServerWindows::_get_window_style(bool p_main_window, bool p_initiali
 
 	r_style |= WS_CLIPCHILDREN | WS_CLIPSIBLINGS;
 	r_style_ex |= WS_EX_ACCEPTFILES;
+
+	if (OS::get_singleton()->get_current_rendering_driver_name() == "d3d12") {
+		r_style_ex |= WS_EX_NOREDIRECTIONBITMAP;
+	}
 }
 
 void DisplayServerWindows::_update_window_style(WindowID p_window, bool p_repaint) {
@@ -2187,15 +2207,21 @@ void DisplayServerWindows::window_set_mode(WindowMode p_mode, WindowID p_window)
 	ERR_FAIL_COND(!windows.has(p_window));
 	WindowData &wd = windows[p_window];
 
+	bool was_fullscreen = wd.fullscreen;
+	wd.was_fullscreen_pre_min = false;
+
 	if (wd.fullscreen && p_mode != WINDOW_MODE_FULLSCREEN && p_mode != WINDOW_MODE_EXCLUSIVE_FULLSCREEN) {
 		RECT rect;
 
 		wd.fullscreen = false;
 		wd.multiwindow_fs = false;
-		wd.maximized = wd.was_maximized;
+
+		// Restore previous maximized state.
+		wd.maximized = wd.was_maximized_pre_fs;
 
 		_update_window_style(p_window, false);
 
+		// Restore window rect after exiting fullscreen.
 		if (wd.pre_fs_valid) {
 			rect = wd.pre_fs_rect;
 		} else {
@@ -2203,7 +2229,6 @@ void DisplayServerWindows::window_set_mode(WindowMode p_mode, WindowID p_window)
 			rect.right = wd.width;
 			rect.top = 0;
 			rect.bottom = wd.height;
-			wd.pre_fs_valid = true;
 		}
 
 		ShowWindow(wd.hWnd, SW_RESTORE);
@@ -2231,6 +2256,7 @@ void DisplayServerWindows::window_set_mode(WindowMode p_mode, WindowID p_window)
 		ShowWindow(wd.hWnd, SW_MINIMIZE);
 		wd.maximized = false;
 		wd.minimized = true;
+		wd.was_fullscreen_pre_min = was_fullscreen;
 	}
 
 	if (p_mode == WINDOW_MODE_EXCLUSIVE_FULLSCREEN) {
@@ -2245,10 +2271,14 @@ void DisplayServerWindows::window_set_mode(WindowMode p_mode, WindowID p_window)
 		if (wd.minimized || wd.maximized) {
 			ShowWindow(wd.hWnd, SW_RESTORE);
 		}
-		wd.was_maximized = wd.maximized;
 
-		if (wd.pre_fs_valid) {
+		// Save previous maximized stare.
+		wd.was_maximized_pre_fs = wd.maximized;
+
+		if (!was_fullscreen) {
+			// Save non-fullscreen rect before entering fullscreen.
 			GetWindowRect(wd.hWnd, &wd.pre_fs_rect);
+			wd.pre_fs_valid = true;
 		}
 
 		int cs = window_get_current_screen(p_window);
@@ -2389,6 +2419,9 @@ bool DisplayServerWindows::window_get_flag(WindowFlags p_flag, WindowID p_window
 		} break;
 		case WINDOW_FLAG_ALWAYS_ON_TOP: {
 			return wd.always_on_top;
+		} break;
+		case WINDOW_FLAG_SHARP_CORNERS: {
+			return wd.sharp_corners;
 		} break;
 		case WINDOW_FLAG_TRANSPARENT: {
 			return wd.layered_window;
@@ -2743,7 +2776,7 @@ Error DisplayServerWindows::dialog_show(String p_title, String p_description, Ve
 	config.pszWindowTitle = (LPCWSTR)(title.get_data());
 	config.pszContent = (LPCWSTR)(message.get_data());
 
-	const int button_count = MIN((int)buttons.size(), 8);
+	const int button_count = buttons.size();
 	config.cButtons = button_count;
 
 	// No dynamic stack array size :(
@@ -3228,6 +3261,10 @@ void DisplayServerWindows::process_events() {
 		DispatchMessageW(&msg);
 	}
 	_THREAD_SAFE_UNLOCK_
+
+	if (tts) {
+		tts->process_events();
+	}
 
 	if (!drop_events) {
 		_process_key_events();
@@ -4777,9 +4814,12 @@ LRESULT DisplayServerWindows::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 				break;
 			}
 
-			DisplayServer::WindowID receiving_window_id = _get_focused_window_or_popup();
-			if (receiving_window_id == INVALID_WINDOW_ID) {
-				receiving_window_id = window_id;
+			DisplayServer::WindowID receiving_window_id = window_id;
+			if (!windows[window_id].no_focus) {
+				receiving_window_id = _get_focused_window_or_popup();
+				if (receiving_window_id == INVALID_WINDOW_ID) {
+					receiving_window_id = window_id;
+				}
 			}
 
 			const BitField<WinKeyModifierMask> &mods = _get_mods();
@@ -5139,6 +5179,22 @@ LRESULT DisplayServerWindows::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 					ClientToScreen(window.hWnd, (POINT *)&crect.right);
 					ClipCursor(&crect);
 				}
+
+				if (!window.minimized && window.was_fullscreen_pre_min) {
+					// Restore fullscreen mode if window was in fullscreen before it was minimized.
+					int cs = window_get_current_screen(window_id);
+					Point2 pos = screen_get_position(cs) + _get_screens_origin();
+					Size2 size = screen_get_size(cs);
+
+					window.was_fullscreen_pre_min = false;
+					window.fullscreen = true;
+					window.maximized = false;
+					window.minimized = false;
+
+					_update_window_style(window_id, false);
+
+					MoveWindow(window.hWnd, pos.x, pos.y, size.width, size.height, TRUE);
+				}
 			}
 
 			// Return here to prevent WM_MOVE and WM_SIZE from being sent
@@ -5319,32 +5375,6 @@ LRESULT DisplayServerWindows::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 				}
 			}
 		} break;
-		case WM_DROPFILES: {
-			HDROP hDropInfo = (HDROP)wParam;
-			const int buffsize = 4096;
-			WCHAR buf[buffsize];
-
-			int fcount = DragQueryFileW(hDropInfo, 0xFFFFFFFF, nullptr, 0);
-
-			Vector<String> files;
-
-			for (int i = 0; i < fcount; i++) {
-				DragQueryFileW(hDropInfo, i, buf, buffsize);
-				String file = String::utf16((const char16_t *)buf);
-				files.push_back(file);
-			}
-
-			if (files.size() && windows[window_id].drop_files_callback.is_valid()) {
-				Variant v_files = files;
-				const Variant *v_args[1] = { &v_files };
-				Variant ret;
-				Callable::CallError ce;
-				windows[window_id].drop_files_callback.callp((const Variant **)&v_args, 1, ret, ce);
-				if (ce.error != Callable::CallError::CALL_OK) {
-					ERR_PRINT(vformat("Failed to execute drop files callback: %s.", Variant::get_callable_error_text(windows[window_id].drop_files_callback, v_args, 1, ce)));
-				}
-			}
-		} break;
 		default: {
 			if (user_proc) {
 				return CallWindowProcW(user_proc, hWnd, uMsg, wParam, lParam);
@@ -5449,7 +5479,7 @@ void DisplayServerWindows::_process_key_events() {
 					k->set_physical_keycode(physical_keycode);
 					k->set_key_label(key_label);
 					k->set_unicode(fix_unicode(unicode));
-					if (k->get_unicode() && ke.altgr) {
+					if (k->get_unicode() && ke.altgr && windows[ke.window_id].ime_active) {
 						k->set_alt_pressed(false);
 						k->set_ctrl_pressed(false);
 					}
@@ -5525,7 +5555,7 @@ void DisplayServerWindows::_process_key_events() {
 					}
 					k->set_unicode(fix_unicode(unicode));
 				}
-				if (k->get_unicode() && ke.altgr) {
+				if (k->get_unicode() && ke.altgr && windows[ke.window_id].ime_active) {
 					k->set_alt_pressed(false);
 					k->set_ctrl_pressed(false);
 				}
@@ -5672,7 +5702,19 @@ DisplayServer::WindowID DisplayServerWindows::_create_window(WindowMode p_mode, 
 				wd.multiwindow_fs = true;
 			}
 		}
-		if (p_mode != WINDOW_MODE_FULLSCREEN && p_mode != WINDOW_MODE_EXCLUSIVE_FULLSCREEN) {
+
+		if (p_mode == WINDOW_MODE_FULLSCREEN || p_mode == WINDOW_MODE_EXCLUSIVE_FULLSCREEN) {
+			// Save initial non-fullscreen rect.
+			Rect2i srect = screen_get_usable_rect(rq_screen);
+			Point2i wpos = p_rect.position;
+			if (srect != Rect2i()) {
+				wpos = wpos.clamp(srect.position, srect.position + srect.size - p_rect.size / 3);
+			}
+
+			wd.pre_fs_rect.left = wpos.x + offset.x;
+			wd.pre_fs_rect.right = wpos.x + p_rect.size.x + offset.x;
+			wd.pre_fs_rect.top = wpos.y + offset.y;
+			wd.pre_fs_rect.bottom = wpos.y + p_rect.size.y + offset.y;
 			wd.pre_fs_valid = true;
 		}
 
@@ -6173,6 +6215,8 @@ DisplayServerWindows::DisplayServerWindows(const String &p_rendering_driver, Win
 		FreeLibrary(comctl32);
 	}
 
+	OleInitialize(nullptr);
+
 	memset(&wc, 0, sizeof(WNDCLASSEXW));
 	wc.cbSize = sizeof(WNDCLASSEXW);
 	wc.style = CS_OWNDC | CS_DBLCLKS;
@@ -6238,6 +6282,7 @@ DisplayServerWindows::DisplayServerWindows(const String &p_rendering_driver, Win
 				}
 			}
 #endif
+#if defined(GLES3_ENABLED)
 			bool fallback_to_opengl3 = GLOBAL_GET("rendering/rendering_device/fallback_to_opengl3");
 			if (failed && fallback_to_opengl3 && rendering_driver != "opengl3") {
 				memdelete(rendering_context);
@@ -6249,6 +6294,7 @@ DisplayServerWindows::DisplayServerWindows(const String &p_rendering_driver, Win
 				OS::get_singleton()->set_current_rendering_driver_name(rendering_driver);
 				failed = false;
 			}
+#endif
 			if (failed) {
 				memdelete(rendering_context);
 				rendering_context = nullptr;
@@ -6603,6 +6649,12 @@ DisplayServerWindows::~DisplayServerWindows() {
 			wintab_WTClose(windows[MAIN_WINDOW_ID].wtctx);
 			windows[MAIN_WINDOW_ID].wtctx = nullptr;
 		}
+
+		if (windows[MAIN_WINDOW_ID].drop_target != nullptr) {
+			RevokeDragDrop(windows[MAIN_WINDOW_ID].hWnd);
+			windows[MAIN_WINDOW_ID].drop_target->Release();
+		}
+
 		DestroyWindow(windows[MAIN_WINDOW_ID].hWnd);
 	}
 
@@ -6634,4 +6686,6 @@ DisplayServerWindows::~DisplayServerWindows() {
 	if (tts) {
 		memdelete(tts);
 	}
+
+	OleUninitialize();
 }

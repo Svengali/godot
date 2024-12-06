@@ -73,7 +73,7 @@ def get_flags():
 
 def configure(env: "SConsEnvironment"):
     # Validate arch.
-    supported_arches = ["x86_32", "x86_64", "arm32", "arm64", "rv64", "ppc32", "ppc64"]
+    supported_arches = ["x86_32", "x86_64", "arm32", "arm64", "rv64", "ppc32", "ppc64", "loongarch64"]
     validate_arch(env["arch"], get_name(), supported_arches)
 
     ## Build type
@@ -279,16 +279,18 @@ def configure(env: "SConsEnvironment"):
         env.ParseConfig("pkg-config libwebp --cflags --libs")
 
     if not env["builtin_mbedtls"]:
-        # mbedTLS does not provide a pkgconfig config yet. See https://github.com/ARMmbed/mbedtls/issues/228
-        env.Append(LIBS=["mbedtls", "mbedcrypto", "mbedx509"])
+        # mbedTLS only provides a pkgconfig file since 3.6.0, but we still support 2.28.x,
+        # so fallback to manually specifying LIBS if it fails.
+        if os.system("pkg-config --exists mbedtls") == 0:  # 0 means found
+            env.ParseConfig("pkg-config mbedtls mbedcrypto mbedx509 --cflags --libs")
+        else:
+            env.Append(LIBS=["mbedtls", "mbedcrypto", "mbedx509"])
 
     if not env["builtin_wslay"]:
         env.ParseConfig("pkg-config libwslay --cflags --libs")
 
     if not env["builtin_miniupnpc"]:
-        # No pkgconfig file so far, hardcode default paths.
-        env.Prepend(CPPPATH=["/usr/include/miniupnpc"])
-        env.Append(LIBS=["miniupnpc"])
+        env.ParseConfig("pkg-config miniupnpc --cflags --libs")
 
     # On Linux wchar_t should be 32-bits
     # 16-bit library shouldn't be required due to compiler optimizations

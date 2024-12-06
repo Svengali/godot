@@ -111,22 +111,22 @@ void Polygon2DEditor::_notification(int p_what) {
 		} break;
 
 		case NOTIFICATION_READY: {
-			button_uv->set_icon(get_editor_theme_icon(SNAME("Uv")));
+			button_uv->set_button_icon(get_editor_theme_icon(SNAME("Uv")));
 
-			uv_button[UV_MODE_CREATE]->set_icon(get_editor_theme_icon(SNAME("Edit")));
-			uv_button[UV_MODE_CREATE_INTERNAL]->set_icon(get_editor_theme_icon(SNAME("EditInternal")));
-			uv_button[UV_MODE_REMOVE_INTERNAL]->set_icon(get_editor_theme_icon(SNAME("RemoveInternal")));
-			uv_button[UV_MODE_EDIT_POINT]->set_icon(get_editor_theme_icon(SNAME("ToolSelect")));
-			uv_button[UV_MODE_MOVE]->set_icon(get_editor_theme_icon(SNAME("ToolMove")));
-			uv_button[UV_MODE_ROTATE]->set_icon(get_editor_theme_icon(SNAME("ToolRotate")));
-			uv_button[UV_MODE_SCALE]->set_icon(get_editor_theme_icon(SNAME("ToolScale")));
-			uv_button[UV_MODE_ADD_POLYGON]->set_icon(get_editor_theme_icon(SNAME("Edit")));
-			uv_button[UV_MODE_REMOVE_POLYGON]->set_icon(get_editor_theme_icon(SNAME("Close")));
-			uv_button[UV_MODE_PAINT_WEIGHT]->set_icon(get_editor_theme_icon(SNAME("Bucket")));
-			uv_button[UV_MODE_CLEAR_WEIGHT]->set_icon(get_editor_theme_icon(SNAME("Clear")));
+			uv_button[UV_MODE_CREATE]->set_button_icon(get_editor_theme_icon(SNAME("Edit")));
+			uv_button[UV_MODE_CREATE_INTERNAL]->set_button_icon(get_editor_theme_icon(SNAME("EditInternal")));
+			uv_button[UV_MODE_REMOVE_INTERNAL]->set_button_icon(get_editor_theme_icon(SNAME("RemoveInternal")));
+			uv_button[UV_MODE_EDIT_POINT]->set_button_icon(get_editor_theme_icon(SNAME("ToolSelect")));
+			uv_button[UV_MODE_MOVE]->set_button_icon(get_editor_theme_icon(SNAME("ToolMove")));
+			uv_button[UV_MODE_ROTATE]->set_button_icon(get_editor_theme_icon(SNAME("ToolRotate")));
+			uv_button[UV_MODE_SCALE]->set_button_icon(get_editor_theme_icon(SNAME("ToolScale")));
+			uv_button[UV_MODE_ADD_POLYGON]->set_button_icon(get_editor_theme_icon(SNAME("Edit")));
+			uv_button[UV_MODE_REMOVE_POLYGON]->set_button_icon(get_editor_theme_icon(SNAME("Close")));
+			uv_button[UV_MODE_PAINT_WEIGHT]->set_button_icon(get_editor_theme_icon(SNAME("Bucket")));
+			uv_button[UV_MODE_CLEAR_WEIGHT]->set_button_icon(get_editor_theme_icon(SNAME("Clear")));
 
-			b_snap_grid->set_icon(get_editor_theme_icon(SNAME("Grid")));
-			b_snap_enable->set_icon(get_editor_theme_icon(SNAME("SnapGrid")));
+			b_snap_grid->set_button_icon(get_editor_theme_icon(SNAME("Grid")));
+			b_snap_enable->set_button_icon(get_editor_theme_icon(SNAME("SnapGrid")));
 
 			uv_vscroll->set_anchors_and_offsets_preset(PRESET_RIGHT_WIDE);
 			uv_hscroll->set_anchors_and_offsets_preset(PRESET_BOTTOM_WIDE);
@@ -275,7 +275,11 @@ void Polygon2DEditor::_uv_edit_mode_select(int p_mode) {
 		uv_button[UV_MODE_REMOVE_POLYGON]->hide();
 		uv_button[UV_MODE_PAINT_WEIGHT]->hide();
 		uv_button[UV_MODE_CLEAR_WEIGHT]->hide();
-		_uv_mode(UV_MODE_EDIT_POINT);
+		if (node->get_polygon().is_empty()) {
+			_uv_mode(UV_MODE_CREATE);
+		} else {
+			_uv_mode(UV_MODE_EDIT_POINT);
+		}
 
 		bone_scroll_main_vb->hide();
 		bone_paint_strength->hide();
@@ -317,9 +321,16 @@ void Polygon2DEditor::_uv_edit_mode_select(int p_mode) {
 	uv_edit_draw->queue_redraw();
 }
 
+void Polygon2DEditor::_uv_edit_popup_show() {
+	EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
+	undo_redo->connect("version_changed", callable_mp(this, &Polygon2DEditor::_update_available_modes));
+}
+
 void Polygon2DEditor::_uv_edit_popup_hide() {
 	EditorSettings::get_singleton()->set_project_metadata("dialog_bounds", "uv_editor", Rect2(uv_edit->get_position(), uv_edit->get_size()));
 	_cancel_editing();
+	EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
+	undo_redo->disconnect("version_changed", callable_mp(this, &Polygon2DEditor::_update_available_modes));
 }
 
 void Polygon2DEditor::_menu_option(int p_option) {
@@ -346,6 +357,7 @@ void Polygon2DEditor::_menu_option(int p_option) {
 				uv_edit->popup_centered_ratio(0.85);
 			}
 			_update_bone_list();
+			_update_available_modes();
 			get_tree()->connect("process_frame", callable_mp(this, &Polygon2DEditor::_center_view), CONNECT_ONE_SHOT);
 		} break;
 		case UVEDIT_POLYGON_TO_UV: {
@@ -408,6 +420,7 @@ void Polygon2DEditor::_cancel_editing() {
 		node->set_polygons(polygons_prev);
 
 		_update_polygon_editing_state();
+		_update_available_modes();
 	} else if (uv_drag) {
 		uv_drag = false;
 		if (uv_edit_mode[0]->is_pressed()) { // Edit UV.
@@ -566,6 +579,7 @@ void Polygon2DEditor::_uv_input(const Ref<InputEvent> &p_input) {
 							uv_drag = false;
 							uv_create = false;
 
+							_update_available_modes();
 							_uv_mode(UV_MODE_EDIT_POINT);
 							_menu_option(MODE_EDIT);
 						} else {
@@ -973,6 +987,23 @@ void Polygon2DEditor::_uv_input(const Ref<InputEvent> &p_input) {
 	}
 }
 
+void Polygon2DEditor::_update_available_modes() {
+	// Force point editing mode if there's no polygon yet.
+	if (node->get_polygon().is_empty()) {
+		if (!uv_edit_mode[1]->is_pressed()) {
+			uv_edit_mode[1]->set_pressed(true);
+			_uv_edit_mode_select(1);
+		}
+		uv_edit_mode[0]->set_disabled(true);
+		uv_edit_mode[2]->set_disabled(true);
+		uv_edit_mode[3]->set_disabled(true);
+	} else {
+		uv_edit_mode[0]->set_disabled(false);
+		uv_edit_mode[2]->set_disabled(false);
+		uv_edit_mode[3]->set_disabled(false);
+	}
+}
+
 void Polygon2DEditor::_center_view() {
 	Size2 texture_size;
 	if (node->get_texture().is_valid()) {
@@ -1324,6 +1355,7 @@ Polygon2DEditor::Polygon2DEditor() {
 	add_child(uv_edit);
 	uv_edit->connect(SceneStringName(confirmed), callable_mp(this, &Polygon2DEditor::_uv_edit_popup_hide));
 	uv_edit->connect("canceled", callable_mp(this, &Polygon2DEditor::_uv_edit_popup_hide));
+	uv_edit->connect("about_to_popup", callable_mp(this, &Polygon2DEditor::_uv_edit_popup_show));
 
 	VBoxContainer *uv_main_vb = memnew(VBoxContainer);
 	uv_edit->add_child(uv_main_vb);

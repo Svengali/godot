@@ -281,7 +281,7 @@ void OpenXRViewportCompositionLayerProvider::create_android_surface() {
 	composition_layer_extension->create_android_surface_swapchain(&info, &android_surface.swapchain, &surface);
 
 	if (surface) {
-		android_surface.surface = Ref<JavaObject>(memnew(JavaObject(JavaClassWrapper::get_singleton()->wrap("android.view.Surface"), surface)));
+		android_surface.surface.instantiate(JavaClassWrapper::get_singleton()->wrap("android.view.Surface"), surface);
 	}
 }
 #endif
@@ -341,7 +341,7 @@ XrCompositionLayerBaseHeader *OpenXRViewportCompositionLayerProvider::get_compos
 	}
 
 	XrSwapchainSubImage subimage = {
-		0, // swapchain
+		0, // swapchain // NOLINT(modernize-use-nullptr) - 32-bit uses non-pointer uint64
 		{ { 0, 0 }, { 0, 0 } }, // imageRect
 		0, // imageArrayIndex
 	};
