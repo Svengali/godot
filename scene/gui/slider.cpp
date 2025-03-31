@@ -30,7 +30,6 @@
 
 #include "slider.h"
 
-#include "core/os/keyboard.h"
 #include "scene/theme/theme_db.h"
 
 Size2 Slider::get_minimum_size() const {
@@ -90,12 +89,12 @@ void Slider::gui_input(const Ref<InputEvent> &p_event) {
 			}
 		} else if (scrollable) {
 			if (mb->is_pressed() && mb->get_button_index() == MouseButton::WHEEL_UP) {
-				if (get_focus_mode() != FOCUS_NONE) {
+				if (get_focus_mode_with_recursive() != FOCUS_NONE) {
 					grab_focus();
 				}
 				set_value(get_value() + get_step());
 			} else if (mb->is_pressed() && mb->get_button_index() == MouseButton::WHEEL_DOWN) {
-				if (get_focus_mode() != FOCUS_NONE) {
+				if (get_focus_mode_with_recursive() != FOCUS_NONE) {
 					grab_focus();
 				}
 				set_value(get_value() - get_step());
@@ -131,7 +130,7 @@ void Slider::gui_input(const Ref<InputEvent> &p_event) {
 	Ref<InputEventJoypadButton> joypadbutton_event = p_event;
 	bool is_joypad_event = (joypadmotion_event.is_valid() || joypadbutton_event.is_valid());
 
-	if (!mm.is_valid() && !mb.is_valid()) {
+	if (mm.is_null() && mb.is_null()) {
 		if (p_event->is_action_pressed("ui_left", true)) {
 			if (orientation != HORIZONTAL) {
 				return;

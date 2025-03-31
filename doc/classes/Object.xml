@@ -61,14 +61,14 @@
 
 				public override Godot.Collections.Array&lt;Godot.Collections.Dictionary&gt; _GetPropertyList()
 				{
-				    return new Godot.Collections.Array&lt;Godot.Collections.Dictionary&gt;()
-				    {
+				    return
+				    [
 				        new Godot.Collections.Dictionary()
 				        {
 				            { "name", "FakeProperty" },
-				            { "type", (int)Variant.Type.Int }
-				        }
-				    };
+				            { "type", (int)Variant.Type.Int },
+				        },
+				    ];
 				}
 				[/csharp]
 				[/codeblocks]
@@ -137,11 +137,11 @@
 				        }
 				    }
 
-				    private Godot.Collections.Array&lt;int&gt; _numbers = new();
+				    private Godot.Collections.Array&lt;int&gt; _numbers = [];
 
 				    public override Godot.Collections.Array&lt;Godot.Collections.Dictionary&gt; _GetPropertyList()
 				    {
-				        var properties = new Godot.Collections.Array&lt;Godot.Collections.Dictionary&gt;();
+				        Godot.Collections.Array&lt;Godot.Collections.Dictionary&gt; properties = [];
 
 				        for (int i = 0; i &lt; _numberCount; i++)
 				        {
@@ -322,14 +322,14 @@
 
 				public override Godot.Collections.Array&lt;Godot.Collections.Dictionary&gt; _GetPropertyList()
 				{
-				    return new Godot.Collections.Array&lt;Godot.Collections.Dictionary&gt;()
-				    {
+				    return
+				    [
 				        new Godot.Collections.Dictionary()
 				        {
 				            { "name", "FakeProperty" },
-				            { "type", (int)Variant.Type.Int }
-				        }
-				    };
+				            { "type", (int)Variant.Type.Int },
+				        },
+				    ];
 				}
 				[/csharp]
 				[/codeblocks]
@@ -416,19 +416,19 @@
 				])
 				[/gdscript]
 				[csharp]
-				AddUserSignal("Hurt", new Godot.Collections.Array()
-				{
+				AddUserSignal("Hurt",
+				[
 				    new Godot.Collections.Dictionary()
 				    {
 				        { "name", "damage" },
-				        { "type", (int)Variant.Type.Int }
+				        { "type", (int)Variant.Type.Int },
 				    },
 				    new Godot.Collections.Dictionary()
 				    {
 				        { "name", "source" },
-				        { "type", (int)Variant.Type.Object }
-				    }
-				});
+				        { "type", (int)Variant.Type.Object },
+				    },
+				]);
 				[/csharp]
 				[/codeblocks]
 			</description>
@@ -494,7 +494,7 @@
 				[/gdscript]
 				[csharp]
 				var node = new Node3D();
-				node.Callv(Node3D.MethodName.Rotate, new Godot.Collections.Array { new Vector3(1f, 0f, 0f), 1.571f });
+				node.Callv(Node3D.MethodName.Rotate, [new Vector3(1f, 0f, 0f), 1.571f]);
 				[/csharp]
 				[/codeblocks]
 				[b]Note:[/b] In C#, [param method] must be in snake_case when referring to built-in Godot methods. Prefer using the names exposed in the [code]MethodName[/code] class to avoid allocating a new [StringName] on each call.
@@ -759,7 +759,7 @@
 		<method name="get_meta_list" qualifiers="const">
 			<return type="StringName[]" />
 			<description>
-				Returns the object's metadata entry names as a [PackedStringArray].
+				Returns the object's metadata entry names as an [Array] of [StringName]s.
 			</description>
 		</method>
 		<method name="get_method_argument_count" qualifiers="const">
@@ -987,12 +987,12 @@
 				[gdscript]
 				var node = Node2D.new()
 				node.set("global_scale", Vector2(8, 2.5))
-				print(node.global_scale) # Prints (8, 2.5)
+				print(node.global_scale) # Prints (8.0, 2.5)
 				[/gdscript]
 				[csharp]
 				var node = new Node2D();
-				node.Set(Node2D.PropertyName.GlobalScale, new Vector2(8, 2.5));
-				GD.Print(node.GlobalScale); // Prints Vector2(8, 2.5)
+				node.Set(Node2D.PropertyName.GlobalScale, new Vector2(8, 2.5f));
+				GD.Print(node.GlobalScale); // Prints (8, 2.5)
 				[/csharp]
 				[/codeblocks]
 				[b]Note:[/b] In C#, [param property] must be in snake_case when referring to built-in Godot properties. Prefer using the names exposed in the [code]PropertyName[/code] class to avoid allocating a new [StringName] on each call.
@@ -1047,7 +1047,7 @@
 				var node = Node2D.new()
 				node.set_indexed("position", Vector2(42, 0))
 				node.set_indexed("position:y", -10)
-				print(node.position) # Prints (42, -10)
+				print(node.position) # Prints (42.0, -10.0)
 				[/gdscript]
 				[csharp]
 				var node = new Node2D();

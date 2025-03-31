@@ -30,8 +30,6 @@
 
 #include "rendering_server_default.h"
 
-#include "core/config/project_settings.h"
-#include "core/io/marshalls.h"
 #include "core/os/os.h"
 #include "core/templates/sort_array.h"
 
@@ -98,7 +96,9 @@ void RenderingServerDefault::_draw(bool p_swap_buffers, double frame_step) {
 	uint64_t time_usec = OS::get_singleton()->get_ticks_usec();
 
 	{
-		RENDER_TIMESTAMP("Prepare Render Frame");
+	RENDER_TIMESTAMP("Prepare Render Frame");
+	RSG::scene->update(); //update scenes stuff before updating instances
+	RSG::canvas->update();
 
 		{
 			ZoneScopedN( "scene-update" );
@@ -122,17 +122,13 @@ void RenderingServerDefault::_draw(bool p_swap_buffers, double frame_step) {
 			RSG::viewport->draw_viewports(p_swap_buffers);
 		}
 
-		{
-			ZoneScopedN( "update" );
-			RSG::canvas_render->update();
-		}
-
-		{
-			ZoneScopedN( "end_frame" );
-			ZoneColor(0x161616);
-			RSG::rasterizer->end_frame(p_swap_buffers);
-		}
+#ifndef XR_DISABLED
+	XRServer *xr_server = XRServer::get_singleton();
+	if (xr_server != nullptr) {
+		// let our XR server know we're done so we can get our frame timing
+		xr_server->end_frame();
 	}
+#endif // XR_DISABLED
 
 	if (create_thread) {
 		callable_mp(this, &RenderingServerDefault::_run_post_draw_steps).call_deferred();
@@ -477,15 +473,15 @@ void RenderingServerDefault::sync() {
 	}
 }
 
-void RenderingServerDefault::draw(bool p_swap_buffers, double frame_step) {
+void RenderingServerDefault::draw(bool p_present, double frame_step) {
 	ERR_FAIL_COND_MSG(!Thread::is_main_thread(), "Manually triggering the draw function from the RenderingServer can only be done on the main thread. Call this function from the main thread or use call_deferred().");
 	// Needs to be done before changes is reset to 0, to not force the editor to redraw.
 	RS::get_singleton()->emit_signal(SNAME("frame_pre_draw"));
 	changes = 0;
 	if (create_thread) {
-		command_queue.push(this, &RenderingServerDefault::_draw, p_swap_buffers, frame_step);
+		command_queue.push(this, &RenderingServerDefault::_draw, p_present, frame_step);
 	} else {
-		_draw(p_swap_buffers, frame_step);
+		_draw(p_present, frame_step);
 	}
 }
 

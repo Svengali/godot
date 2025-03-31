@@ -28,12 +28,13 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef ANDROID_EXPORT_PLUGIN_H
-#define ANDROID_EXPORT_PLUGIN_H
+#pragma once
 
 #ifndef DISABLE_DEPRECATED
 #include "godot_plugin_config.h"
 #endif // DISABLE_DEPRECATED
+
+#include "gradle_export_util.h"
 
 #include "core/io/image.h"
 #include "core/io/zip_io.h"
@@ -74,6 +75,12 @@ class EditorExportPlatformAndroid : public EditorExportPlatform {
 	struct APKExportData {
 		zipFile apk;
 		EditorProgress *ep = nullptr;
+	};
+
+	struct FeatureInfo {
+		String name;
+		bool required;
+		String version;
 	};
 
 #ifndef DISABLE_DEPRECATED
@@ -152,9 +159,11 @@ class EditorExportPlatformAndroid : public EditorExportPlatform {
 
 	bool _has_manage_external_storage_permission(const Vector<String> &p_permissions);
 
-	void _get_permissions(const Ref<EditorExportPreset> &p_preset, bool p_give_internet, Vector<String> &r_permissions);
+	void _get_manifest_info(const Ref<EditorExportPreset> &p_preset, bool p_give_internet, Vector<String> &r_permissions, Vector<FeatureInfo> &r_features, Vector<MetadataInfo> &r_metadata);
 
 	void _write_tmp_manifest(const Ref<EditorExportPreset> &p_preset, bool p_give_internet, bool p_debug);
+
+	void _fix_themes_xml(const Ref<EditorExportPreset> &p_preset);
 
 	void _fix_manifest(const Ref<EditorExportPreset> &p_preset, Vector<uint8_t> &p_manifest, bool p_give_internet);
 
@@ -234,6 +243,8 @@ public:
 
 	virtual List<String> get_binary_extensions(const Ref<EditorExportPreset> &p_preset) const override;
 
+	String _get_deprecated_plugins_names(const Ref<EditorExportPreset> &p_preset) const;
+
 	String _get_plugins_names(const Ref<EditorExportPreset> &p_preset) const;
 
 	String _resolve_export_plugin_android_library_path(const String &p_android_library_path) const;
@@ -267,5 +278,3 @@ public:
 
 	~EditorExportPlatformAndroid();
 };
-
-#endif // ANDROID_EXPORT_PLUGIN_H

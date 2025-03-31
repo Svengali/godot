@@ -33,6 +33,7 @@
 #include "tile_set_editor.h"
 
 #include "core/math/geometry_2d.h"
+#include "core/math/random_pcg.h"
 #include "core/os/keyboard.h"
 
 #include "editor/editor_node.h"
@@ -64,7 +65,7 @@ void TileDataEditor::_tile_set_changed_deferred_update() {
 }
 
 TileData *TileDataEditor::_get_tile_data(TileMapCell p_cell) {
-	ERR_FAIL_COND_V(!tile_set.is_valid(), nullptr);
+	ERR_FAIL_COND_V(tile_set.is_null(), nullptr);
 	ERR_FAIL_COND_V(!tile_set->has_source(p_cell.source_id), nullptr);
 
 	TileData *td = nullptr;
@@ -129,7 +130,7 @@ void DummyObject::clear_dummy_properties() {
 }
 
 void GenericTilePolygonEditor::_base_control_draw() {
-	ERR_FAIL_COND(!tile_set.is_valid());
+	ERR_FAIL_COND(tile_set.is_null());
 
 	real_t grab_threshold = EDITOR_GET("editors/polygon_editor/point_grab_radius");
 
@@ -219,8 +220,7 @@ void GenericTilePolygonEditor::_base_control_draw() {
 			color = color.darkened(0.3);
 		}
 		color.a = 0.5;
-		Vector<Color> v_color;
-		v_color.push_back(color);
+		Vector<Color> v_color = { color };
 		base_control->draw_polygon(polygon, v_color);
 
 		color.a = 0.7;
@@ -452,7 +452,7 @@ void GenericTilePolygonEditor::_grab_polygon_segment_point(Vector2 p_pos, const 
 }
 
 void GenericTilePolygonEditor::_snap_to_tile_shape(Point2 &r_point, float &r_current_snapped_dist, float p_snap_dist) {
-	ERR_FAIL_COND(!tile_set.is_valid());
+	ERR_FAIL_COND(tile_set.is_null());
 
 	Vector<Point2> polygon = tile_set->get_tile_shape_polygon();
 	for (int i = 0; i < polygon.size(); i++) {
@@ -751,7 +751,7 @@ void GenericTilePolygonEditor::set_use_undo_redo(bool p_use_undo_redo) {
 }
 
 void GenericTilePolygonEditor::set_tile_set(Ref<TileSet> p_tile_set) {
-	ERR_FAIL_COND(!p_tile_set.is_valid());
+	ERR_FAIL_COND(p_tile_set.is_null());
 	if (tile_set == p_tile_set) {
 		return;
 	}
@@ -918,7 +918,7 @@ GenericTilePolygonEditor::GenericTilePolygonEditor() {
 	tools_button_group.instantiate();
 
 	button_expand = memnew(Button);
-	button_expand->set_theme_type_variation("FlatButton");
+	button_expand->set_theme_type_variation(SceneStringName(FlatButton));
 	button_expand->set_toggle_mode(true);
 	button_expand->set_pressed(false);
 	button_expand->set_tooltip_text(TTR("Expand editor"));
@@ -928,7 +928,7 @@ GenericTilePolygonEditor::GenericTilePolygonEditor() {
 	toolbar->add_child(memnew(VSeparator));
 
 	button_create = memnew(Button);
-	button_create->set_theme_type_variation("FlatButton");
+	button_create->set_theme_type_variation(SceneStringName(FlatButton));
 	button_create->set_toggle_mode(true);
 	button_create->set_button_group(tools_button_group);
 	button_create->set_pressed(true);
@@ -936,14 +936,14 @@ GenericTilePolygonEditor::GenericTilePolygonEditor() {
 	toolbar->add_child(button_create);
 
 	button_edit = memnew(Button);
-	button_edit->set_theme_type_variation("FlatButton");
+	button_edit->set_theme_type_variation(SceneStringName(FlatButton));
 	button_edit->set_toggle_mode(true);
 	button_edit->set_button_group(tools_button_group);
 	button_edit->set_tooltip_text(TTR("Edit points tool"));
 	toolbar->add_child(button_edit);
 
 	button_delete = memnew(Button);
-	button_delete->set_theme_type_variation("FlatButton");
+	button_delete->set_theme_type_variation(SceneStringName(FlatButton));
 	button_delete->set_toggle_mode(true);
 	button_delete->set_button_group(tools_button_group);
 	button_delete->set_tooltip_text(TTR("Delete points tool"));
@@ -1015,7 +1015,7 @@ GenericTilePolygonEditor::GenericTilePolygonEditor() {
 	button_center_view->set_anchors_and_offsets_preset(Control::PRESET_TOP_RIGHT, Control::PRESET_MODE_MINSIZE, 5);
 	button_center_view->set_grow_direction_preset(Control::PRESET_TOP_RIGHT);
 	button_center_view->connect(SceneStringName(pressed), callable_mp(this, &GenericTilePolygonEditor::_center_view));
-	button_center_view->set_theme_type_variation("FlatButton");
+	button_center_view->set_theme_type_variation(SceneStringName(FlatButton));
 	button_center_view->set_tooltip_text(TTR("Center View"));
 	button_center_view->set_disabled(true);
 	root->add_child(button_center_view);
@@ -1379,7 +1379,7 @@ TileDataDefaultEditor::TileDataDefaultEditor() {
 	add_child(label);
 
 	picker_button = memnew(Button);
-	picker_button->set_theme_type_variation("FlatButton");
+	picker_button->set_theme_type_variation(SceneStringName(FlatButton));
 	picker_button->set_toggle_mode(true);
 	picker_button->set_shortcut(ED_GET_SHORTCUT("tiles_editor/picker"));
 	toolbar->add_child(picker_button);
@@ -1482,8 +1482,7 @@ void TileDataOcclusionShapeEditor::draw_over_tile(CanvasItem *p_canvas_item, Tra
 	}
 	color.a *= 0.5;
 
-	Vector<Color> debug_occlusion_color;
-	debug_occlusion_color.push_back(color);
+	Vector<Color> debug_occlusion_color = { color };
 
 	RenderingServer::get_singleton()->canvas_item_add_set_transform(p_canvas_item->get_canvas_item(), p_transform);
 	for (int i = 0; i < tile_data->get_occluder_polygons_count(occlusion_layer); i++) {
@@ -1852,7 +1851,7 @@ void TileDataCollisionEditor::draw_over_tile(CanvasItem *p_canvas_item, Transfor
 }
 
 void TileDataTerrainsEditor::_update_terrain_selector() {
-	ERR_FAIL_COND(!tile_set.is_valid());
+	ERR_FAIL_COND(tile_set.is_null());
 
 	// Update the terrain set selector.
 	Vector<String> options;
@@ -1905,7 +1904,7 @@ void TileDataTerrainsEditor::_property_value_changed(const StringName &p_propert
 }
 
 void TileDataTerrainsEditor::_tile_set_changed() {
-	ERR_FAIL_COND(!tile_set.is_valid());
+	ERR_FAIL_COND(tile_set.is_null());
 
 	// Fix if wrong values are selected.
 	int terrain_set = int(dummy_object->get("terrain_set"));
@@ -1923,7 +1922,7 @@ void TileDataTerrainsEditor::_tile_set_changed() {
 }
 
 void TileDataTerrainsEditor::forward_draw_over_atlas(TileAtlasView *p_tile_atlas_view, TileSetAtlasSource *p_tile_set_atlas_source, CanvasItem *p_canvas_item, Transform2D p_transform) {
-	ERR_FAIL_COND(!tile_set.is_valid());
+	ERR_FAIL_COND(tile_set.is_null());
 
 	// Draw the hovered terrain bit, or the whole tile if it has the wrong terrain set.
 	Vector2i hovered_coords = TileSetSource::INVALID_ATLAS_COORDS;
@@ -2064,14 +2063,12 @@ void TileDataTerrainsEditor::forward_draw_over_atlas(TileAtlasView *p_tile_atlas
 		}
 
 		Vector2 end = p_transform.affine_inverse().xform(p_canvas_item->get_local_mouse_position());
-		Vector<Point2> mouse_pos_rect_polygon;
-		mouse_pos_rect_polygon.push_back(drag_start_pos);
-		mouse_pos_rect_polygon.push_back(Vector2(end.x, drag_start_pos.y));
-		mouse_pos_rect_polygon.push_back(end);
-		mouse_pos_rect_polygon.push_back(Vector2(drag_start_pos.x, end.y));
+		Vector<Point2> mouse_pos_rect_polygon = {
+			drag_start_pos, Vector2(end.x, drag_start_pos.y),
+			end, Vector2(drag_start_pos.x, end.y)
+		};
 
-		Vector<Color> color;
-		color.push_back(Color(1.0, 1.0, 1.0, 0.5));
+		Vector<Color> color = { Color(1.0, 1.0, 1.0, 0.5) };
 
 		p_canvas_item->draw_set_transform_matrix(p_transform);
 
@@ -2110,7 +2107,7 @@ void TileDataTerrainsEditor::forward_draw_over_atlas(TileAtlasView *p_tile_atlas
 }
 
 void TileDataTerrainsEditor::forward_draw_over_alternatives(TileAtlasView *p_tile_atlas_view, TileSetAtlasSource *p_tile_set_atlas_source, CanvasItem *p_canvas_item, Transform2D p_transform) {
-	ERR_FAIL_COND(!tile_set.is_valid());
+	ERR_FAIL_COND(tile_set.is_null());
 
 	// Draw the hovered terrain bit, or the whole tile if it has the wrong terrain set.
 	Vector2i hovered_coords = TileSetSource::INVALID_ATLAS_COORDS;
@@ -2131,8 +2128,7 @@ void TileDataTerrainsEditor::forward_draw_over_alternatives(TileAtlasView *p_til
 				Transform2D xform;
 				xform.set_origin(position);
 
-				Vector<Color> color;
-				color.push_back(Color(1.0, 1.0, 1.0, 0.5));
+				Vector<Color> color = { Color(1.0, 1.0, 1.0, 0.5) };
 
 				Vector<Vector2> polygon = tile_set->get_terrain_polygon(terrain_set);
 				if (Geometry2D::is_point_in_polygon(xform.affine_inverse().xform(mouse_pos), polygon)) {
@@ -2547,11 +2543,10 @@ void TileDataTerrainsEditor::forward_painting_atlas_gui_input(TileAtlasView *p_t
 						}
 					}
 
-					Vector<Point2> mouse_pos_rect_polygon;
-					mouse_pos_rect_polygon.push_back(drag_start_pos);
-					mouse_pos_rect_polygon.push_back(Vector2(mb->get_position().x, drag_start_pos.y));
-					mouse_pos_rect_polygon.push_back(mb->get_position());
-					mouse_pos_rect_polygon.push_back(Vector2(drag_start_pos.x, mb->get_position().y));
+					Vector<Point2> mouse_pos_rect_polygon = {
+						drag_start_pos, Vector2(mb->get_position().x, drag_start_pos.y),
+						mb->get_position(), Vector2(drag_start_pos.x, mb->get_position().y)
+					};
 
 					undo_redo->create_action(TTR("Painting Terrain"));
 					for (const TileMapCell &E : edited) {
@@ -2880,7 +2875,7 @@ TileDataTerrainsEditor::TileDataTerrainsEditor() {
 
 	// Toolbar
 	picker_button = memnew(Button);
-	picker_button->set_theme_type_variation("FlatButton");
+	picker_button->set_theme_type_variation(SceneStringName(FlatButton));
 	picker_button->set_toggle_mode(true);
 	picker_button->set_shortcut(ED_GET_SHORTCUT("tiles_editor/picker"));
 	toolbar->add_child(picker_button);
@@ -3030,8 +3025,7 @@ void TileDataNavigationEditor::draw_over_tile(CanvasItem *p_canvas_item, Transfo
 			Color random_variation_color;
 			random_variation_color.set_hsv(color.get_h() + rand.random(-1.0, 1.0) * 0.05, color.get_s(), color.get_v() + rand.random(-1.0, 1.0) * 0.1);
 			random_variation_color.a = color.a;
-			Vector<Color> colors;
-			colors.push_back(random_variation_color);
+			Vector<Color> colors = { random_variation_color };
 
 			RenderingServer::get_singleton()->canvas_item_add_polygon(p_canvas_item->get_canvas_item(), vertices, colors);
 		}

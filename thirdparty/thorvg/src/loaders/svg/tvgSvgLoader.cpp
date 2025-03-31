@@ -200,7 +200,7 @@ static float _gradientToFloat(const SvgParser* svgParse, const char* str, bool& 
     isPercentage = false;
 
     if (strstr(str, "%")) {
-        parsedValue = parsedValue / 100.0;
+        parsedValue = parsedValue / 100.0f;
         isPercentage = true;
     }
     else if (strstr(str, "cm")) parsedValue *= PX_PER_CM;
@@ -225,7 +225,7 @@ static float _toOffset(const char* str)
     auto ptr = strstr(str, "%");
 
     if (ptr) {
-        parsedValue = parsedValue / 100.0;
+        parsedValue = parsedValue / 100.0f;
         if (end != ptr || (end + 1) != strEnd) return 0;
     } else if (end != strEnd) return 0;
 
@@ -3382,6 +3382,7 @@ static void _svgLoaderParserXmlOpen(SvgLoaderData* loader, const char* content, 
         if (node->type != SvgNodeType::Defs || !empty) {
             loader->stack.push(node);
         }
+        loader->latestGradient = nullptr;
     } else if ((method = _findGraphicsFactory(tagName))) {
         if (loader->stack.count > 0) parent = loader->stack.last();
         else parent = loader->doc;
@@ -3392,6 +3393,7 @@ static void _svgLoaderParserXmlOpen(SvgLoaderData* loader, const char* content, 
             loader->stack.push(defs);
             loader->currentGraphicsNode = node;
         }
+        loader->latestGradient = nullptr;
     } else if ((gradientMethod = _findGradientFactory(tagName))) {
         SvgStyleGradient* gradient;
         gradient = gradientMethod(loader, attrs, attrsLength);
@@ -3417,8 +3419,9 @@ static void _svgLoaderParserXmlOpen(SvgLoaderData* loader, const char* content, 
         loader->svgParse->flags = SvgStopStyleFlags::StopDefault;
         simpleXmlParseAttributes(attrs, attrsLength, _attrParseStops, loader);
         loader->latestGradient->stops.push(loader->svgParse->gradStop);
-    } else if (!isIgnoreUnsupportedLogElements(tagName)) {
-        TVGLOG("SVG", "Unsupported elements used [Elements: %s]", tagName);
+    } else {
+        loader->latestGradient = nullptr;
+        if (!isIgnoreUnsupportedLogElements(tagName)) TVGLOG("SVG", "Unsupported elements used [Elements: %s]", tagName);
     }
 }
 
@@ -3973,6 +3976,7 @@ bool SvgLoader::open(const char* data, uint32_t size, bool copy)
 
 bool SvgLoader::open(const string& path)
 {
+#ifdef THORVG_FILE_IO_SUPPORT
     clear();
 
     ifstream f;
@@ -3990,6 +3994,9 @@ bool SvgLoader::open(const string& path)
     size = filePath.size();
 
     return header();
+#else
+    return false;
+#endif
 }
 
 

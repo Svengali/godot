@@ -40,7 +40,6 @@
 #include "editor/themes/editor_scale.h"
 #include "scene/gui/button.h"
 #include "scene/gui/dialogs.h"
-#include "scene/gui/separator.h"
 
 bool AbstractPolygon2DEditor::Vertex::operator==(const AbstractPolygon2DEditor::Vertex &p_vertex) const {
 	return polygon == p_vertex.polygon && vertex == p_vertex.vertex;
@@ -260,6 +259,11 @@ bool AbstractPolygon2DEditor::forward_gui_input(const Ref<InputEvent> &p_event) 
 		return false;
 	}
 
+	Viewport *vp = _get_node()->get_viewport();
+	if (vp && !vp->is_visible_subviewport()) {
+		return false;
+	}
+
 	EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 	Ref<InputEventMouseButton> mb = p_event;
 
@@ -419,7 +423,7 @@ bool AbstractPolygon2DEditor::forward_gui_input(const Ref<InputEvent> &p_event) 
 			//Move the point in a single axis. Should only work when editing a polygon and while holding shift.
 			if (mode == MODE_EDIT && mm->is_shift_pressed()) {
 				Vector2 old_point = pre_move_edit.get(selected_point.vertex);
-				if (ABS(cpoint.x - old_point.x) > ABS(cpoint.y - old_point.y)) {
+				if (Math::abs(cpoint.x - old_point.x) > Math::abs(cpoint.y - old_point.y)) {
 					cpoint.y = old_point.y;
 				} else {
 					cpoint.x = old_point.x;
@@ -501,6 +505,11 @@ void AbstractPolygon2DEditor::forward_canvas_draw_over_viewport(Control *p_overl
 		return;
 	}
 
+	Viewport *vp = _get_node()->get_viewport();
+	if (vp && !vp->is_visible_subviewport()) {
+		return;
+	}
+
 	Transform2D xform = canvas_item_editor->get_canvas_transform() * _get_node()->get_screen_transform();
 	// All polygon points are sharp, so use the sharp handle icon
 	const Ref<Texture2D> handle = get_editor_theme_icon(SNAME("EditorPathSharpHandle"));
@@ -578,7 +587,7 @@ void AbstractPolygon2DEditor::forward_canvas_draw_over_viewport(Control *p_overl
 			if (vertex == hover_point) {
 				Ref<Font> font = get_theme_font(SNAME("bold"), EditorStringName(EditorFonts));
 				int font_size = 1.3 * get_theme_font_size(SNAME("bold_size"), EditorStringName(EditorFonts));
-				String num = String::num(vertex.vertex);
+				String num = String::num_int64(vertex.vertex);
 				Size2 num_size = font->get_string_size(num, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size);
 				const float outline_size = 4;
 				Color font_color = get_theme_color(SceneStringName(font_color), EditorStringName(Editor));
@@ -727,19 +736,19 @@ AbstractPolygon2DEditor::AbstractPolygon2DEditor(bool p_wip_destructive) {
 	edge_point = PosVertex();
 
 	button_create = memnew(Button);
-	button_create->set_theme_type_variation("FlatButton");
+	button_create->set_theme_type_variation(SceneStringName(FlatButton));
 	add_child(button_create);
 	button_create->connect(SceneStringName(pressed), callable_mp(this, &AbstractPolygon2DEditor::_menu_option).bind(MODE_CREATE));
 	button_create->set_toggle_mode(true);
 
 	button_edit = memnew(Button);
-	button_edit->set_theme_type_variation("FlatButton");
+	button_edit->set_theme_type_variation(SceneStringName(FlatButton));
 	add_child(button_edit);
 	button_edit->connect(SceneStringName(pressed), callable_mp(this, &AbstractPolygon2DEditor::_menu_option).bind(MODE_EDIT));
 	button_edit->set_toggle_mode(true);
 
 	button_delete = memnew(Button);
-	button_delete->set_theme_type_variation("FlatButton");
+	button_delete->set_theme_type_variation(SceneStringName(FlatButton));
 	add_child(button_delete);
 	button_delete->connect(SceneStringName(pressed), callable_mp(this, &AbstractPolygon2DEditor::_menu_option).bind(MODE_DELETE));
 	button_delete->set_toggle_mode(true);
@@ -773,7 +782,4 @@ AbstractPolygon2DEditorPlugin::AbstractPolygon2DEditorPlugin(AbstractPolygon2DEd
 		klass(p_class) {
 	CanvasItemEditor::get_singleton()->add_control_to_menu_panel(polygon_editor);
 	polygon_editor->hide();
-}
-
-AbstractPolygon2DEditorPlugin::~AbstractPolygon2DEditorPlugin() {
 }

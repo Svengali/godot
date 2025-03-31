@@ -110,7 +110,7 @@ void MultiMeshEditor::_populate() {
 
 	MeshInstance3D *ss_instance = Object::cast_to<MeshInstance3D>(ss_node);
 
-	if (!ss_instance || !ss_instance->get_mesh().is_valid()) {
+	if (!ss_instance || ss_instance->get_mesh().is_null()) {
 		err_dialog->set_text(TTR("Surface source is invalid (no geometry)."));
 		err_dialog->popup_centered();
 		return;
@@ -387,7 +387,4 @@ MultiMeshEditorPlugin::MultiMeshEditorPlugin() {
 	EditorNode::get_singleton()->get_gui_base()->add_child(multimesh_editor);
 
 	multimesh_editor->options->hide();
-}
-
-MultiMeshEditorPlugin::~MultiMeshEditorPlugin() {
 }

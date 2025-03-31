@@ -172,6 +172,7 @@ static LoadModule* _find(FileType type)
 }
 
 
+#ifdef THORVG_FILE_IO_SUPPORT
 static LoadModule* _findByPath(const string& path)
 {
     auto ext = path.substr(path.find_last_of(".") + 1);
@@ -185,6 +186,7 @@ static LoadModule* _findByPath(const string& path)
     if (!ext.compare("otf") || !ext.compare("otc")) return _find(FileType::Ttf);
     return nullptr;
 }
+#endif
 
 
 static FileType _convert(const string& mimeType)
@@ -265,7 +267,11 @@ bool LoaderMgr::term()
     auto loader = _activeLoaders.head;
 
     //clean up the remained font loaders which is globally used.
-    while (loader && loader->type == FileType::Ttf) {
+    while (loader) {
+        if (loader->type != FileType::Ttf) {
+            loader = loader->next;
+            continue;
+        }
         auto ret = loader->close();
         auto tmp = loader;
         loader = loader->next;
@@ -292,6 +298,7 @@ bool LoaderMgr::retrieve(LoadModule* loader)
 
 LoadModule* LoaderMgr::loader(const string& path, bool* invalid)
 {
+#ifdef THORVG_FILE_IO_SUPPORT
     *invalid = false;
 
     //TODO: svg & lottie is not sharable.
@@ -335,6 +342,7 @@ LoadModule* LoaderMgr::loader(const string& path, bool* invalid)
         }
     }
     *invalid = true;
+#endif
     return nullptr;
 }
 
