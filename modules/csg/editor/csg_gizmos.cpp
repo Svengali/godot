@@ -30,8 +30,6 @@
 
 #include "csg_gizmos.h"
 
-#ifdef TOOLS_ENABLED
-
 #include "editor/editor_node.h"
 #include "editor/editor_settings.h"
 #include "editor/editor_undo_redo_manager.h"
@@ -40,7 +38,6 @@
 #include "scene/3d/camera_3d.h"
 #include "scene/3d/mesh_instance_3d.h"
 #include "scene/3d/physics/collision_shape_3d.h"
-#include "scene/3d/physics/static_body_3d.h"
 #include "scene/gui/dialogs.h"
 #include "scene/gui/menu_button.h"
 
@@ -186,9 +183,6 @@ CSGShape3DGizmoPlugin::CSGShape3DGizmoPlugin() {
 	create_material("shape_intersection_solid_material", gizmo_color);
 
 	create_handle_material("handles");
-}
-
-CSGShape3DGizmoPlugin::~CSGShape3DGizmoPlugin() {
 }
 
 String CSGShape3DGizmoPlugin::get_handle_name(const EditorNode3DGizmo *p_gizmo, int p_id, bool p_secondary) const {
@@ -509,5 +503,3 @@ EditorPluginCSG::EditorPluginCSG() {
 	csg_shape_editor = memnew(CSGShapeEditor);
 	EditorNode::get_singleton()->get_gui_base()->add_child(csg_shape_editor);
 }
-
-#endif // TOOLS_ENABLED

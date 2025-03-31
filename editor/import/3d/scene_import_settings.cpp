@@ -41,6 +41,7 @@
 #include "editor/themes/editor_scale.h"
 #include "scene/3d/importer_mesh_instance_3d.h"
 #include "scene/animation/animation_player.h"
+#include "scene/gui/subviewport_container.h"
 #include "scene/resources/3d/importer_mesh.h"
 #include "scene/resources/surface_tool.h"
 
@@ -1224,6 +1225,20 @@ void SceneImportSettingsDialog::_viewport_input(const Ref<InputEvent> &p_input) 
 		}
 		_update_camera();
 	}
+	Ref<InputEventMagnifyGesture> mg = p_input;
+	if (mg.is_valid()) {
+		real_t mg_factor = mg->get_factor();
+		if (mg_factor == 0.0) {
+			mg_factor = 1.0;
+		}
+		(*zoom) /= mg_factor;
+		if ((*zoom) < 0.1) {
+			(*zoom) = 0.1;
+		} else if ((*zoom) > 10.0) {
+			(*zoom) = 10.0;
+		}
+		_update_camera();
+	}
 }
 
 void SceneImportSettingsDialog::_re_import() {
@@ -1314,7 +1329,7 @@ void SceneImportSettingsDialog::_notification(int p_what) {
 		case NOTIFICATION_THEME_CHANGED: {
 			action_menu->begin_bulk_theme_override();
 			action_menu->add_theme_style_override(CoreStringName(normal), get_theme_stylebox(CoreStringName(normal), "Button"));
-			action_menu->add_theme_style_override("hover", get_theme_stylebox("hover", "Button"));
+			action_menu->add_theme_style_override(SceneStringName(hover), get_theme_stylebox(SceneStringName(hover), "Button"));
 			action_menu->add_theme_style_override(SceneStringName(pressed), get_theme_stylebox(SceneStringName(pressed), "Button"));
 			action_menu->end_bulk_theme_override();
 
@@ -1329,7 +1344,7 @@ void SceneImportSettingsDialog::_notification(int p_what) {
 			light_2_switch->set_button_icon(theme_cache.light_2_icon);
 			light_rotate_switch->set_button_icon(theme_cache.rotate_icon);
 
-			animation_toggle_skeleton_visibility->set_button_icon(get_editor_theme_icon(SNAME("Skeleton3D")));
+			animation_toggle_skeleton_visibility->set_button_icon(get_editor_theme_icon(SNAME("SkeletonPreview")));
 		} break;
 
 		case NOTIFICATION_PROCESS: {
@@ -1570,6 +1585,10 @@ void SceneImportSettingsDialog::_save_dir_confirm() {
 			continue; //ignore
 		}
 		String path = item->get_text(1);
+		String uid_path = path;
+		if (path.begins_with("uid://")) {
+			path = ResourceUID::uid_to_path(uid_path);
+		}
 		if (!path.is_resource_file()) {
 			continue;
 		}
@@ -1586,9 +1605,11 @@ void SceneImportSettingsDialog::_save_dir_confirm() {
 					EditorNode::get_singleton()->add_io_error(TTR("Can't make material external to file, write error:") + "\n\t" + path);
 					continue;
 				}
+				uid_path = ResourceUID::path_to_uid(path);
 
 				md.settings["use_external/enabled"] = true;
-				md.settings["use_external/path"] = path;
+				md.settings["use_external/path"] = uid_path;
+				md.settings["use_external/fallback_path"] = path;
 
 			} break;
 			case ACTION_CHOOSE_MESH_SAVE_PATHS: {
@@ -1596,14 +1617,16 @@ void SceneImportSettingsDialog::_save_dir_confirm() {
 				MeshData &md = mesh_map[id];
 
 				md.settings["save_to_file/enabled"] = true;
-				md.settings["save_to_file/path"] = path;
+				md.settings["save_to_file/path"] = uid_path;
+				md.settings["save_to_file/fallback_path"] = path;
 			} break;
 			case ACTION_CHOOSE_ANIMATION_SAVE_PATHS: {
 				ERR_CONTINUE(!animation_map.has(id));
 				AnimationData &ad = animation_map[id];
 
 				ad.settings["save_to_file/enabled"] = true;
-				ad.settings["save_to_file/path"] = path;
+				ad.settings["save_to_file/path"] = uid_path;
+				ad.settings["save_to_file/fallback_path"] = path;
 
 			} break;
 		}
@@ -1702,7 +1725,7 @@ SceneImportSettingsDialog::SceneImportSettingsDialog() {
 	animation_hbox->add_child(animation_play_button);
 	animation_play_button->set_flat(true);
 	animation_play_button->set_focus_mode(Control::FOCUS_NONE);
-	animation_play_button->set_shortcut(ED_SHORTCUT("scene_import_settings/play_selected_animation", TTR("Selected Animation Play/Pause"), Key::SPACE));
+	animation_play_button->set_shortcut(ED_SHORTCUT("scene_import_settings/play_selected_animation", TTRC("Selected Animation Play/Pause"), Key::SPACE));
 	animation_play_button->connect(SceneStringName(pressed), callable_mp(this, &SceneImportSettingsDialog::_play_animation));
 
 	animation_stop_button = memnew(Button);
@@ -1725,7 +1748,7 @@ SceneImportSettingsDialog::SceneImportSettingsDialog() {
 	animation_toggle_skeleton_visibility = memnew(Button);
 	animation_hbox->add_child(animation_toggle_skeleton_visibility);
 	animation_toggle_skeleton_visibility->set_toggle_mode(true);
-	animation_toggle_skeleton_visibility->set_flat(true);
+	animation_toggle_skeleton_visibility->set_theme_type_variation("FlatButton");
 	animation_toggle_skeleton_visibility->set_focus_mode(Control::FOCUS_NONE);
 	animation_toggle_skeleton_visibility->set_tooltip_text(TTR("Toggle Animation Skeleton Visibility"));
 

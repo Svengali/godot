@@ -123,7 +123,7 @@
 
 - (void)enterText:(NSString *)substring {
 	String characters;
-	characters.parse_utf8([substring UTF8String]);
+	characters.append_utf8([substring UTF8String]);
 
 	for (int i = 0; i < characters.size(); i++) {
 		int character = characters[i];
@@ -184,7 +184,7 @@
 
 	NSInteger skip = 0;
 	if (substringToDelete != nil) {
-		for (NSInteger i = 0; i < MIN([substringToDelete length], [substringToEnter length]); i++) {
+		for (NSUInteger i = 0; i < MIN([substringToDelete length], [substringToEnter length]); i++) {
 			if ([substringToDelete characterAtIndex:i] == [substringToEnter characterAtIndex:i]) {
 				skip++;
 			} else {

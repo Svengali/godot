@@ -28,8 +28,7 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef OS_WINDOWS_H
-#define OS_WINDOWS_H
+#pragma once
 
 #include "crash_handler_windows.h"
 #include "key_mapping_windows.h"
@@ -137,6 +136,9 @@ class OS_Windows : public OS {
 
 	bool is_using_con_wrapper() const;
 
+	HashMap<String, int> encodings;
+	void _init_encodings();
+
 	// functions used by main to initialize/deinitialize the OS
 protected:
 	virtual void initialize() override;
@@ -178,6 +180,7 @@ public:
 	virtual String get_name() const override;
 	virtual String get_distribution_name() const override;
 	virtual String get_version() const override;
+	virtual String get_version_alias() const override;
 
 	virtual Vector<String> get_video_adapter_driver_info() const override;
 	virtual bool get_user_prefers_integrated_gpu() const override;
@@ -230,7 +233,7 @@ public:
 	virtual String get_godot_dir_name() const override;
 
 	virtual String get_system_dir(SystemDir p_dir, bool p_shared_storage = true) const override;
-	virtual String get_user_data_dir() const override;
+	virtual String get_user_data_dir(const String &p_user_dir) const override;
 
 	virtual String get_unique_id() const override;
 
@@ -240,6 +243,9 @@ public:
 	void run();
 
 	virtual bool _check_internal_feature_support(const String &p_feature) override;
+
+	virtual String multibyte_to_string(const String &p_encoding, const PackedByteArray &p_array) const override;
+	virtual PackedByteArray string_to_multibyte(const String &p_encoding, const String &p_string) const override;
 
 	virtual void disable_crash_handler() override;
 	virtual bool is_disable_crash_handler() const override;
@@ -251,9 +257,10 @@ public:
 
 	void set_main_window(HWND p_main_window) { main_window = p_main_window; }
 
+	virtual bool _test_create_rendering_device_and_gl(const String &p_display_driver) const override;
+	virtual bool _test_create_rendering_device(const String &p_display_driver) const override;
+
 	HINSTANCE get_hinstance() { return hInstance; }
 	OS_Windows(HINSTANCE _hInstance);
 	~OS_Windows();
 };
-
-#endif // OS_WINDOWS_H

@@ -30,7 +30,6 @@
 
 #include "camera_3d_gizmo_plugin.h"
 
-#include "core/config/project_settings.h"
 #include "editor/editor_node.h"
 #include "editor/editor_settings.h"
 #include "editor/editor_string_names.h"
@@ -181,7 +180,13 @@ void Camera3DGizmoPlugin::redraw(EditorNode3DGizmo *p_gizmo) {
 
 			const float hsize = Math::sin(Math::deg_to_rad(fov));
 			const float depth = -Math::cos(Math::deg_to_rad(fov));
-			Vector3 side = Vector3(hsize * size_factor.x, 0, depth);
+
+			Vector3 side;
+			if (camera->get_keep_aspect_mode() == Camera3D::KEEP_WIDTH) {
+				side = Vector3(hsize * size_factor.x, 0, depth * size_factor.x);
+			} else {
+				side = Vector3(hsize * size_factor.x, 0, depth * size_factor.y);
+			}
 			Vector3 nside = Vector3(-side.x, side.y, side.z);
 			Vector3 up = Vector3(0, hsize * size_factor.y, 0);
 
@@ -205,7 +210,6 @@ void Camera3DGizmoPlugin::redraw(EditorNode3DGizmo *p_gizmo) {
 
 			Vector3 right, up;
 			Vector3 back(0, 0, -1.0);
-			Vector3 front(0, 0, 0);
 
 			if (aspect == Camera3D::KeepAspect::KEEP_WIDTH) {
 				right = Vector3(keep_size, 0, 0);

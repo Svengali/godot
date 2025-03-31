@@ -35,8 +35,6 @@
 #include "core/crypto/crypto_core.h"
 #include "core/debugger/engine_debugger.h"
 #include "core/debugger/script_debugger.h"
-#include "core/io/file_access_compressed.h"
-#include "core/io/file_access_encrypted.h"
 #include "core/io/marshalls.h"
 #include "core/math/geometry_2d.h"
 #include "core/math/geometry_3d.h"
@@ -46,7 +44,7 @@
 
 #include "modules/tracy/profiler.h"
 
-namespace core_bind {
+namespace CoreBind {
 
 ////// ResourceLoader //////
 
@@ -117,12 +115,12 @@ PackedStringArray ResourceLoader::get_dependencies(const String &p_path) {
 }
 
 bool ResourceLoader::has_cached(const String &p_path) {
-	String local_path = ProjectSettings::get_singleton()->localize_path(p_path);
+	String local_path = ::ResourceLoader::_validate_local_path(p_path);
 	return ResourceCache::has(local_path);
 }
 
 Ref<Resource> ResourceLoader::get_cached_ref(const String &p_path) {
-	String local_path = ProjectSettings::get_singleton()->localize_path(p_path);
+	String local_path = ::ResourceLoader::_validate_local_path(p_path);
 	return ResourceCache::get_ref(local_path);
 }
 
@@ -426,6 +424,10 @@ String OS::get_version() const {
 	return ::OS::get_singleton()->get_version();
 }
 
+String OS::get_version_alias() const {
+	return ::OS::get_singleton()->get_version_alias();
+}
+
 Vector<String> OS::get_video_adapter_driver_info() const {
 	return ::OS::get_singleton()->get_video_adapter_driver_info();
 }
@@ -466,8 +468,8 @@ bool OS::is_restart_on_exit_set() const {
 Vector<String> OS::get_restart_on_exit_arguments() const {
 	List<String> args = ::OS::get_singleton()->get_restart_on_exit_arguments();
 	Vector<String> args_vector;
-	for (List<String>::Element *E = args.front(); E; E = E->next()) {
-		args_vector.push_back(E->get());
+	for (const String &arg : args) {
+		args_vector.push_back(arg);
 	}
 
 	return args_vector;
@@ -657,8 +659,8 @@ void OS::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_system_font_path_for_text", "font_name", "text", "locale", "script", "weight", "stretch", "italic"), &OS::get_system_font_path_for_text, DEFVAL(String()), DEFVAL(String()), DEFVAL(400), DEFVAL(100), DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("get_executable_path"), &OS::get_executable_path);
 
-	ClassDB::bind_method(D_METHOD("read_string_from_stdin", "buffer_size"), &OS::read_string_from_stdin);
-	ClassDB::bind_method(D_METHOD("read_buffer_from_stdin", "buffer_size"), &OS::read_buffer_from_stdin);
+	ClassDB::bind_method(D_METHOD("read_string_from_stdin", "buffer_size"), &OS::read_string_from_stdin, DEFVAL(1024));
+	ClassDB::bind_method(D_METHOD("read_buffer_from_stdin", "buffer_size"), &OS::read_buffer_from_stdin, DEFVAL(1024));
 	ClassDB::bind_method(D_METHOD("get_stdin_type"), &OS::get_stdin_type);
 	ClassDB::bind_method(D_METHOD("get_stdout_type"), &OS::get_stdout_type);
 	ClassDB::bind_method(D_METHOD("get_stderr_type"), &OS::get_stderr_type);
@@ -682,6 +684,7 @@ void OS::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_name"), &OS::get_name);
 	ClassDB::bind_method(D_METHOD("get_distribution_name"), &OS::get_distribution_name);
 	ClassDB::bind_method(D_METHOD("get_version"), &OS::get_version);
+	ClassDB::bind_method(D_METHOD("get_version_alias"), &OS::get_version_alias);
 	ClassDB::bind_method(D_METHOD("get_cmdline_args"), &OS::get_cmdline_args);
 	ClassDB::bind_method(D_METHOD("get_cmdline_user_args"), &OS::get_cmdline_user_args);
 
@@ -1240,6 +1243,9 @@ Vector<uint8_t> Marshalls::base64_to_raw(const String &p_str) {
 }
 
 String Marshalls::utf8_to_base64(const String &p_str) {
+	if (p_str.is_empty()) {
+		return String();
+	}
 	CharString cstr = p_str.utf8();
 	String ret = CryptoCore::b64_encode_str((unsigned char *)cstr.get_data(), cstr.length());
 	ERR_FAIL_COND_V(ret.is_empty(), ret);
@@ -1421,7 +1427,7 @@ void Thread::_bind_methods() {
 	BIND_ENUM_CONSTANT(PRIORITY_HIGH);
 }
 
-namespace special {
+namespace Special {
 
 ////// ClassDB //////
 
@@ -1748,7 +1754,7 @@ void ClassDB::_bind_methods() {
 	BIND_ENUM_CONSTANT(API_NONE);
 }
 
-} // namespace special
+} // namespace Special
 
 ////// Engine //////
 
@@ -1878,8 +1884,8 @@ Vector<String> Engine::get_singleton_list() const {
 	List<::Engine::Singleton> singletons;
 	::Engine::get_singleton()->get_singletons(&singletons);
 	Vector<String> ret;
-	for (List<::Engine::Singleton>::Element *E = singletons.front(); E; E = E->next()) {
-		ret.push_back(E->get().name);
+	for (const ::Engine::Singleton &E : singletons) {
+		ret.push_back(E.name);
 	}
 	return ret;
 }
@@ -1906,6 +1912,10 @@ void Engine::set_editor_hint(bool p_enabled) {
 
 bool Engine::is_editor_hint() const {
 	return ::Engine::get_singleton()->is_editor_hint();
+}
+
+bool Engine::is_embedded_in_editor() const {
+	return ::Engine::get_singleton()->is_embedded_in_editor();
 }
 
 String Engine::get_write_movie_path() const {
@@ -1985,6 +1995,7 @@ void Engine::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_script_language", "index"), &Engine::get_script_language);
 
 	ClassDB::bind_method(D_METHOD("is_editor_hint"), &Engine::is_editor_hint);
+	ClassDB::bind_method(D_METHOD("is_embedded_in_editor"), &Engine::is_embedded_in_editor);
 
 	ClassDB::bind_method(D_METHOD("get_write_movie_path"), &Engine::get_write_movie_path);
 
@@ -2236,4 +2247,4 @@ void LogManager::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("unregister_log_capture_buffered", "callable"), &LogManager::unregister_log_capture_buffered);
 }
 
-} // namespace core_bind
+} // namespace CoreBind

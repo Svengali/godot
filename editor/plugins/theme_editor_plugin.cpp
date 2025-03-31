@@ -30,8 +30,8 @@
 
 #include "theme_editor_plugin.h"
 
-#include "core/os/keyboard.h"
 #include "editor/editor_command_palette.h"
+#include "editor/editor_file_system.h"
 #include "editor/editor_help.h"
 #include "editor/editor_node.h"
 #include "editor/editor_resource_picker.h"
@@ -54,6 +54,7 @@
 #include "scene/gui/tab_bar.h"
 #include "scene/gui/tab_container.h"
 #include "scene/gui/texture_rect.h"
+#include "scene/resources/packed_scene.h"
 #include "scene/theme/theme_db.h"
 
 void ThemeItemImportTree::_update_items_tree() {
@@ -239,8 +240,7 @@ void ThemeItemImportTree::_update_items_tree() {
 	}
 
 	if (color_amount > 0) {
-		Array arr;
-		arr.push_back(color_amount);
+		Array arr = { color_amount };
 		select_colors_label->set_text(TTRN("1 color", "{num} colors", color_amount).format(arr, "{num}"));
 		select_all_colors_button->set_visible(true);
 		select_full_colors_button->set_visible(true);
@@ -253,8 +253,7 @@ void ThemeItemImportTree::_update_items_tree() {
 	}
 
 	if (constant_amount > 0) {
-		Array arr;
-		arr.push_back(constant_amount);
+		Array arr = { constant_amount };
 		select_constants_label->set_text(TTRN("1 constant", "{num} constants", constant_amount).format(arr, "{num}"));
 		select_all_constants_button->set_visible(true);
 		select_full_constants_button->set_visible(true);
@@ -267,8 +266,7 @@ void ThemeItemImportTree::_update_items_tree() {
 	}
 
 	if (font_amount > 0) {
-		Array arr;
-		arr.push_back(font_amount);
+		Array arr = { font_amount };
 		select_fonts_label->set_text(TTRN("1 font", "{num} fonts", font_amount).format(arr, "{num}"));
 		select_all_fonts_button->set_visible(true);
 		select_full_fonts_button->set_visible(true);
@@ -281,8 +279,7 @@ void ThemeItemImportTree::_update_items_tree() {
 	}
 
 	if (font_size_amount > 0) {
-		Array arr;
-		arr.push_back(font_size_amount);
+		Array arr = { font_size_amount };
 		select_font_sizes_label->set_text(TTRN("1 font size", "{num} font sizes", font_size_amount).format(arr, "{num}"));
 		select_all_font_sizes_button->set_visible(true);
 		select_full_font_sizes_button->set_visible(true);
@@ -295,8 +292,7 @@ void ThemeItemImportTree::_update_items_tree() {
 	}
 
 	if (icon_amount > 0) {
-		Array arr;
-		arr.push_back(icon_amount);
+		Array arr = { icon_amount };
 		select_icons_label->set_text(TTRN("1 icon", "{num} icons", icon_amount).format(arr, "{num}"));
 		select_all_icons_button->set_visible(true);
 		select_full_icons_button->set_visible(true);
@@ -311,8 +307,7 @@ void ThemeItemImportTree::_update_items_tree() {
 	}
 
 	if (stylebox_amount > 0) {
-		Array arr;
-		arr.push_back(stylebox_amount);
+		Array arr = { stylebox_amount };
 		select_styleboxes_label->set_text(TTRN("1 stylebox", "{num} styleboxes", stylebox_amount).format(arr, "{num}"));
 		select_all_styleboxes_button->set_visible(true);
 		select_full_styleboxes_button->set_visible(true);
@@ -459,8 +454,7 @@ void ThemeItemImportTree::_update_total_selected(Theme::DataType p_data_type) {
 	if (count == 0) {
 		total_selected_items_label->hide();
 	} else {
-		Array arr;
-		arr.push_back(count);
+		Array arr = { count };
 		total_selected_items_label->set_text(TTRN("{num} currently selected", "{num} currently selected", count).format(arr, "{num}"));
 		total_selected_items_label->show();
 	}
@@ -755,9 +749,7 @@ void ThemeItemImportTree::_import_selected() {
 		// Arbitrary number of items to skip from reporting.
 		// Reduces the number of UI updates that this causes when copying large themes.
 		if (idx % 10 == 0) {
-			Array arr;
-			arr.push_back(idx + 1);
-			arr.push_back(selected_items.size());
+			Array arr = { idx + 1, selected_items.size() };
 			ProgressDialog::get_singleton()->task_step("import_theme_items", TTR("Importing items {n}/{n}").format(arr, "{n}"), idx);
 		}
 
@@ -1587,15 +1579,11 @@ void ThemeItemEditorDialog::_add_theme_item(Theme::DataType p_data_type, String 
 
 void ThemeItemEditorDialog::_remove_theme_type(const String &p_theme_type) {
 	Ref<Theme> old_snapshot = edited_theme->duplicate();
-	Ref<Theme> new_snapshot = edited_theme->duplicate();
 
 	EditorUndoRedoManager *ur = EditorUndoRedoManager::get_singleton();
 	ur->create_action(TTR("Remove Theme Type"));
 
-	new_snapshot->remove_type(p_theme_type);
-
-	ur->add_do_method(*edited_theme, "clear");
-	ur->add_do_method(*edited_theme, "merge_with", new_snapshot);
+	ur->add_do_method(*edited_theme, "remove_type", p_theme_type);
 	// If the type was empty, it cannot be restored with merge, but thankfully we can fake it.
 	ur->add_undo_method(*edited_theme, "add_type", p_theme_type);
 	ur->add_undo_method(*edited_theme, "merge_with", old_snapshot);
@@ -2284,9 +2272,7 @@ ThemeTypeDialog::ThemeTypeDialog() {
 ///////////////////////
 
 Control *ThemeItemLabel::make_custom_tooltip(const String &p_text) const {
-	EditorHelpBit *help_bit = memnew(EditorHelpBit(p_text));
-	EditorHelpBitTooltip::show_tooltip(help_bit, const_cast<ThemeItemLabel *>(this));
-	return memnew(Control); // Make the standard tooltip invisible.
+	return EditorHelpBitTooltip::show_tooltip(const_cast<ThemeItemLabel *>(this), p_text);
 }
 
 VBoxContainer *ThemeTypeEditor::_create_item_list(Theme::DataType p_data_type) {
@@ -3614,6 +3600,7 @@ void ThemeEditor::_add_preview_button_cbk() {
 void ThemeEditor::_preview_scene_dialog_cbk(const String &p_path) {
 	SceneThemeEditorPreview *preview_tab = memnew(SceneThemeEditorPreview);
 	if (!preview_tab->set_preview_scene(p_path)) {
+		memdelete(preview_tab);
 		return;
 	}
 
@@ -3688,6 +3675,50 @@ void ThemeEditor::_preview_control_picked(String p_class_name) {
 	theme_type_editor->select_type(p_class_name);
 }
 
+bool ThemeEditor::can_drop_data_fw(const Point2 &p_point, const Variant &p_data, Control *p_from) {
+	const Dictionary d = p_data;
+	if (!d.has("type")) {
+		return false;
+	}
+
+	if (String(d["type"]) == "files") {
+		const Vector<String> files = d["files"];
+
+		if (files.size() != 1) {
+			return false;
+		}
+
+		const String ftype = EditorFileSystem::get_singleton()->get_file_type(files[0]);
+		return ftype == "PackedScene";
+	}
+	return false;
+}
+
+void ThemeEditor::drop_data_fw(const Point2 &p_point, const Variant &p_data, Control *p_from) {
+	Dictionary d = p_data;
+	Vector<String> files = d["files"];
+	const String &path = files[0];
+
+	SceneThemeEditorPreview *preview_tab = memnew(SceneThemeEditorPreview);
+	if (!preview_tab->set_preview_scene(path)) {
+		memdelete(preview_tab);
+		return;
+	}
+
+	Ref<Texture2D> icon = get_editor_theme_icon(SNAME("PackedScene"));
+
+	preview_tab->set_preview_theme(theme);
+
+	preview_tabs->add_tab(path.get_file(), icon);
+	preview_tabs_content->add_child(preview_tab);
+	preview_tabs->set_tab_button_icon(preview_tabs->get_tab_count() - 1, EditorNode::get_singleton()->get_editor_theme()->get_icon(SNAME("close"), SNAME("TabBar")));
+	preview_tab->connect("control_picked", callable_mp(this, &ThemeEditor::_preview_control_picked));
+
+	preview_tabs->set_current_tab(preview_tabs->get_tab_count() - 1);
+	preview_tab->connect("scene_invalidated", callable_mp(this, &ThemeEditor::_remove_preview_tab_invalid).bind(preview_tab));
+	preview_tab->connect("scene_reloaded", callable_mp(this, &ThemeEditor::_update_preview_tab).bind(preview_tab));
+}
+
 void ThemeEditor::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_READY: {
@@ -3752,9 +3783,10 @@ ThemeEditor::ThemeEditor() {
 	main_hs->set_v_size_flags(SIZE_EXPAND_FILL);
 	add_child(main_hs);
 
+	main_hs->set_split_offset(520 * EDSCALE);
+
 	VBoxContainer *preview_tabs_vb = memnew(VBoxContainer);
 	preview_tabs_vb->set_h_size_flags(SIZE_EXPAND_FILL);
-	preview_tabs_vb->set_custom_minimum_size(Size2(520, 0) * EDSCALE);
 	preview_tabs_vb->add_theme_constant_override("separation", 2 * EDSCALE);
 	main_hs->add_child(preview_tabs_vb);
 	HBoxContainer *preview_tabbar_hb = memnew(HBoxContainer);
@@ -3795,6 +3827,9 @@ ThemeEditor::ThemeEditor() {
 
 	main_hs->add_child(theme_type_editor);
 	theme_type_editor->set_custom_minimum_size(Size2(280, 0) * EDSCALE);
+
+	SET_DRAG_FORWARDING_CD(top_menu, ThemeEditor);
+	SET_DRAG_FORWARDING_CD(preview_tabs, ThemeEditor);
 }
 
 ///////////////////////
@@ -3829,6 +3864,6 @@ ThemeEditorPlugin::ThemeEditorPlugin() {
 	theme_editor->plugin = this;
 	theme_editor->set_custom_minimum_size(Size2(0, 200) * EDSCALE);
 
-	button = EditorNode::get_bottom_panel()->add_item(TTR("Theme"), theme_editor, ED_SHORTCUT_AND_COMMAND("bottom_panels/toggle_theme_bottom_panel", TTR("Toggle Theme Bottom Panel")));
+	button = EditorNode::get_bottom_panel()->add_item(TTR("Theme"), theme_editor, ED_SHORTCUT_AND_COMMAND("bottom_panels/toggle_theme_bottom_panel", TTRC("Toggle Theme Bottom Panel")));
 	button->hide();
 }

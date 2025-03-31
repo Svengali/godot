@@ -149,7 +149,31 @@ void Path3DGizmo::set_handle(int p_id, bool p_secondary, Camera3D *p_camera, con
 					local.snapf(snap);
 				}
 
-				if (info.type == HandleType::HANDLE_TYPE_IN) {
+				// Determine if control points should be swapped based on delta movement.
+				// Only run on the next update after an overlap is detected, to get proper delta movement.
+				if (control_points_overlapped) {
+					control_points_overlapped = false;
+					Vector3 delta = local - (info.type == HANDLE_TYPE_IN ? c->get_point_in(idx) : c->get_point_out(idx));
+					Vector3 p0 = c->get_point_position(idx - 1) - base;
+					Vector3 p1 = c->get_point_position(idx + 1) - base;
+					HandleType new_type = Math::abs(delta.angle_to(p0)) < Math::abs(delta.angle_to(p1)) ? HANDLE_TYPE_IN : HANDLE_TYPE_OUT;
+					if (info.type != new_type) {
+						swapped_control_points_idx = idx;
+					}
+				}
+
+				// Detect control points overlap.
+				bool control_points_equal = c->get_point_in(idx).is_equal_approx(c->get_point_out(idx));
+				if (idx > 0 && idx < (c->get_point_count() - 1) && control_points_equal) {
+					control_points_overlapped = true;
+				}
+
+				HandleType control_type = info.type;
+				if (swapped_control_points_idx == idx) {
+					control_type = info.type == HANDLE_TYPE_IN ? HANDLE_TYPE_OUT : HANDLE_TYPE_IN;
+				}
+
+				if (control_type == HandleType::HANDLE_TYPE_IN) {
 					c->set_point_in(idx, local);
 					if (Path3DEditorPlugin::singleton->mirror_angle_enabled()) {
 						c->set_point_out(idx, Path3DEditorPlugin::singleton->mirror_length_enabled() ? -local : (-local.normalized() * orig_out_length));
@@ -190,6 +214,9 @@ void Path3DGizmo::set_handle(int p_id, bool p_secondary, Camera3D *p_camera, con
 }
 
 void Path3DGizmo::commit_handle(int p_id, bool p_secondary, const Variant &p_restore, bool p_cancel) {
+	swapped_control_points_idx = -1;
+	control_points_overlapped = false;
+
 	Ref<Curve3D> c = path->get_curve();
 	if (c.is_null()) {
 		return;
@@ -272,7 +299,6 @@ void Path3DGizmo::commit_handle(int p_id, bool p_secondary, const Variant &p_res
 void Path3DGizmo::redraw() {
 	clear();
 
-	Ref<StandardMaterial3D> path_material = gizmo_plugin->get_material("path_material", this);
 	Ref<StandardMaterial3D> path_thin_material = gizmo_plugin->get_material("path_thin_material", this);
 	Ref<StandardMaterial3D> path_tilt_material = gizmo_plugin->get_material("path_tilt_material", this);
 	Ref<StandardMaterial3D> path_tilt_muted_material = gizmo_plugin->get_material("path_tilt_muted_material", this);
@@ -291,11 +317,24 @@ void Path3DGizmo::redraw() {
 		return;
 	}
 
+	debug_material = gizmo_plugin->get_material("path_material", this);
+
+	Color path_color = path->get_debug_custom_color();
+	if (path_color != Color(0.0, 0.0, 0.0)) {
+		debug_material.instantiate();
+		debug_material->set_albedo(path_color);
+		debug_material->set_shading_mode(StandardMaterial3D::SHADING_MODE_UNSHADED);
+		debug_material->set_transparency(StandardMaterial3D::TRANSPARENCY_ALPHA);
+		debug_material->set_flag(StandardMaterial3D::FLAG_SRGB_VERTEX_COLOR, true);
+		debug_material->set_flag(StandardMaterial3D::FLAG_ALBEDO_FROM_VERTEX_COLOR, true);
+		debug_material->set_flag(StandardMaterial3D::FLAG_DISABLE_FOG, true);
+	}
+
 	real_t interval = 0.1;
 	const real_t length = c->get_baked_length();
 
-	// 1. Draw curve and bones.
-	if (length > CMP_EPSILON) {
+	// 1. Draw curve and bones if it is visible (alpha > 0.0).
+	if (length > CMP_EPSILON && path_color.a > 0.0) {
 		const int sample_count = int(length / interval) + 2;
 		interval = length / (sample_count - 1); // Recalculate real interval length.
 
@@ -340,21 +379,24 @@ void Path3DGizmo::redraw() {
 			// Path3D as a ribbon.
 			ribbon_ptr[i] = p1;
 
-			// Fish Bone.
-			const Vector3 p_left = p1 + (side + forward - up * 0.3) * 0.06;
-			const Vector3 p_right = p1 + (-side + forward - up * 0.3) * 0.06;
+			if (i % 4 == 0) {
+				// Draw fish bone every 4 points to reduce visual noise and performance impact
+				// (compared to drawing it for every point).
+				const Vector3 p_left = p1 + (side + forward - up * 0.3) * 0.06;
+				const Vector3 p_right = p1 + (-side + forward - up * 0.3) * 0.06;
 
-			const int bone_idx = i * 4;
+				const int bone_idx = i * 4;
 
-			bones_ptr[bone_idx] = p1;
-			bones_ptr[bone_idx + 1] = p_left;
-			bones_ptr[bone_idx + 2] = p1;
-			bones_ptr[bone_idx + 3] = p_right;
+				bones_ptr[bone_idx] = p1;
+				bones_ptr[bone_idx + 1] = p_left;
+				bones_ptr[bone_idx + 2] = p1;
+				bones_ptr[bone_idx + 3] = p_right;
+			}
 		}
 
 		add_collision_segments(_collision_segments);
-		add_lines(bones, path_material);
-		add_vertices(ribbon, path_material, Mesh::PRIMITIVE_LINE_STRIP);
+		add_lines(bones, debug_material);
+		add_vertices(ribbon, debug_material, Mesh::PRIMITIVE_LINE_STRIP);
 	}
 
 	// 2. Draw handles when selected.
@@ -434,7 +476,7 @@ void Path3DGizmo::redraw() {
 						const Vector3 edge = sin(a) * side + cos(a) * up;
 						disk.append(pos + edge * disk_size);
 					}
-					add_vertices(disk, path_tilt_material, Mesh::PRIMITIVE_LINE_STRIP);
+					add_vertices(disk, debug_material, Mesh::PRIMITIVE_LINE_STRIP);
 				}
 			}
 		}
@@ -506,6 +548,7 @@ Path3DGizmo::Path3DGizmo(Path3D *p_path, float p_disk_size) {
 
 	// Connecting to a signal once, rather than plaguing the implementation with calls to `Node3DEditor::update_transform_gizmo`.
 	path->connect("curve_changed", callable_mp(this, &Path3DGizmo::_update_transform_gizmo));
+	path->connect("debug_color_changed", callable_mp(this, &Path3DGizmo::redraw));
 
 	Path3DEditorPlugin::singleton->curve_edit->connect(SceneStringName(pressed), callable_mp(this, &Path3DGizmo::redraw));
 	Path3DEditorPlugin::singleton->curve_edit_curve->connect(SceneStringName(pressed), callable_mp(this, &Path3DGizmo::redraw));
@@ -873,7 +916,7 @@ Path3DEditorPlugin::Path3DEditorPlugin() {
 	topmenu_bar->add_child(toolbar);
 
 	curve_edit = memnew(Button);
-	curve_edit->set_theme_type_variation("FlatButton");
+	curve_edit->set_theme_type_variation(SceneStringName(FlatButton));
 	curve_edit->set_toggle_mode(true);
 	curve_edit->set_focus_mode(Control::FOCUS_NONE);
 	curve_edit->set_tooltip_text(TTR("Select Points") + "\n" + TTR("Shift+Click: Select multiple Points") + "\n" + keycode_get_string((Key)KeyModifierMask::CMD_OR_CTRL) + TTR("Click: Add Point") + "\n" + TTR("Right Click: Delete Point"));
@@ -881,7 +924,7 @@ Path3DEditorPlugin::Path3DEditorPlugin() {
 	curve_edit->connect(SceneStringName(pressed), callable_mp(this, &Path3DEditorPlugin::_mode_changed).bind(MODE_EDIT));
 
 	curve_edit_curve = memnew(Button);
-	curve_edit_curve->set_theme_type_variation("FlatButton");
+	curve_edit_curve->set_theme_type_variation(SceneStringName(FlatButton));
 	curve_edit_curve->set_toggle_mode(true);
 	curve_edit_curve->set_focus_mode(Control::FOCUS_NONE);
 	curve_edit_curve->set_tooltip_text(TTR("Select Control Points") + "\n" + TTR("Shift+Click: Drag out Control Points"));
@@ -889,7 +932,7 @@ Path3DEditorPlugin::Path3DEditorPlugin() {
 	curve_edit_curve->connect(SceneStringName(pressed), callable_mp(this, &Path3DEditorPlugin::_mode_changed).bind(MODE_EDIT_CURVE));
 
 	curve_edit_tilt = memnew(Button);
-	curve_edit_tilt->set_theme_type_variation("FlatButton");
+	curve_edit_tilt->set_theme_type_variation(SceneStringName(FlatButton));
 	curve_edit_tilt->set_toggle_mode(true);
 	curve_edit_tilt->set_focus_mode(Control::FOCUS_NONE);
 	curve_edit_tilt->set_tooltip_text(TTR("Select Tilt Handles"));
@@ -897,7 +940,7 @@ Path3DEditorPlugin::Path3DEditorPlugin() {
 	curve_edit_tilt->connect(SceneStringName(pressed), callable_mp(this, &Path3DEditorPlugin::_mode_changed).bind(MODE_EDIT_TILT));
 
 	curve_create = memnew(Button);
-	curve_create->set_theme_type_variation("FlatButton");
+	curve_create->set_theme_type_variation(SceneStringName(FlatButton));
 	curve_create->set_toggle_mode(true);
 	curve_create->set_focus_mode(Control::FOCUS_NONE);
 	curve_create->set_tooltip_text(TTR("Add Point (in empty space)") + "\n" + TTR("Split Segment (in curve)"));
@@ -905,7 +948,7 @@ Path3DEditorPlugin::Path3DEditorPlugin() {
 	curve_create->connect(SceneStringName(pressed), callable_mp(this, &Path3DEditorPlugin::_mode_changed).bind(MODE_CREATE));
 
 	curve_del = memnew(Button);
-	curve_del->set_theme_type_variation("FlatButton");
+	curve_del->set_theme_type_variation(SceneStringName(FlatButton));
 	curve_del->set_toggle_mode(true);
 	curve_del->set_focus_mode(Control::FOCUS_NONE);
 	curve_del->set_tooltip_text(TTR("Delete Point"));
@@ -913,14 +956,14 @@ Path3DEditorPlugin::Path3DEditorPlugin() {
 	curve_del->connect(SceneStringName(pressed), callable_mp(this, &Path3DEditorPlugin::_mode_changed).bind(MODE_DELETE));
 
 	curve_closed = memnew(Button);
-	curve_closed->set_theme_type_variation("FlatButton");
+	curve_closed->set_theme_type_variation(SceneStringName(FlatButton));
 	curve_closed->set_focus_mode(Control::FOCUS_NONE);
 	curve_closed->set_tooltip_text(TTR("Close Curve"));
 	toolbar->add_child(curve_closed);
 	curve_closed->connect(SceneStringName(pressed), callable_mp(this, &Path3DEditorPlugin::_toggle_closed_curve));
 
 	curve_clear_points = memnew(Button);
-	curve_clear_points->set_theme_type_variation("FlatButton");
+	curve_clear_points->set_theme_type_variation(SceneStringName(FlatButton));
 	curve_clear_points->set_focus_mode(Control::FOCUS_NONE);
 	curve_clear_points->set_tooltip_text(TTR("Clear Points"));
 	curve_clear_points->connect(SceneStringName(pressed), callable_mp(this, &Path3DEditorPlugin::_confirm_clear_points));

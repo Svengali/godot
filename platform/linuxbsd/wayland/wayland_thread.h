@@ -28,8 +28,7 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef WAYLAND_THREAD_H
-#define WAYLAND_THREAD_H
+#pragma once
 
 #ifdef WAYLAND_ENABLED
 
@@ -67,15 +66,18 @@
 #include "wayland/protocol/wayland.gen.h"
 #include "wayland/protocol/xdg_activation.gen.h"
 #include "wayland/protocol/xdg_decoration.gen.h"
-#include "wayland/protocol/xdg_foreign.gen.h"
+#include "wayland/protocol/xdg_foreign_v2.gen.h"
 #include "wayland/protocol/xdg_shell.gen.h"
 #include "wayland/protocol/xdg_system_bell.gen.h"
+
+// NOTE: Deprecated.
+#include "wayland/protocol/xdg_foreign_v1.gen.h"
 
 #ifdef LIBDECOR_ENABLED
 #ifdef SOWRAP_ENABLED
 #include "dynwrappers/libdecor-so_wrap.h"
 #else
-#include <libdecor-0/libdecor.h>
+#include <libdecor.h>
 #endif // SOWRAP_ENABLED
 #endif // LIBDECOR_ENABLED
 
@@ -149,8 +151,12 @@ public:
 		struct xdg_wm_base *xdg_wm_base = nullptr;
 		uint32_t xdg_wm_base_name = 0;
 
-		struct zxdg_exporter_v1 *xdg_exporter = nullptr;
-		uint32_t xdg_exporter_name = 0;
+		// NOTE: Deprecated.
+		struct zxdg_exporter_v1 *xdg_exporter_v1 = nullptr;
+		uint32_t xdg_exporter_v1_name = 0;
+
+		uint32_t xdg_exporter_v2_name = 0;
+		struct zxdg_exporter_v2 *xdg_exporter_v2 = nullptr;
 
 		// wayland-protocols globals.
 
@@ -224,7 +230,11 @@ public:
 
 		struct wp_viewport *wp_viewport = nullptr;
 		struct wp_fractional_scale_v1 *wp_fractional_scale = nullptr;
-		struct zxdg_exported_v1 *xdg_exported = nullptr;
+
+		// NOTE: Deprecated.
+		struct zxdg_exported_v1 *xdg_exported_v1 = nullptr;
+
+		struct zxdg_exported_v2 *xdg_exported_v2 = nullptr;
 
 		String exported_handle;
 
@@ -416,6 +426,8 @@ public:
 
 		const char *keymap_buffer = nullptr;
 		uint32_t keymap_buffer_size = 0;
+
+		HashMap<xkb_keycode_t, Key> pressed_keycodes;
 
 		xkb_layout_index_t current_layout_index = 0;
 
@@ -652,7 +664,10 @@ private:
 
 	static void _xdg_toplevel_decoration_on_configure(void *data, struct zxdg_toplevel_decoration_v1 *xdg_toplevel_decoration, uint32_t mode);
 
-	static void _xdg_exported_on_exported(void *data, zxdg_exported_v1 *exported, const char *handle);
+	// NOTE: Deprecated.
+	static void _xdg_exported_v1_on_handle(void *data, zxdg_exported_v1 *exported, const char *handle);
+
+	static void _xdg_exported_v2_on_handle(void *data, zxdg_exported_v2 *exported, const char *handle);
 
 	static void _xdg_activation_token_on_done(void *data, struct xdg_activation_token_v1 *xdg_activation_token, const char *token);
 
@@ -820,8 +835,13 @@ private:
 		.done = _wp_text_input_on_done,
 	};
 
-	static constexpr struct zxdg_exported_v1_listener xdg_exported_listener = {
-		.handle = _xdg_exported_on_exported
+	// NOTE: Deprecated.
+	static constexpr struct zxdg_exported_v1_listener xdg_exported_v1_listener = {
+		.handle = _xdg_exported_v1_on_handle,
+	};
+
+	static constexpr struct zxdg_exported_v2_listener xdg_exported_v2_listener = {
+		.handle = _xdg_exported_v2_on_handle,
 	};
 
 	static constexpr struct zxdg_toplevel_decoration_v1_listener xdg_toplevel_decoration_listener = {
@@ -884,7 +904,8 @@ private:
 	static Vector<uint8_t> _wp_primary_selection_offer_read(struct wl_display *wl_display, const char *p_mime, struct zwp_primary_selection_offer_v1 *wp_primary_selection_offer);
 
 	static void _seat_state_set_current(WaylandThread::SeatState &p_ss);
-	static bool _seat_state_configure_key_event(WaylandThread::SeatState &p_seat, Ref<InputEventKey> p_event, xkb_keycode_t p_keycode, bool p_pressed);
+	static Ref<InputEventKey> _seat_state_get_key_event(SeatState *p_ss, xkb_keycode_t p_keycode, bool p_pressed);
+	static Ref<InputEventKey> _seat_state_get_unstuck_key_event(SeatState *p_ss, xkb_keycode_t p_keycode, bool p_pressed, Key p_key);
 
 	static void _wayland_state_update_cursor();
 
@@ -936,6 +957,8 @@ public:
 
 	struct wl_surface *window_get_wl_surface(DisplayServer::WindowID p_window_id) const;
 
+	void window_start_resize(DisplayServer::WindowResizeEdge p_edge, DisplayServer::WindowID p_window);
+
 	void window_set_max_size(DisplayServer::WindowID p_window_id, const Size2i &p_size);
 	void window_set_min_size(DisplayServer::WindowID p_window_id, const Size2i &p_size);
 
@@ -951,6 +974,8 @@ public:
 
 	// Optional - requires xdg_activation_v1
 	void window_request_attention(DisplayServer::WindowID p_window_id);
+
+	void window_start_drag(DisplayServer::WindowID p_window_id);
 
 	// Optional - require idle_inhibit_unstable_v1
 	void window_set_idle_inhibition(DisplayServer::WindowID p_window_id, bool p_enable);
@@ -1008,5 +1033,3 @@ public:
 };
 
 #endif // WAYLAND_ENABLED
-
-#endif // WAYLAND_THREAD_H

@@ -31,8 +31,6 @@
 #include "theme_editor_preview.h"
 
 #include "core/config/project_settings.h"
-#include "core/input/input.h"
-#include "core/math/math_funcs.h"
 #include "editor/editor_node.h"
 #include "editor/editor_string_names.h"
 #include "editor/themes/editor_scale.h"
@@ -246,13 +244,13 @@ ThemeEditorPreview::ThemeEditorPreview() {
 
 	picker_button = memnew(Button);
 	preview_toolbar->add_child(picker_button);
-	picker_button->set_theme_type_variation("FlatButton");
+	picker_button->set_theme_type_variation(SceneStringName(FlatButton));
 	picker_button->set_toggle_mode(true);
 	picker_button->set_tooltip_text(TTR("Toggle the control picker, allowing to visually select control types for edit."));
 	picker_button->connect(SceneStringName(pressed), callable_mp(this, &ThemeEditorPreview::_picker_button_cbk));
 
 	MarginContainer *preview_body = memnew(MarginContainer);
-	preview_body->set_custom_minimum_size(Size2(480, 0) * EDSCALE);
+	preview_body->set_custom_minimum_size(Size2(200, 0) * EDSCALE);
 	preview_body->set_v_size_flags(SIZE_EXPAND_FILL);
 	add_child(preview_body);
 

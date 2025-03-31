@@ -33,7 +33,6 @@
 #include "light_storage.h"
 #include "../rasterizer_gles3.h"
 #include "../rasterizer_scene_gles3.h"
-#include "config.h"
 #include "core/config/project_settings.h"
 #include "texture_storage.h"
 
@@ -469,6 +468,13 @@ void LightStorage::reflection_probe_set_intensity(RID p_probe, float p_intensity
 	ERR_FAIL_NULL(reflection_probe);
 
 	reflection_probe->intensity = p_intensity;
+}
+
+void LightStorage::reflection_probe_set_blend_distance(RID p_probe, float p_blend_distance) {
+	ReflectionProbe *reflection_probe = reflection_probe_owner.get_or_null(p_probe);
+	ERR_FAIL_NULL(reflection_probe);
+
+	reflection_probe->blend_distance = p_blend_distance;
 }
 
 void LightStorage::reflection_probe_set_ambient_mode(RID p_probe, RS::ReflectionProbeAmbientMode p_mode) {
@@ -1175,7 +1181,7 @@ void LightStorage::lightmap_tap_sh_light(RID p_lightmap, const Vector3 &p_point,
 		return; // Nothing could be done.
 	}
 
-	node = ABS(node) - 1;
+	node = Math::abs(node) - 1;
 
 	uint32_t *tetrahedron = (uint32_t *)&lm->tetrahedra[node * 4];
 	Vector3 points[4] = { lm->points[tetrahedron[0]], lm->points[tetrahedron[1]], lm->points[tetrahedron[2]], lm->points[tetrahedron[3]] };
@@ -1202,6 +1208,33 @@ void LightStorage::lightmap_set_probe_capture_update_speed(float p_speed) {
 
 float LightStorage::lightmap_get_probe_capture_update_speed() const {
 	return lightmap_probe_capture_update_speed;
+}
+
+void LightStorage::lightmap_set_shadowmask_textures(RID p_lightmap, RID p_shadow) {
+	Lightmap *lightmap = lightmap_owner.get_or_null(p_lightmap);
+	ERR_FAIL_NULL(lightmap);
+	lightmap->shadow_texture = p_shadow;
+
+	GLuint tex = GLES3::TextureStorage::get_singleton()->texture_get_texid(lightmap->shadow_texture);
+	glBindTexture(GL_TEXTURE_2D_ARRAY, tex);
+	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
+}
+
+RS::ShadowmaskMode LightStorage::lightmap_get_shadowmask_mode(RID p_lightmap) {
+	Lightmap *lightmap = lightmap_owner.get_or_null(p_lightmap);
+	ERR_FAIL_NULL_V(lightmap, RS::SHADOWMASK_MODE_NONE);
+
+	return lightmap->shadowmask_mode;
+}
+
+void LightStorage::lightmap_set_shadowmask_mode(RID p_lightmap, RS::ShadowmaskMode p_mode) {
+	Lightmap *lightmap = lightmap_owner.get_or_null(p_lightmap);
+	ERR_FAIL_NULL(lightmap);
+	lightmap->shadowmask_mode = p_mode;
 }
 
 /* LIGHTMAP INSTANCE */

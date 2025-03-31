@@ -28,14 +28,11 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef CORE_BIND_H
-#define CORE_BIND_H
+#pragma once
 
 #include "core/debugger/engine_profiler.h"
 #include "core/io/resource_loader.h"
 #include "core/io/resource_saver.h"
-#include "core/object/script_language.h"
-#include "core/os/os.h"
 #include "core/os/semaphore.h"
 #include "core/os/thread.h"
 #include "core/templates/safe_refcount.h"
@@ -44,7 +41,7 @@ class MainLoop;
 template <typename T>
 class TypedArray;
 
-namespace core_bind {
+namespace CoreBind {
 
 class ResourceLoader : public Object {
 	GDCLASS(ResourceLoader, Object);
@@ -208,6 +205,7 @@ public:
 	String get_name() const;
 	String get_distribution_name() const;
 	String get_version() const;
+	String get_version_alias() const;
 	Vector<String> get_cmdline_args();
 	Vector<String> get_cmdline_user_args();
 
@@ -459,7 +457,7 @@ public:
 	static void set_thread_safety_checks_enabled(bool p_enabled);
 };
 
-namespace special {
+namespace Special {
 
 class ClassDB : public Object {
 	GDCLASS(ClassDB, Object);
@@ -525,7 +523,7 @@ public:
 	~ClassDB() {}
 };
 
-} // namespace special
+} // namespace Special
 
 class Engine : public Object {
 	GDCLASS(Engine, Object);
@@ -584,6 +582,8 @@ public:
 
 	void set_editor_hint(bool p_enabled);
 	bool is_editor_hint() const;
+
+	bool is_embedded_in_editor() const;
 
 	// `set_write_movie_path()` is not exposed to the scripting API as changing it at run-time has no effect.
 	String get_write_movie_path() const;
@@ -671,23 +671,21 @@ public:
 	void unregister_log_capture_buffered(const Callable &p_callable);
 };
 
-} // namespace core_bind
+} // namespace CoreBind
 
-VARIANT_ENUM_CAST(core_bind::ResourceLoader::ThreadLoadStatus);
-VARIANT_ENUM_CAST(core_bind::ResourceLoader::CacheMode);
+VARIANT_ENUM_CAST(CoreBind::ResourceLoader::ThreadLoadStatus);
+VARIANT_ENUM_CAST(CoreBind::ResourceLoader::CacheMode);
 
-VARIANT_BITFIELD_CAST(core_bind::ResourceSaver::SaverFlags);
+VARIANT_BITFIELD_CAST(CoreBind::ResourceSaver::SaverFlags);
 
-VARIANT_ENUM_CAST(core_bind::OS::RenderingDriver);
-VARIANT_ENUM_CAST(core_bind::OS::SystemDir);
-VARIANT_ENUM_CAST(core_bind::OS::StdHandleType);
+VARIANT_ENUM_CAST(CoreBind::OS::RenderingDriver);
+VARIANT_ENUM_CAST(CoreBind::OS::SystemDir);
+VARIANT_ENUM_CAST(CoreBind::OS::StdHandleType);
 
-VARIANT_ENUM_CAST(core_bind::Geometry2D::PolyBooleanOperation);
-VARIANT_ENUM_CAST(core_bind::Geometry2D::PolyJoinType);
-VARIANT_ENUM_CAST(core_bind::Geometry2D::PolyEndType);
+VARIANT_ENUM_CAST(CoreBind::Geometry2D::PolyBooleanOperation);
+VARIANT_ENUM_CAST(CoreBind::Geometry2D::PolyJoinType);
+VARIANT_ENUM_CAST(CoreBind::Geometry2D::PolyEndType);
 
-VARIANT_ENUM_CAST(core_bind::Thread::Priority);
+VARIANT_ENUM_CAST(CoreBind::Thread::Priority);
 
-VARIANT_ENUM_CAST(core_bind::special::ClassDB::APIType);
-
-#endif // CORE_BIND_H
+VARIANT_ENUM_CAST(CoreBind::Special::ClassDB::APIType);
