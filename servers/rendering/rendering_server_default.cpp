@@ -129,6 +129,7 @@ void RenderingServerDefault::_draw(bool p_swap_buffers, double frame_step) {
 		xr_server->end_frame();
 	}
 #endif // XR_DISABLED
+}
 
 	if (create_thread) {
 		callable_mp(this, &RenderingServerDefault::_run_post_draw_steps).call_deferred();
@@ -244,7 +245,6 @@ void RenderingServerDefault::_draw(bool p_swap_buffers, double frame_step) {
 			ZoneScopedN( "update_memory_info" );
 			RSG::utilities->update_memory_info();
 		}
-
 	}
 
 }

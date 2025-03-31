@@ -171,5 +171,3 @@ private:
 	static void register_callable(Vector<Callable> &p_vector, const Callable &p_callable);
 	static void unregister_callable(Vector<Callable> &p_vector, const Callable &p_callable);
 };
-
-#endif // LOGGER_H
