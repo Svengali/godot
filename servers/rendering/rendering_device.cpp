@@ -4412,7 +4412,7 @@ RenderingDevice::DrawListID RenderingDevice::draw_list_begin(RID p_framebuffer, 
 	thread_local LocalVector<RDD::RenderPassClearValue> clear_values;
 	thread_local LocalVector<RDG::ResourceTracker *> resource_trackers;
 	thread_local LocalVector<RDG::ResourceUsage> resource_usages;
-	BitField<RDD::PipelineStageBits> stages;
+	BitField<RDD::PipelineStageBits> stages = {};
 	operations.resize(framebuffer->texture_ids.size());
 	clear_values.resize(framebuffer->texture_ids.size());
 	resource_trackers.clear();
@@ -6714,7 +6714,7 @@ Error RenderingDevice::initialize(RenderingContextDriver *p_context, DisplayServ
 	// Pick the main queue family. It is worth noting we explicitly do not request the transfer bit, as apparently the specification defines
 	// that the existence of either the graphics or compute bit implies that the queue can also do transfer operations, but it is optional
 	// to indicate whether it supports them or not with the dedicated transfer bit if either is set.
-	BitField<RDD::CommandQueueFamilyBits> main_queue_bits;
+	BitField<RDD::CommandQueueFamilyBits> main_queue_bits = {};
 	main_queue_bits.set_flag(RDD::COMMAND_QUEUE_FAMILY_GRAPHICS_BIT);
 	main_queue_bits.set_flag(RDD::COMMAND_QUEUE_FAMILY_COMPUTE_BIT);
 
@@ -6859,7 +6859,7 @@ Error RenderingDevice::initialize(RenderingContextDriver *p_context, DisplayServ
 		// Only the instance that is not a local device and is also the singleton is allowed to manage a pipeline cache.
 		pipeline_cache_file_path = vformat("user://vulkan/pipelines.%s.%s",
 				OS::get_singleton()->get_current_rendering_method(),
-				device.name.validate_filename().replace(" ", "_").to_lower());
+				device.name.validate_filename().replace_char(' ', '_').to_lower());
 		if (Engine::get_singleton()->is_editor_hint()) {
 			pipeline_cache_file_path += ".editor";
 		}
@@ -6942,7 +6942,7 @@ void RenderingDevice::_save_pipeline_cache(void *p_data) {
 	Vector<uint8_t> cache_blob = self->driver->pipeline_cache_serialize();
 	self->_thread_safe_.unlock();
 
-	if (cache_blob.size() == 0) {
+	if (cache_blob.is_empty()) {
 		return;
 	}
 	print_verbose(vformat("Updated PSO cache (%.1f MiB)", cache_blob.size() / (1024.0f * 1024.0f)));
