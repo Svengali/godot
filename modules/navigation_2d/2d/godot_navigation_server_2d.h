@@ -84,7 +84,6 @@ class GodotNavigationServer2D : public NavigationServer2D {
 
 	bool active = true;
 	LocalVector<NavMap2D *> active_maps;
-	LocalVector<uint32_t> active_maps_iteration_id;
 
 #ifdef CLIPPER2_ENABLED
 	NavMeshGenerator2D *navmesh_generator_2d = nullptr;
@@ -320,7 +319,9 @@ public:
 	virtual void set_active(bool p_active) override;
 
 	void flush_queries();
-	virtual void process(real_t p_delta_time) override;
+
+	virtual void process(double p_delta_time) override;
+	virtual void physics_process(double p_delta_time) override;
 	virtual void init() override;
 	virtual void sync() override;
 	virtual void finish() override;
