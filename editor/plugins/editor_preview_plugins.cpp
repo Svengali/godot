@@ -31,10 +31,9 @@
 #include "editor_preview_plugins.h"
 
 #include "core/config/project_settings.h"
-#include "core/io/file_access_memory.h"
+#include "core/io/image.h"
 #include "core/io/resource_loader.h"
 #include "core/object/script_language.h"
-#include "core/os/os.h"
 #include "editor/editor_paths.h"
 #include "editor/editor_settings.h"
 #include "editor/themes/editor_scale.h"
@@ -76,7 +75,7 @@ void post_process_preview(Ref<Image> p_image) {
 }
 
 bool EditorTexturePreviewPlugin::handles(const String &p_type) const {
-	return ClassDB::is_parent_class(p_type, "Texture2D");
+	return ClassDB::is_parent_class(p_type, "Texture");
 }
 
 bool EditorTexturePreviewPlugin::generate_small_preview_automatically() const {
@@ -85,23 +84,64 @@ bool EditorTexturePreviewPlugin::generate_small_preview_automatically() const {
 
 Ref<Texture2D> EditorTexturePreviewPlugin::generate(const Ref<Resource> &p_from, const Size2 &p_size, Dictionary &p_metadata) const {
 	Ref<Image> img;
-	Ref<AtlasTexture> atex = p_from;
-	if (atex.is_valid()) {
-		Ref<Texture2D> tex = atex->get_atlas();
-		if (!tex.is_valid()) {
+
+	Ref<AtlasTexture> tex_atlas = p_from;
+	Ref<Texture3D> tex_3d = p_from;
+	Ref<TextureLayered> tex_lyr = p_from;
+
+	if (tex_atlas.is_valid()) {
+		Ref<Texture2D> tex = tex_atlas->get_atlas();
+		if (tex.is_null()) {
 			return Ref<Texture2D>();
 		}
 
 		Ref<Image> atlas = tex->get_image();
-		if (!atlas.is_valid()) {
+		if (atlas.is_null()) {
 			return Ref<Texture2D>();
 		}
 
-		if (!atex->get_region().has_area()) {
+		if (atlas->is_compressed()) {
+			atlas = atlas->duplicate();
+			if (atlas->decompress() != OK) {
+				return Ref<Texture2D>();
+			}
+		}
+
+		if (!tex_atlas->get_region().has_area()) {
 			return Ref<Texture2D>();
 		}
 
-		img = atlas->get_region(atex->get_region());
+		img = atlas->get_region(tex_atlas->get_region());
+
+	} else if (tex_3d.is_valid()) {
+		if (tex_3d->get_depth() == 0) {
+			return Ref<Texture2D>();
+		}
+
+		Vector<Ref<Image>> data = tex_3d->get_data();
+		if (data.size() != tex_3d->get_depth()) {
+			return Ref<Texture2D>();
+		}
+
+		// Use the middle slice for the thumbnail.
+		const int mid_depth = (tex_3d->get_depth() - 1) / 2;
+		if (!data.is_empty() && data[mid_depth].is_valid()) {
+			img = data[mid_depth]->duplicate();
+		}
+
+	} else if (tex_lyr.is_valid()) {
+		if (tex_lyr->get_layers() == 0) {
+			return Ref<Texture2D>();
+		}
+
+		// Use the middle slice for the thumbnail.
+		const int mid_layer = (tex_lyr->get_layers() - 1) / 2;
+
+		Ref<Image> data = tex_lyr->get_layer_data(mid_layer);
+		if (data.is_valid()) {
+			img = data->duplicate();
+		}
+
 	} else {
 		Ref<Texture2D> tex = p_from;
 		if (tex.is_valid()) {
@@ -115,6 +155,7 @@ Ref<Texture2D> EditorTexturePreviewPlugin::generate(const Ref<Resource> &p_from,
 	if (img.is_null() || img->is_empty()) {
 		return Ref<Texture2D>();
 	}
+
 	p_metadata["dimensions"] = img->get_size();
 
 	img->clear_mipmaps();
@@ -139,9 +180,6 @@ Ref<Texture2D> EditorTexturePreviewPlugin::generate(const Ref<Resource> &p_from,
 	post_process_preview(img);
 
 	return ImageTexture::create_from_image(img);
-}
-
-EditorTexturePreviewPlugin::EditorTexturePreviewPlugin() {
 }
 
 ////////////////////////////////////////////////////////////////////////////
@@ -179,9 +217,6 @@ Ref<Texture2D> EditorImagePreviewPlugin::generate(const Ref<Resource> &p_from, c
 	post_process_preview(img);
 
 	return ImageTexture::create_from_image(img);
-}
-
-EditorImagePreviewPlugin::EditorImagePreviewPlugin() {
 }
 
 bool EditorImagePreviewPlugin::generate_small_preview_automatically() const {
@@ -246,9 +281,6 @@ bool EditorBitmapPreviewPlugin::generate_small_preview_automatically() const {
 	return true;
 }
 
-EditorBitmapPreviewPlugin::EditorBitmapPreviewPlugin() {
-}
-
 ///////////////////////////////////////////////////////////////////////////
 
 bool EditorPackedScenePreviewPlugin::handles(const String &p_type) const {
@@ -284,9 +316,6 @@ Ref<Texture2D> EditorPackedScenePreviewPlugin::generate_from_path(const String &
 	}
 }
 
-EditorPackedScenePreviewPlugin::EditorPackedScenePreviewPlugin() {
-}
-
 //////////////////////////////////////////////////////////////////
 
 void EditorMaterialPreviewPlugin::abort() {
@@ -313,7 +342,7 @@ Ref<Texture2D> EditorMaterialPreviewPlugin::generate(const Ref<Resource> &p_from
 		Ref<Image> img = RS::get_singleton()->texture_2d_get(viewport_texture);
 		RS::get_singleton()->mesh_surface_set_material(sphere, 0, RID());
 
-		ERR_FAIL_COND_V(!img.is_valid(), Ref<ImageTexture>());
+		ERR_FAIL_COND_V(img.is_null(), Ref<ImageTexture>());
 
 		img->convert(Image::FORMAT_RGBA8);
 		int thumbnail_size = MAX(p_size.x, p_size.y);
@@ -364,22 +393,22 @@ EditorMaterialPreviewPlugin::EditorMaterialPreviewPlugin() {
 
 	int lats = 32;
 	int lons = 32;
-	const double lat_step = Math_TAU / lats;
-	const double lon_step = Math_TAU / lons;
+	const double lat_step = Math::TAU / lats;
+	const double lon_step = Math::TAU / lons;
 	real_t radius = 1.0;
 
 	Vector<Vector3> vertices;
 	Vector<Vector3> normals;
 	Vector<Vector2> uvs;
 	Vector<real_t> tangents;
-	Basis tt = Basis(Vector3(0, 1, 0), Math_PI * 0.5);
+	Basis tt = Basis(Vector3(0, 1, 0), Math::PI * 0.5);
 
 	for (int i = 1; i <= lats; i++) {
-		double lat0 = lat_step * (i - 1) - Math_TAU / 4;
+		double lat0 = lat_step * (i - 1) - Math::TAU / 4;
 		double z0 = Math::sin(lat0);
 		double zr0 = Math::cos(lat0);
 
-		double lat1 = lat_step * i - Math_TAU / 4;
+		double lat1 = lat_step * i - Math::TAU / 4;
 		double z1 = Math::sin(lat1);
 		double zr1 = Math::cos(lat1);
 
@@ -404,7 +433,7 @@ EditorMaterialPreviewPlugin::EditorMaterialPreviewPlugin() {
 	vertices.push_back(v[m_idx] * radius);                                                     \
 	{                                                                                          \
 		Vector2 uv(Math::atan2(v[m_idx].x, v[m_idx].z), Math::atan2(-v[m_idx].y, v[m_idx].z)); \
-		uv /= Math_PI;                                                                         \
+		uv /= Math::PI;                                                                        \
 		uv *= 4.0;                                                                             \
 		uv = uv * 0.5 + Vector2(0.5, 0.5);                                                     \
 		uvs.push_back(uv);                                                                     \
@@ -608,9 +637,6 @@ Ref<Texture2D> EditorScriptPreviewPlugin::_generate_from_source_code(const Scrip
 	return ImageTexture::create_from_image(img);
 }
 
-EditorScriptPreviewPlugin::EditorScriptPreviewPlugin() {
-}
-
 ///////////////////////////////////////////////////////////////////
 
 bool EditorAudioStreamPreviewPlugin::handles(const String &p_type) const {
@@ -690,9 +716,6 @@ Ref<Texture2D> EditorAudioStreamPreviewPlugin::generate(const Ref<Resource> &p_f
 	return ImageTexture::create_from_image(image);
 }
 
-EditorAudioStreamPreviewPlugin::EditorAudioStreamPreviewPlugin() {
-}
-
 ///////////////////////////////////////////////////////////////////////////
 
 void EditorMeshPreviewPlugin::abort() {
@@ -713,8 +736,8 @@ Ref<Texture2D> EditorMeshPreviewPlugin::generate(const Ref<Resource> &p_from, co
 	Vector3 ofs = aabb.get_center();
 	aabb.position -= ofs;
 	Transform3D xform;
-	xform.basis = Basis().rotated(Vector3(0, 1, 0), -Math_PI * 0.125);
-	xform.basis = Basis().rotated(Vector3(1, 0, 0), Math_PI * 0.125) * xform.basis;
+	xform.basis = Basis().rotated(Vector3(0, 1, 0), -Math::PI * 0.125);
+	xform.basis = Basis().rotated(Vector3(1, 0, 0), Math::PI * 0.125) * xform.basis;
 	AABB rot_aabb = xform.xform(aabb);
 	real_t m = MAX(rot_aabb.size.x, rot_aabb.size.y) * 0.5;
 	if (m == 0) {
@@ -910,7 +933,4 @@ Ref<Texture2D> EditorGradientPreviewPlugin::generate(const Ref<Resource> &p_from
 		return ImageTexture::create_from_image(ptex->get_image());
 	}
 	return Ref<Texture2D>();
-}
-
-EditorGradientPreviewPlugin::EditorGradientPreviewPlugin() {
 }

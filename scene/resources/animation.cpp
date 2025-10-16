@@ -32,7 +32,6 @@
 #include "animation.compat.inc"
 
 #include "core/io/marshalls.h"
-#include "core/math/geometry_3d.h"
 
 bool Animation::_set(const StringName &p_name, const Variant &p_value) {
 	String prop_name = p_name;
@@ -62,6 +61,23 @@ bool Animation::_set(const StringName &p_name, const Variant &p_value) {
 			compression.pages[i].time_offset = page["time_offset"];
 		}
 		compression.enabled = true;
+		return true;
+	} else if (prop_name == SNAME("markers")) {
+		Array markers = p_value;
+		for (const Dictionary marker : markers) {
+			ERR_FAIL_COND_V(!marker.has("name"), false);
+			ERR_FAIL_COND_V(!marker.has("time"), false);
+			StringName marker_name = marker["name"];
+			double time = marker["time"];
+			_marker_insert(time, marker_names, MarkerKey(time, marker_name));
+			marker_times.insert(marker_name, time);
+			Color color = Color(1, 1, 1);
+			if (marker.has("color")) {
+				color = marker["color"];
+			}
+			marker_colors.insert(marker_name, color);
+		}
+
 		return true;
 	} else if (prop_name.begins_with("tracks/")) {
 		int track = prop_name.get_slicec('/', 1).to_int();
@@ -321,8 +337,12 @@ bool Animation::_set(const StringName &p_name, const Variant &p_value) {
 				Vector<real_t> times = d["times"];
 				Vector<real_t> values = d["points"];
 #ifdef TOOLS_ENABLED
-				ERR_FAIL_COND_V(!d.has("handle_modes"), false);
-				Vector<int> handle_modes = d["handle_modes"];
+				Vector<int> handle_modes;
+				if (d.has("handle_modes")) {
+					handle_modes = d["handle_modes"];
+				} else {
+					handle_modes.resize_zeroed(times.size());
+				}
 #endif // TOOLS_ENABLED
 
 				ERR_FAIL_COND_V(times.size() * 5 != values.size(), false);
@@ -444,7 +464,9 @@ bool Animation::_get(const StringName &p_name, Variant &r_ret) const {
 	String prop_name = p_name;
 
 	if (p_name == SNAME("_compression")) {
-		ERR_FAIL_COND_V(!compression.enabled, false);
+		if (!compression.enabled) {
+			return false;
+		}
 		Dictionary comp;
 		comp["fps"] = compression.fps;
 		Array bounds;
@@ -466,6 +488,18 @@ bool Animation::_get(const StringName &p_name, Variant &r_ret) const {
 
 		r_ret = comp;
 		return true;
+	} else if (prop_name == SNAME("markers")) {
+		Array markers;
+
+		for (HashMap<StringName, double>::ConstIterator E = marker_times.begin(); E; ++E) {
+			Dictionary d;
+			d["name"] = E->key;
+			d["time"] = E->value;
+			d["color"] = marker_colors[E->key];
+			markers.push_back(d);
+		}
+
+		r_ret = markers;
 	} else if (prop_name == "length") {
 		r_ret = length;
 	} else if (prop_name == "loop_mode") {
@@ -835,6 +869,7 @@ void Animation::_get_property_list(List<PropertyInfo> *p_list) const {
 	if (compression.enabled) {
 		p_list->push_back(PropertyInfo(Variant::DICTIONARY, "_compression", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR | PROPERTY_USAGE_INTERNAL));
 	}
+	p_list->push_back(PropertyInfo(Variant::ARRAY, "markers", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR | PROPERTY_USAGE_INTERNAL));
 	for (int i = 0; i < tracks.size(); i++) {
 		p_list->push_back(PropertyInfo(Variant::STRING, "tracks/" + itos(i) + "/type", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR | PROPERTY_USAGE_INTERNAL));
 		p_list->push_back(PropertyInfo(Variant::BOOL, "tracks/" + itos(i) + "/imported", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR | PROPERTY_USAGE_INTERNAL));
@@ -915,50 +950,50 @@ void Animation::remove_track(int p_track) {
 		case TYPE_POSITION_3D: {
 			PositionTrack *tt = static_cast<PositionTrack *>(t);
 			ERR_FAIL_COND_MSG(tt->compressed_track >= 0, "Compressed tracks can't be manually removed. Call clear() to get rid of compression first.");
-			_clear(tt->positions);
+			tt->positions.clear();
 
 		} break;
 		case TYPE_ROTATION_3D: {
 			RotationTrack *rt = static_cast<RotationTrack *>(t);
 			ERR_FAIL_COND_MSG(rt->compressed_track >= 0, "Compressed tracks can't be manually removed. Call clear() to get rid of compression first.");
-			_clear(rt->rotations);
+			rt->rotations.clear();
 
 		} break;
 		case TYPE_SCALE_3D: {
 			ScaleTrack *st = static_cast<ScaleTrack *>(t);
 			ERR_FAIL_COND_MSG(st->compressed_track >= 0, "Compressed tracks can't be manually removed. Call clear() to get rid of compression first.");
-			_clear(st->scales);
+			st->scales.clear();
 
 		} break;
 		case TYPE_BLEND_SHAPE: {
 			BlendShapeTrack *bst = static_cast<BlendShapeTrack *>(t);
 			ERR_FAIL_COND_MSG(bst->compressed_track >= 0, "Compressed tracks can't be manually removed. Call clear() to get rid of compression first.");
-			_clear(bst->blend_shapes);
+			bst->blend_shapes.clear();
 
 		} break;
 		case TYPE_VALUE: {
 			ValueTrack *vt = static_cast<ValueTrack *>(t);
-			_clear(vt->values);
+			vt->values.clear();
 
 		} break;
 		case TYPE_METHOD: {
 			MethodTrack *mt = static_cast<MethodTrack *>(t);
-			_clear(mt->methods);
+			mt->methods.clear();
 
 		} break;
 		case TYPE_BEZIER: {
 			BezierTrack *bz = static_cast<BezierTrack *>(t);
-			_clear(bz->values);
+			bz->values.clear();
 
 		} break;
 		case TYPE_AUDIO: {
 			AudioTrack *ad = static_cast<AudioTrack *>(t);
-			_clear(ad->values);
+			ad->values.clear();
 
 		} break;
 		case TYPE_ANIMATION: {
 			AnimationTrack *an = static_cast<AnimationTrack *>(t);
-			_clear(an->values);
+			an->values.clear();
 
 		} break;
 	}
@@ -1014,7 +1049,7 @@ int Animation::find_track(const NodePath &p_path, const TrackType p_type) const 
 		}
 	};
 	return -1;
-};
+}
 
 Animation::TrackType Animation::get_cache_type(TrackType p_type) {
 	if (p_type == Animation::TYPE_BEZIER) {
@@ -1083,9 +1118,25 @@ int Animation::_insert(double p_time, T &p_keys, const V &p_value) {
 	return -1;
 }
 
-template <typename T>
-void Animation::_clear(T &p_keys) {
-	p_keys.clear();
+int Animation::_marker_insert(double p_time, Vector<MarkerKey> &p_keys, const MarkerKey &p_value) {
+	int idx = p_keys.size();
+
+	while (true) {
+		// Condition for replacement.
+		if (idx > 0 && Math::is_equal_approx((double)p_keys[idx - 1].time, p_time)) {
+			p_keys.write[idx - 1] = p_value;
+			return idx - 1;
+
+			// Condition for insert.
+		} else if (idx == 0 || p_keys[idx - 1].time < p_time) {
+			p_keys.insert(idx, p_value);
+			return idx;
+		}
+
+		idx--;
+	}
+
+	return -1;
 }
 
 ////
@@ -1717,7 +1768,7 @@ int Animation::track_insert_key(int p_track, double p_time, const Variant &p_key
 			ERR_FAIL_COND_V(p_key.get_type() != Variant::DICTIONARY, -1);
 
 			Dictionary d = p_key;
-			ERR_FAIL_COND_V(!d.has("method") || (d["method"].get_type() != Variant::STRING_NAME && d["method"].get_type() != Variant::STRING), -1);
+			ERR_FAIL_COND_V(!d.has("method") || !d["method"].is_string(), -1);
 			ERR_FAIL_COND_V(!d.has("args") || !d["args"].is_array(), -1);
 
 			MethodKey k;
@@ -2427,7 +2478,7 @@ Variant Animation::_interpolate_angle(const Variant &p_a, const Variant &p_b, re
 	if (vformat == ((1 << Variant::INT) | (1 << Variant::FLOAT)) || vformat == (1 << Variant::FLOAT)) {
 		real_t a = p_a;
 		real_t b = p_b;
-		return Math::fposmod((float)Math::lerp_angle(a, b, p_c), (float)Math_TAU);
+		return Math::fposmod((float)Math::lerp_angle(a, b, p_c), (float)Math::TAU);
 	}
 	return _interpolate(p_a, p_b, p_c);
 }
@@ -2464,7 +2515,7 @@ Variant Animation::_cubic_interpolate_angle_in_time(const Variant &p_pre_a, cons
 		real_t b = p_b;
 		real_t pa = p_pre_a;
 		real_t pb = p_post_b;
-		return Math::fposmod((float)Math::cubic_interpolate_angle_in_time(a, b, pa, pb, p_c, p_b_t, p_pre_a_t, p_post_b_t), (float)Math_TAU);
+		return Math::fposmod((float)Math::cubic_interpolate_angle_in_time(a, b, pa, pb, p_c, p_b_t, p_pre_a_t, p_post_b_t), (float)Math::TAU);
 	}
 	return _cubic_interpolate_in_time(p_pre_a, p_a, p_b, p_post_b, p_c, p_pre_a_t, p_b_t, p_post_b_t);
 }
@@ -3157,6 +3208,90 @@ void Animation::track_get_key_indices_in_range(int p_track, double p_time, doubl
 			_track_get_key_indices_in_range(an->values, from_time, to_time, p_indices, is_backward);
 		} break;
 	}
+}
+
+void Animation::add_marker(const StringName &p_name, double p_time) {
+	int idx = _find(marker_names, p_time);
+
+	if (idx >= 0 && idx < marker_names.size() && Math::is_equal_approx(p_time, marker_names[idx].time)) {
+		marker_times.erase(marker_names[idx].name);
+		marker_colors.erase(marker_names[idx].name);
+		marker_names.write[idx].name = p_name;
+		marker_times.insert(p_name, p_time);
+		marker_colors.insert(p_name, Color(1, 1, 1));
+	} else {
+		_marker_insert(p_time, marker_names, MarkerKey(p_time, p_name));
+		marker_times.insert(p_name, p_time);
+		marker_colors.insert(p_name, Color(1, 1, 1));
+	}
+}
+
+void Animation::remove_marker(const StringName &p_name) {
+	HashMap<StringName, double>::Iterator E = marker_times.find(p_name);
+	ERR_FAIL_COND(!E);
+	int idx = _find(marker_names, E->value);
+	bool success = idx >= 0 && idx < marker_names.size() && Math::is_equal_approx(marker_names[idx].time, E->value);
+	ERR_FAIL_COND(!success);
+	marker_names.remove_at(idx);
+	marker_times.remove(E);
+	marker_colors.erase(p_name);
+}
+
+bool Animation::has_marker(const StringName &p_name) const {
+	return marker_times.has(p_name);
+}
+
+StringName Animation::get_marker_at_time(double p_time) const {
+	int idx = _find(marker_names, p_time);
+
+	if (idx >= 0 && idx < marker_names.size() && Math::is_equal_approx(marker_names[idx].time, p_time)) {
+		return marker_names[idx].name;
+	}
+
+	return StringName();
+}
+
+StringName Animation::get_next_marker(double p_time) const {
+	int idx = _find(marker_names, p_time);
+
+	if (idx >= -1 && idx < marker_names.size() - 1) {
+		// _find ensures that the time at idx is always the closest time to p_time that is also smaller to it.
+		// So we add 1 to get the next marker.
+		return marker_names[idx + 1].name;
+	}
+	return StringName();
+}
+
+StringName Animation::get_prev_marker(double p_time) const {
+	int idx = _find(marker_names, p_time);
+
+	if (idx >= 0 && idx < marker_names.size()) {
+		return marker_names[idx].name;
+	}
+	return StringName();
+}
+
+double Animation::get_marker_time(const StringName &p_name) const {
+	ERR_FAIL_COND_V(!marker_times.has(p_name), -1);
+	return marker_times.get(p_name);
+}
+
+PackedStringArray Animation::get_marker_names() const {
+	PackedStringArray names;
+	// We iterate on marker_names so the result is sorted by time.
+	for (const MarkerKey &marker_name : marker_names) {
+		names.push_back(marker_name.name);
+	}
+	return names;
+}
+
+Color Animation::get_marker_color(const StringName &p_name) const {
+	ERR_FAIL_COND_V(!marker_colors.has(p_name), Color());
+	return marker_colors[p_name];
+}
+
+void Animation::set_marker_color(const StringName &p_name, const Color &p_color) {
+	marker_colors[p_name] = p_color;
 }
 
 Vector<Variant> Animation::method_track_get_params(int p_track, int p_key_idx) const {
@@ -3890,6 +4025,17 @@ void Animation::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("animation_track_set_key_animation", "track_idx", "key_idx", "animation"), &Animation::animation_track_set_key_animation);
 	ClassDB::bind_method(D_METHOD("animation_track_get_key_animation", "track_idx", "key_idx"), &Animation::animation_track_get_key_animation);
 
+	ClassDB::bind_method(D_METHOD("add_marker", "name", "time"), &Animation::add_marker);
+	ClassDB::bind_method(D_METHOD("remove_marker", "name"), &Animation::remove_marker);
+	ClassDB::bind_method(D_METHOD("has_marker", "name"), &Animation::has_marker);
+	ClassDB::bind_method(D_METHOD("get_marker_at_time", "time"), &Animation::get_marker_at_time);
+	ClassDB::bind_method(D_METHOD("get_next_marker", "time"), &Animation::get_next_marker);
+	ClassDB::bind_method(D_METHOD("get_prev_marker", "time"), &Animation::get_prev_marker);
+	ClassDB::bind_method(D_METHOD("get_marker_time", "name"), &Animation::get_marker_time);
+	ClassDB::bind_method(D_METHOD("get_marker_names"), &Animation::get_marker_names);
+	ClassDB::bind_method(D_METHOD("get_marker_color", "name"), &Animation::get_marker_color);
+	ClassDB::bind_method(D_METHOD("set_marker_color", "name", "color"), &Animation::set_marker_color);
+
 	ClassDB::bind_method(D_METHOD("set_length", "time_sec"), &Animation::set_length);
 	ClassDB::bind_method(D_METHOD("get_length"), &Animation::get_length);
 
@@ -3902,6 +4048,7 @@ void Animation::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("clear"), &Animation::clear);
 	ClassDB::bind_method(D_METHOD("copy_track", "track_idx", "to_animation"), &Animation::copy_track);
 
+	ClassDB::bind_method(D_METHOD("optimize", "allowed_velocity_err", "allowed_angular_err", "precision"), &Animation::optimize, DEFVAL(0.01), DEFVAL(0.01), DEFVAL(3));
 	ClassDB::bind_method(D_METHOD("compress", "page_size", "fps", "split_tolerance"), &Animation::compress, DEFVAL(8192), DEFVAL(120), DEFVAL(4.0));
 
 	ClassDB::bind_method(D_METHOD("is_capture_included"), &Animation::is_capture_included);
@@ -4062,7 +4209,7 @@ bool Animation::_quaternion_track_optimize_key(const TKey<Quaternion> t0, const 
 	if (q0.get_axis().dot(q1.get_axis()) >= 1.0 - p_allowed_angular_error * 2.0) {
 		double a0 = Math::acos(t0.value.dot(t1.value));
 		double a1 = Math::acos(t1.value.dot(t2.value));
-		if (a0 + a1 >= Math_PI / 2) {
+		if (a0 + a1 >= Math::PI / 2) {
 			return false; // Rotation is more than 180 deg, keep key.
 		}
 		// Calc velocities.
@@ -4190,7 +4337,7 @@ void Animation::_value_track_optimize(int p_idx, real_t p_allowed_velocity_err, 
 	ERR_FAIL_INDEX(p_idx, tracks.size());
 	ERR_FAIL_COND(tracks[p_idx]->type != TYPE_VALUE);
 	ValueTrack *vt = static_cast<ValueTrack *>(tracks[p_idx]);
-	if (vt->values.size() == 0) {
+	if (vt->values.is_empty()) {
 		return;
 	}
 	Variant::Type type = vt->values[0].value.get_type();
@@ -4212,11 +4359,11 @@ void Animation::_value_track_optimize(int p_idx, real_t p_allowed_velocity_err, 
 				t1.value = vt->values[i + 1].value;
 				t2.value = vt->values[i + 2].value;
 				if (is_using_angle) {
-					float diff1 = fmod(t1.value - t0.value, Math_TAU);
-					t1.value = t0.value + fmod(2.0 * diff1, Math_TAU) - diff1;
-					float diff2 = fmod(t2.value - t1.value, Math_TAU);
-					t2.value = t1.value + fmod(2.0 * diff2, Math_TAU) - diff2;
-					if (abs(abs(diff1) + abs(diff2)) >= Math_PI) {
+					float diff1 = fmod(t1.value - t0.value, Math::TAU);
+					t1.value = t0.value + fmod(2.0 * diff1, Math::TAU) - diff1;
+					float diff2 = fmod(t2.value - t1.value, Math::TAU);
+					t2.value = t1.value + fmod(2.0 * diff2, Math::TAU) - diff2;
+					if (abs(abs(diff1) + abs(diff2)) >= Math::PI) {
 						break; // Rotation is more than 180 deg, keep key.
 					}
 				}
@@ -4276,8 +4423,8 @@ void Animation::_value_track_optimize(int p_idx, real_t p_allowed_velocity_err, 
 				float val_0 = vt->values[0].value;
 				float val_1 = vt->values[1].value;
 				if (is_using_angle) {
-					float diff1 = fmod(val_1 - val_0, Math_TAU);
-					val_1 = val_0 + fmod(2.0 * diff1, Math_TAU) - diff1;
+					float diff1 = fmod(val_1 - val_0, Math::TAU);
+					val_1 = val_0 + fmod(2.0 * diff1, Math::TAU) - diff1;
 				}
 				single_key = abs(val_0 - val_1) < p_allowed_precision_error;
 			} break;
@@ -4362,7 +4509,7 @@ struct AnimationCompressionDataState {
 		if (p_delta == 0) {
 			return 0;
 		} else if (p_delta < 0) {
-			p_delta = ABS(p_delta) - 1;
+			p_delta = Math::abs(p_delta) - 1;
 			if (p_delta == 0) {
 				return 1;
 			}
@@ -4437,7 +4584,7 @@ struct AnimationCompressionDataState {
 	}
 
 	uint32_t get_temp_packet_size() const {
-		if (temp_packets.size() == 0) {
+		if (temp_packets.is_empty()) {
 			return 0;
 		} else if (temp_packets.size() == 1) {
 			return components == 1 ? 4 : 8; // 1 component packet is 16 bits and 16 bits unused. 3 component packets is 48 bits and 16 bits unused
@@ -4479,7 +4626,7 @@ struct AnimationCompressionDataState {
 	}
 
 	void commit_temp_packets() {
-		if (temp_packets.size() == 0) {
+		if (temp_packets.is_empty()) {
 			return; // Nothing to do.
 		}
 //#define DEBUG_PACKET_PUSH
@@ -4544,7 +4691,7 @@ struct AnimationCompressionDataState {
 
 				uint16_t deltau;
 				if (delta < 0) {
-					deltau = (ABS(delta) - 1) | (1 << max_shifts[j]);
+					deltau = (Math::abs(delta) - 1) | (1 << max_shifts[j]);
 				} else {
 					deltau = delta;
 				}
@@ -4609,9 +4756,9 @@ Vector3i Animation::_compress_key(uint32_t p_track, const AABB &p_bounds, int32_
 			}
 			Vector3 axis = rot.get_axis();
 			float angle = rot.get_angle();
-			angle = Math::fposmod(double(angle), double(Math_PI * 2.0));
+			angle = Math::fposmod(double(angle), double(Math::PI * 2.0));
 			Vector2 oct = axis.octahedron_encode();
-			Vector3 rot_norm(oct.x, oct.y, angle / (Math_PI * 2.0)); // high resolution rotation in 0-1 angle.
+			Vector3 rot_norm(oct.x, oct.y, angle / (Math::PI * 2.0)); // high resolution rotation in 0-1 angle.
 
 			for (int j = 0; j < 3; j++) {
 				values[j] = CLAMP(int32_t(rot_norm[j] * 65535.0), 0, 65535);
@@ -4745,7 +4892,7 @@ void Animation::compress(uint32_t p_page_size, uint32_t p_fps, float p_split_tol
 		track_bounds.push_back(bounds);
 	}
 
-	if (tracks_to_compress.size() == 0) {
+	if (tracks_to_compress.is_empty()) {
 		return; //nothing to compress
 	}
 
@@ -4804,9 +4951,9 @@ void Animation::compress(uint32_t p_page_size, uint32_t p_fps, float p_split_tol
 					continue; // This track is exhausted (all keys were added already), don't consider.
 				}
 			}
-
-			uint32_t key_frame = double(track_get_key_time(uncomp_track, time_tracks[i].key_index)) / frame_len;
-
+			double key_time = track_get_key_time(uncomp_track, time_tracks[i].key_index);
+			double result = key_time / frame_len;
+			uint32_t key_frame = Math::fast_ftoi(result);
 			if (time_tracks[i].needs_start_frame && key_frame > base_page_frame) {
 				start_frame = true;
 				best_frame = base_page_frame;
@@ -4900,7 +5047,7 @@ void Animation::compress(uint32_t p_page_size, uint32_t p_fps, float p_split_tol
 				uint32_t total_page_size = 0;
 
 				for (uint32_t i = 0; i < data_tracks.size(); i++) {
-					if (data_tracks[i].temp_packets.size() == 0 || (data_tracks[i].temp_packets[data_tracks[i].temp_packets.size() - 1].frame) < finalizer_local_frame) {
+					if (data_tracks[i].temp_packets.is_empty() || (data_tracks[i].temp_packets[data_tracks[i].temp_packets.size() - 1].frame) < finalizer_local_frame) {
 						// Add finalizer frame if it makes sense
 						Vector3i values = _compress_key(tracks_to_compress[i], track_bounds[i], -1, page_end_frame * frame_len);
 
@@ -5387,7 +5534,7 @@ int Animation::_get_compressed_key_count(uint32_t p_compressed_track) const {
 
 Quaternion Animation::_uncompress_quaternion(const Vector3i &p_value) const {
 	Vector3 axis = Vector3::octahedron_decode(Vector2(float(p_value.x) / 65535.0, float(p_value.y) / 65535.0));
-	float angle = (float(p_value.z) / 65535.0) * 2.0 * Math_PI;
+	float angle = (float(p_value.z) / 65535.0) * 2.0 * Math::PI;
 	return Quaternion(axis, angle);
 }
 Vector3 Animation::_uncompress_pos_scale(uint32_t p_compressed_track, const Vector3i &p_value) const {

@@ -58,14 +58,12 @@ data class EditorWindowInfo(
 	val windowClassName: String,
 	val windowId: Int,
 	val processNameSuffix: String,
-	val launchPolicy: LaunchPolicy = LaunchPolicy.SAME,
-	val supportsPiPMode: Boolean = false
+	val launchPolicy: LaunchPolicy = LaunchPolicy.SAME
 ) {
 	constructor(
 		windowClass: Class<*>,
 		windowId: Int,
 		processNameSuffix: String,
-		launchPolicy: LaunchPolicy = LaunchPolicy.SAME,
-		supportsPiPMode: Boolean = false
-	) : this(windowClass.name, windowId, processNameSuffix, launchPolicy, supportsPiPMode)
+		launchPolicy: LaunchPolicy = LaunchPolicy.SAME
+	) : this(windowClass.name, windowId, processNameSuffix, launchPolicy)
 }

@@ -50,7 +50,7 @@
 
 #define LONG_BITS (sizeof(long) * 8)
 #define test_bit(nr, addr) (((1UL << ((nr) % LONG_BITS)) & ((addr)[(nr) / LONG_BITS])) != 0)
-#define NBITS(x) ((((x)-1) / LONG_BITS) + 1)
+#define NBITS(x) ((((x) - 1) / LONG_BITS) + 1)
 
 #ifdef UDEV_ENABLED
 static const char *ignore_str = "/dev/input/js";
@@ -73,7 +73,7 @@ JoypadLinux::Joypad::~Joypad() {
 }
 
 void JoypadLinux::Joypad::reset() {
-	dpad = 0;
+	dpad.clear();
 	fd = -1;
 	for (int i = 0; i < MAX_ABS; i++) {
 		abs_map[i] = -1;

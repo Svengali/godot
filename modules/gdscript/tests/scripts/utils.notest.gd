@@ -1,6 +1,5 @@
 class_name Utils
 
-
 # `assert()` is not evaluated in non-debug builds. Do not use `assert()`
 # for anything other than testing the `assert()` itself.
 static func check(condition: Variant) -> void:
@@ -24,6 +23,11 @@ static func get_type(property: Dictionary, is_return: bool = false) -> String:
 				if str(property.hint_string).is_empty():
 					return "Array[<unknown type>]"
 				return "Array[%s]" % property.hint_string
+		TYPE_DICTIONARY:
+			if property.hint == PROPERTY_HINT_DICTIONARY_TYPE:
+				if str(property.hint_string).is_empty():
+					return "Dictionary[<unknown type>, <unknown type>]"
+				return "Dictionary[%s]" % str(property.hint_string).replace(";", ", ")
 		TYPE_OBJECT:
 			if not str(property.class_name).is_empty():
 				return property.class_name
@@ -188,6 +192,8 @@ static func get_property_hint_name(hint: PropertyHint) -> String:
 			return "PROPERTY_HINT_INT_IS_POINTER"
 		PROPERTY_HINT_ARRAY_TYPE:
 			return "PROPERTY_HINT_ARRAY_TYPE"
+		PROPERTY_HINT_DICTIONARY_TYPE:
+			return "PROPERTY_HINT_DICTIONARY_TYPE"
 		PROPERTY_HINT_LOCALE_ID:
 			return "PROPERTY_HINT_LOCALE_ID"
 		PROPERTY_HINT_LOCALIZABLE_STRING:
@@ -198,6 +204,9 @@ static func get_property_hint_name(hint: PropertyHint) -> String:
 			return "PROPERTY_HINT_HIDE_QUATERNION_EDIT"
 		PROPERTY_HINT_PASSWORD:
 			return "PROPERTY_HINT_PASSWORD"
+		PROPERTY_HINT_TOOL_BUTTON:
+			return "PROPERTY_HINT_TOOL_BUTTON"
+
 	printerr("Argument `hint` is invalid. Use `PROPERTY_HINT_*` constants.")
 	return "<invalid hint>"
 

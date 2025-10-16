@@ -28,8 +28,7 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef GDSCRIPT_PARSER_H
-#define GDSCRIPT_PARSER_H
+#pragma once
 
 #include "gdscript_cache.h"
 #include "gdscript_tokenizer.h"
@@ -45,7 +44,6 @@
 #include "core/string/ustring.h"
 #include "core/templates/hash_map.h"
 #include "core/templates/list.h"
-#include "core/templates/rb_map.h"
 #include "core/templates/vector.h"
 #include "core/variant/variant.h"
 
@@ -165,6 +163,10 @@ public:
 			container_element_types.write[p_index] = DataType(p_type);
 		}
 
+		_FORCE_INLINE_ int get_container_element_type_count() const {
+			return container_element_types.size();
+		}
+
 		_FORCE_INLINE_ DataType get_container_element_type(int p_index) const {
 			ERR_FAIL_INDEX_V(p_index, container_element_types.size(), get_variant_type());
 			return container_element_types[p_index];
@@ -188,6 +190,8 @@ public:
 		bool is_typed_container_type() const;
 
 		GDScriptParser::DataType get_typed_container_type() const;
+
+		bool can_reference(const DataType &p_other) const;
 
 		bool operator==(const DataType &p_other) const {
 			if (type_source == UNDETECTED || p_other.type_source == UNDETECTED) {
@@ -367,6 +371,7 @@ public:
 		Vector<ExpressionNode *> arguments;
 		Vector<Variant> resolved_arguments;
 
+		/** Information of the annotation. Might be null for unknown annotations. */
 		AnnotationInfo *info = nullptr;
 		PropertyInfo export_info;
 		bool is_resolved = false;
@@ -856,6 +861,7 @@ public:
 		Vector<Variant> default_arg_values;
 #ifdef TOOLS_ENABLED
 		MemberDocData doc_data;
+		int min_local_doc_line = 0;
 #endif // TOOLS_ENABLED
 
 		bool resolved_signature = false;
@@ -1304,6 +1310,11 @@ public:
 		COMPLETION_TYPE_NAME_OR_VOID, // Same as TYPE_NAME, but allows void (in function return type).
 	};
 
+	struct CompletionCall {
+		Node *call = nullptr;
+		int argument = -1;
+	};
+
 	struct CompletionContext {
 		CompletionType type = COMPLETION_NONE;
 		ClassNode *current_class = nullptr;
@@ -1315,11 +1326,7 @@ public:
 		Node *node = nullptr;
 		Object *base = nullptr;
 		GDScriptParser *parser = nullptr;
-	};
-
-	struct CompletionCall {
-		Node *call = nullptr;
-		int argument = -1;
+		CompletionCall call;
 	};
 
 private:
@@ -1352,6 +1359,7 @@ private:
 	List<GDScriptWarning> warnings;
 	List<PendingWarning> pending_warnings;
 	HashSet<int> warning_ignored_lines[GDScriptWarning::WARNING_MAX];
+	int warning_ignore_start_lines[GDScriptWarning::WARNING_MAX];
 	HashSet<int> unsafe_lines;
 #endif
 
@@ -1365,9 +1373,7 @@ private:
 	SuiteNode *current_suite = nullptr;
 
 	CompletionContext completion_context;
-	CompletionCall completion_call;
 	List<CompletionCall> completion_call_stack;
-	bool passed_cursor = false;
 	bool in_lambda = false;
 	bool lambda_ended = false; // Marker for when a lambda ends, to apply an end of statement if needed.
 
@@ -1445,6 +1451,18 @@ private:
 
 		return node;
 	}
+
+	// Allocates a node for patching up the parse tree when an error occurred.
+	// Such nodes don't track their extents as they don't relate to actual tokens.
+	template <typename T>
+	T *alloc_recovery_node() {
+		T *node = memnew(T);
+		node->next = list;
+		list = node;
+
+		return node;
+	}
+
 	void clear();
 	void push_error(const String &p_message, const Node *p_origin = nullptr);
 #ifdef DEBUG_ENABLED
@@ -1455,8 +1473,11 @@ private:
 	}
 	void apply_pending_warnings();
 #endif
-	void make_completion_context(CompletionType p_type, Node *p_node, int p_argument = -1);
-	void make_completion_context(CompletionType p_type, Variant::Type p_builtin_type);
+	// Setting p_force to false will prevent the completion context from being update if a context was already set before.
+	// This should only be done when we push context before we consumed any tokens for the corresponding structure.
+	// See parse_precedence for an example.
+	void make_completion_context(CompletionType p_type, Node *p_node, int p_argument = -1, bool p_force = true);
+	void make_completion_context(CompletionType p_type, Variant::Type p_builtin_type, bool p_force = true);
 	// In some cases it might become necessary to alter the completion context after parsing a subexpression.
 	// For example to not override COMPLETE_CALL_ARGUMENTS with COMPLETION_NONE from string literals.
 	void override_completion_context(const Node *p_for_node, CompletionType p_type, Node *p_node, int p_argument = -1);
@@ -1497,16 +1518,18 @@ private:
 	void clear_unused_annotations();
 	bool tool_annotation(AnnotationNode *p_annotation, Node *p_target, ClassNode *p_class);
 	bool icon_annotation(AnnotationNode *p_annotation, Node *p_target, ClassNode *p_class);
+	bool static_unload_annotation(AnnotationNode *p_annotation, Node *p_target, ClassNode *p_class);
 	bool onready_annotation(AnnotationNode *p_annotation, Node *p_target, ClassNode *p_class);
 	template <PropertyHint t_hint, Variant::Type t_type>
 	bool export_annotations(AnnotationNode *p_annotation, Node *p_target, ClassNode *p_class);
 	bool export_storage_annotation(AnnotationNode *p_annotation, Node *p_target, ClassNode *p_class);
 	bool export_custom_annotation(AnnotationNode *p_annotation, Node *p_target, ClassNode *p_class);
+	bool export_tool_button_annotation(AnnotationNode *p_annotation, Node *p_target, ClassNode *p_class);
 	template <PropertyUsageFlags t_usage>
 	bool export_group_annotations(AnnotationNode *p_annotation, Node *p_target, ClassNode *p_class);
-	bool warning_annotations(AnnotationNode *p_annotation, Node *p_target, ClassNode *p_class);
+	bool warning_ignore_annotation(AnnotationNode *p_annotation, Node *p_target, ClassNode *p_class);
+	bool warning_ignore_region_annotations(AnnotationNode *p_annotation, Node *p_target, ClassNode *p_class);
 	bool rpc_annotation(AnnotationNode *p_annotation, Node *p_target, ClassNode *p_class);
-	bool static_unload_annotation(AnnotationNode *p_annotation, Node *p_target, ClassNode *p_class);
 	// Statements.
 	Node *parse_statement();
 	VariableNode *parse_variable(bool p_is_static);
@@ -1574,7 +1597,6 @@ public:
 	static Variant::Type get_builtin_type(const StringName &p_type); // Excluding `Variant::NIL` and `Variant::OBJECT`.
 
 	CompletionContext get_completion_context() const { return completion_context; }
-	CompletionCall get_completion_call() const { return completion_call; }
 	void get_annotation_list(List<MethodInfo> *r_annotations) const;
 	bool annotation_exists(const String &p_annotation_name) const;
 
@@ -1591,6 +1613,8 @@ public:
 
 #ifdef TOOLS_ENABLED
 	static HashMap<String, String> theme_color_names;
+
+	HashMap<int, GDScriptTokenizer::CommentData> comment_data;
 #endif // TOOLS_ENABLED
 
 	GDScriptParser();
@@ -1652,5 +1676,3 @@ public:
 #endif // DEBUG_ENABLED
 	static void cleanup();
 };
-
-#endif // GDSCRIPT_PARSER_H

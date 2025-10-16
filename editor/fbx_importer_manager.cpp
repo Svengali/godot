@@ -40,7 +40,7 @@
 void FBXImporterManager::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_THEME_CHANGED: {
-			fbx_path_browse->set_icon(get_editor_theme_icon(SNAME("FileBrowse")));
+			fbx_path_browse->set_button_icon(get_editor_theme_icon(SNAME("FileBrowse")));
 		} break;
 
 		case NOTIFICATION_READY: {
@@ -150,6 +150,7 @@ FBXImporterManager::FBXImporterManager() {
 
 	fbx_path = memnew(LineEdit);
 	fbx_path->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+	fbx_path->set_accessibility_name(TTRC("Path"));
 	hb->add_child(fbx_path);
 	fbx_path_browse = memnew(Button);
 	fbx_path_browse->set_text(TTR("Browse"));

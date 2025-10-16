@@ -30,35 +30,48 @@
 
 package org.godotengine.editor
 
-import android.annotation.SuppressLint
 import android.app.PictureInPictureParams
-import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Rect
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.View
-import org.godotengine.godot.GodotLib
+import androidx.core.view.isVisible
+import org.godotengine.editor.embed.GameMenuFragment
+import org.godotengine.godot.utils.GameMenuUtils
+import org.godotengine.godot.utils.ProcessPhoenix
+import org.godotengine.godot.utils.isNativeXRDevice
 
 /**
  * Drives the 'run project' window of the Godot Editor.
  */
-class GodotGame : GodotEditor() {
+open class GodotGame : BaseGodotGame() {
 
 	companion object {
 		private val TAG = GodotGame::class.java.simpleName
 	}
 
 	private val gameViewSourceRectHint = Rect()
-	private val pipButton: View? by lazy {
-		findViewById(R.id.godot_pip_button)
-	}
+	private val expandGameMenuButton: View? by lazy { findViewById(R.id.game_menu_expand_button) }
 
-	private var pipAvailable = false
-
-	@SuppressLint("ClickableViewAccessibility")
 	override fun onCreate(savedInstanceState: Bundle?) {
+		gameMenuState.clear()
+		intent.getBundleExtra(EXTRA_GAME_MENU_STATE)?.let {
+			gameMenuState.putAll(it)
+		}
+		gameMenuState.putBoolean(EXTRA_IS_GAME_EMBEDDED, isGameEmbedded())
+		gameMenuState.putBoolean(EXTRA_IS_GAME_RUNNING, true)
+
 		super.onCreate(savedInstanceState)
+
+		gameMenuContainer?.isVisible = shouldShowGameMenuBar()
+		expandGameMenuButton?.apply{
+			isVisible = shouldShowGameMenuBar() && isMenuBarCollapsable()
+			setOnClickListener {
+				gameMenuFragment?.expandGameMenu()
+			}
+		}
 
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
 			val gameView = findViewById<View>(R.id.godot_fragment_container)
@@ -66,37 +79,10 @@ class GodotGame : GodotEditor() {
 				gameView.getGlobalVisibleRect(gameViewSourceRectHint)
 			}
 		}
-
-		pipButton?.setOnClickListener { enterPiPMode() }
-
-		handleStartIntent(intent)
 	}
 
-	override fun onNewIntent(newIntent: Intent) {
-		super.onNewIntent(newIntent)
-		handleStartIntent(newIntent)
-	}
-
-	private fun handleStartIntent(intent: Intent) {
-		pipAvailable = intent.getBooleanExtra(EXTRA_PIP_AVAILABLE, pipAvailable)
-		updatePiPButtonVisibility()
-
-		val pipLaunchRequested = intent.getBooleanExtra(EXTRA_LAUNCH_IN_PIP, false)
-		if (pipLaunchRequested) {
-			enterPiPMode()
-		}
-	}
-
-	private fun updatePiPButtonVisibility() {
-		pipButton?.visibility = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && pipAvailable && !isInPictureInPictureMode) {
-			View.VISIBLE
-		} else {
-			View.GONE
-		}
-	}
-
-	private fun enterPiPMode() {
-		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && pipAvailable) {
+	override fun enterPiPMode() {
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && hasPiPSystemFeature()) {
 			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
 				val builder = PictureInPictureParams.Builder().setSourceRectHint(gameViewSourceRectHint)
 				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -110,10 +96,27 @@ class GodotGame : GodotEditor() {
 		}
 	}
 
+	/**
+	 * Returns true the if the device supports picture-in-picture (PiP).
+	 */
+	protected fun hasPiPSystemFeature(): Boolean {
+		return Build.VERSION.SDK_INT >= Build.VERSION_CODES.N &&
+			packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
+	}
+
+	override fun shouldShowGameMenuBar(): Boolean {
+		return intent.getBooleanExtra(
+			EXTRA_EDITOR_HINT,
+			false
+		) && gameMenuContainer != null
+	}
+
 	override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean) {
 		super.onPictureInPictureModeChanged(isInPictureInPictureMode)
 		Log.v(TAG, "onPictureInPictureModeChanged: $isInPictureInPictureMode")
-		updatePiPButtonVisibility()
+
+		// Hide the game menu fragment when in PiP.
+		gameMenuContainer?.isVisible = !isInPictureInPictureMode
 	}
 
 	override fun onStop() {
@@ -130,14 +133,117 @@ class GodotGame : GodotEditor() {
 
 	override fun getEditorWindowInfo() = RUN_GAME_INFO
 
+	override fun getEditorGameEmbedMode() = GameMenuUtils.GameEmbedMode.DISABLED
+
 	override fun overrideOrientationRequest() = false
 
-	override fun enableLongPressGestures() = java.lang.Boolean.parseBoolean(GodotLib.getGlobal("input_devices/pointing/android/enable_long_press_as_right_click"))
-
-	override fun enablePanAndScaleGestures() = java.lang.Boolean.parseBoolean(GodotLib.getGlobal("input_devices/pointing/android/enable_pan_and_scale_gestures"))
-
-	override fun checkForProjectPermissionsToEnable() {
-		// Nothing to do.. by the time we get here, the project permissions will have already
-		// been requested by the Editor window.
+	override fun suspendGame(suspended: Boolean) {
+		val actionBundle = Bundle().apply {
+			putString(KEY_GAME_MENU_ACTION, GAME_MENU_ACTION_SET_SUSPEND)
+			putBoolean(KEY_GAME_MENU_ACTION_PARAM1, suspended)
+		}
+		editorMessageDispatcher.dispatchGameMenuAction(EDITOR_MAIN_INFO, actionBundle)
 	}
+
+	override fun dispatchNextFrame() {
+		val actionBundle = Bundle().apply {
+			putString(KEY_GAME_MENU_ACTION, GAME_MENU_ACTION_NEXT_FRAME)
+		}
+		editorMessageDispatcher.dispatchGameMenuAction(EDITOR_MAIN_INFO, actionBundle)
+	}
+
+	override fun toggleSelectionVisibility(enabled: Boolean) {
+		val actionBundle = Bundle().apply {
+			putString(KEY_GAME_MENU_ACTION, GAME_MENU_ACTION_SET_SELECTION_VISIBLE)
+			putBoolean(KEY_GAME_MENU_ACTION_PARAM1, enabled)
+		}
+		editorMessageDispatcher.dispatchGameMenuAction(EDITOR_MAIN_INFO, actionBundle)
+	}
+
+	override fun overrideCamera(enabled: Boolean) {
+		val actionBundle = Bundle().apply {
+			putString(KEY_GAME_MENU_ACTION, GAME_MENU_ACTION_SET_CAMERA_OVERRIDE)
+			putBoolean(KEY_GAME_MENU_ACTION_PARAM1, enabled)
+		}
+		editorMessageDispatcher.dispatchGameMenuAction(EDITOR_MAIN_INFO, actionBundle)
+	}
+
+	override fun selectRuntimeNode(nodeType: GameMenuFragment.GameMenuListener.NodeType) {
+		val actionBundle = Bundle().apply {
+			putString(KEY_GAME_MENU_ACTION, GAME_MENU_ACTION_SET_NODE_TYPE)
+			putSerializable(KEY_GAME_MENU_ACTION_PARAM1, nodeType)
+		}
+		editorMessageDispatcher.dispatchGameMenuAction(EDITOR_MAIN_INFO, actionBundle)
+	}
+
+	override fun selectRuntimeNodeSelectMode(selectMode: GameMenuFragment.GameMenuListener.SelectMode) {
+		val actionBundle = Bundle().apply {
+			putString(KEY_GAME_MENU_ACTION, GAME_MENU_ACTION_SET_SELECT_MODE)
+			putSerializable(KEY_GAME_MENU_ACTION_PARAM1, selectMode)
+		}
+		editorMessageDispatcher.dispatchGameMenuAction(EDITOR_MAIN_INFO, actionBundle)
+	}
+
+	override fun reset2DCamera() {
+		val actionBundle = Bundle().apply {
+			putString(KEY_GAME_MENU_ACTION, GAME_MENU_ACTION_RESET_CAMERA_2D_POSITION)
+		}
+		editorMessageDispatcher.dispatchGameMenuAction(EDITOR_MAIN_INFO, actionBundle)
+	}
+
+	override fun reset3DCamera() {
+		val actionBundle = Bundle().apply {
+			putString(KEY_GAME_MENU_ACTION, GAME_MENU_ACTION_RESET_CAMERA_3D_POSITION)
+		}
+		editorMessageDispatcher.dispatchGameMenuAction(EDITOR_MAIN_INFO, actionBundle)
+	}
+
+	override fun manipulateCamera(mode: GameMenuFragment.GameMenuListener.CameraMode) {
+		val actionBundle = Bundle().apply {
+			putString(KEY_GAME_MENU_ACTION, GAME_MENU_ACTION_SET_CAMERA_MANIPULATE_MODE)
+			putSerializable(KEY_GAME_MENU_ACTION_PARAM1, mode)
+		}
+		editorMessageDispatcher.dispatchGameMenuAction(EDITOR_MAIN_INFO, actionBundle)
+	}
+
+	override fun muteAudio(enabled: Boolean) {
+		val actionBundle = Bundle().apply {
+			putString(KEY_GAME_MENU_ACTION, GAME_MENU_ACTION_SET_DEBUG_MUTE_AUDIO)
+			putBoolean(KEY_GAME_MENU_ACTION_PARAM1, enabled)
+		}
+		editorMessageDispatcher.dispatchGameMenuAction(EDITOR_MAIN_INFO, actionBundle)
+	}
+
+	override fun embedGameOnPlay(embedded: Boolean) {
+		val actionBundle = Bundle().apply {
+			putString(KEY_GAME_MENU_ACTION, GAME_MENU_ACTION_EMBED_GAME_ON_PLAY)
+			putBoolean(KEY_GAME_MENU_ACTION_PARAM1, embedded)
+		}
+		editorMessageDispatcher.dispatchGameMenuAction(EDITOR_MAIN_INFO, actionBundle)
+	}
+
+	protected open fun isGameEmbedded() = false
+
+	override fun isGameEmbeddingSupported() = !isNativeXRDevice(applicationContext)
+
+	override fun isMinimizedButtonEnabled() = isTaskRoot && !isNativeXRDevice(applicationContext)
+
+	override fun isCloseButtonEnabled() = !isNativeXRDevice(applicationContext)
+
+	override fun isPiPButtonEnabled() = hasPiPSystemFeature()
+
+	override fun isMenuBarCollapsable() = true
+
+	override fun minimizeGameWindow() {
+		moveTaskToBack(false)
+	}
+
+	override fun closeGameWindow() {
+		ProcessPhoenix.forceQuit(this)
+	}
+
+	override fun onGameMenuCollapsed(collapsed: Boolean) {
+		expandGameMenuButton?.isVisible = shouldShowGameMenuBar() && isMenuBarCollapsable() && collapsed
+	}
+
 }

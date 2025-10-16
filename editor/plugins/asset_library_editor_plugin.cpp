@@ -30,11 +30,11 @@
 
 #include "asset_library_editor_plugin.h"
 
-#include "core/input/input.h"
 #include "core/io/json.h"
 #include "core/io/stream_peer_tls.h"
 #include "core/os/keyboard.h"
 #include "core/version.h"
+#include "editor/editor_main_screen.h"
 #include "editor/editor_node.h"
 #include "editor/editor_paths.h"
 #include "editor/editor_settings.h"
@@ -43,10 +43,11 @@
 #include "editor/project_settings_editor.h"
 #include "editor/themes/editor_scale.h"
 #include "scene/gui/menu_button.h"
+#include "scene/gui/separator.h"
 #include "scene/resources/image_texture.h"
 
 static inline void setup_http_request(HTTPRequest *request) {
-	request->set_use_threads(EDITOR_DEF("asset_library/use_threads", true));
+	request->set_use_threads(EDITOR_GET("asset_library/use_threads"));
 
 	const String proxy_host = EDITOR_GET("network/http_proxy/host");
 	const int proxy_port = EDITOR_GET("network/http_proxy/port");
@@ -135,6 +136,7 @@ EditorAssetLibraryItem::EditorAssetLibraryItem(bool p_clickable) {
 	add_child(hb);
 
 	icon = memnew(TextureButton);
+	icon->set_accessibility_name(TTRC("Open asset details"));
 	icon->set_custom_minimum_size(Size2(64, 64) * EDSCALE);
 	hb->add_child(icon);
 
@@ -144,11 +146,13 @@ EditorAssetLibraryItem::EditorAssetLibraryItem(bool p_clickable) {
 	vb->set_h_size_flags(Control::SIZE_EXPAND_FILL);
 
 	title = memnew(LinkButton);
+	title->set_accessibility_name(TTRC("Title"));
 	title->set_auto_translate_mode(AutoTranslateMode::AUTO_TRANSLATE_MODE_DISABLED);
 	title->set_underline_mode(LinkButton::UNDERLINE_MODE_ON_HOVER);
 	vb->add_child(title);
 
 	category = memnew(LinkButton);
+	category->set_accessibility_name(TTRC("Category"));
 	category->set_underline_mode(LinkButton::UNDERLINE_MODE_ON_HOVER);
 	vb->add_child(category);
 
@@ -158,6 +162,7 @@ EditorAssetLibraryItem::EditorAssetLibraryItem(bool p_clickable) {
 
 	author = memnew(LinkButton);
 	author->set_tooltip_text(TTR("Author"));
+	author->set_accessibility_name(TTRC("Author"));
 	author_price_hbox->add_child(author);
 
 	author_price_hbox->add_child(memnew(HSeparator));
@@ -183,6 +188,7 @@ EditorAssetLibraryItem::EditorAssetLibraryItem(bool p_clickable) {
 	price = memnew(Label);
 	price->add_theme_style_override(CoreStringName(normal), label_margin);
 	price->set_tooltip_text(TTR("License"));
+	price->set_accessibility_name(TTRC("License"));
 	price->set_mouse_filter(MOUSE_FILTER_PASS);
 
 	author_price_hbox->add_child(price);
@@ -211,12 +217,12 @@ void EditorAssetLibraryItemDescription::set_image(int p_type, int p_index, const
 						// Overlay and thumbnail need the same format for `blend_rect` to work.
 						thumbnail->convert(Image::FORMAT_RGBA8);
 						thumbnail->blend_rect(overlay, overlay->get_used_rect(), overlay_pos);
-						preview_images[i].button->set_icon(ImageTexture::create_from_image(thumbnail));
+						preview_images[i].button->set_button_icon(ImageTexture::create_from_image(thumbnail));
 
 						// Make it clearer that clicking it will open an external link
 						preview_images[i].button->set_default_cursor_shape(Control::CURSOR_POINTING_HAND);
 					} else {
-						preview_images[i].button->set_icon(p_image);
+						preview_images[i].button->set_button_icon(p_image);
 					}
 					break;
 				}
@@ -301,7 +307,7 @@ void EditorAssetLibraryItemDescription::add_preview(int p_id, bool p_video, cons
 	new_preview.video_link = p_url;
 	new_preview.is_video = p_video;
 	new_preview.button = memnew(Button);
-	new_preview.button->set_icon(previews->get_editor_theme_icon(SNAME("ThumbnailWait")));
+	new_preview.button->set_button_icon(previews->get_editor_theme_icon(SNAME("ThumbnailWait")));
 	new_preview.button->set_toggle_mode(true);
 	new_preview.button->connect(SceneStringName(pressed), callable_mp(this, &EditorAssetLibraryItemDescription::_preview_click).bind(p_id));
 	preview_hb->add_child(new_preview.button);
@@ -445,7 +451,7 @@ void EditorAssetLibraryItemDownload::configure(const String &p_title, int p_asse
 	title->set_text(p_title);
 	icon->set_texture(p_preview);
 	asset_id = p_asset_id;
-	if (!p_preview.is_valid()) {
+	if (p_preview.is_null()) {
 		icon->set_texture(get_editor_theme_icon(SNAME("FileBrokenBigThumb")));
 	}
 	host = p_download_url;
@@ -578,6 +584,7 @@ EditorAssetLibraryItemDownload::EditorAssetLibraryItemDownload() {
 
 	dismiss_button = memnew(TextureButton);
 	dismiss_button->connect(SceneStringName(pressed), callable_mp(this, &EditorAssetLibraryItemDownload::_close));
+	dismiss_button->set_accessibility_name(TTRC("Close"));
 	title_hb->add_child(dismiss_button);
 
 	title->set_clip_text(true);
@@ -702,15 +709,16 @@ void EditorAssetLibrary::_notification(int p_what) {
 }
 
 void EditorAssetLibrary::_update_repository_options() {
+	// TODO: Move to editor_settings.cpp
 	Dictionary default_urls;
 	default_urls["godotengine.org (Official)"] = "https://godotengine.org/asset-library/api";
 	Dictionary available_urls = _EDITOR_DEF("asset_library/available_urls", default_urls, true);
 	repository->clear();
-	Array keys = available_urls.keys();
-	for (int i = 0; i < keys.size(); i++) {
-		String key = keys[i];
-		repository->add_item(key);
-		repository->set_item_metadata(i, available_urls[key]);
+	int i = 0;
+	for (const KeyValue<Variant, Variant> &kv : available_urls) {
+		repository->add_item(kv.key);
+		repository->set_item_metadata(i, kv.value);
+		i++;
 	}
 }
 
@@ -905,7 +913,7 @@ void EditorAssetLibrary::_image_request_completed(int p_status, int p_code, cons
 			for (int i = 0; i < headers.size(); i++) {
 				if (headers[i].findn("ETag:") == 0) { // Save etag
 					String cache_filename_base = EditorPaths::get_singleton()->get_cache_dir().path_join("assetimage_" + image_queue[p_queue_id].image_url.md5_text());
-					String new_etag = headers[i].substr(headers[i].find(":") + 1, headers[i].length()).strip_edges();
+					String new_etag = headers[i].substr(headers[i].find_char(':') + 1).strip_edges();
 					Ref<FileAccess> file = FileAccess::open(cache_filename_base + ".etag", FileAccess::WRITE);
 					if (file.is_valid()) {
 						file->store_line(new_etag);
@@ -991,7 +999,8 @@ void EditorAssetLibrary::_request_image(ObjectID p_for, int p_asset_id, String p
 		String url_host;
 		int url_port;
 		String url_path;
-		Error err = trimmed_url.parse_url(url_scheme, url_host, url_port, url_path);
+		String url_fragment;
+		Error err = trimmed_url.parse_url(url_scheme, url_host, url_port, url_path, url_fragment);
 		if (err != OK) {
 			if (is_print_verbose_enabled()) {
 				ERR_PRINT(vformat("Asset Library: Invalid image URL '%s' for asset # %d.", trimmed_url, p_asset_id));
@@ -1066,7 +1075,7 @@ void EditorAssetLibrary::_search(int p_page) {
 	args += String() + "sort=" + sort_key[sort->get_selected()];
 
 	// We use the "branch" version, i.e. major.minor, as patch releases should be compatible
-	args += "&godot_version=" + String(VERSION_BRANCH);
+	args += "&godot_version=" + String(GODOT_VERSION_BRANCH);
 
 	String support_list;
 	for (int i = 0; i < SUPPORT_MAX; i++) {
@@ -1211,14 +1220,7 @@ void EditorAssetLibrary::_api_request(const String &p_request, RequestType p_req
 }
 
 void EditorAssetLibrary::_http_request_completed(int p_status, int p_code, const PackedStringArray &headers, const PackedByteArray &p_data) {
-	String str;
-
-	{
-		int datalen = p_data.size();
-		const uint8_t *r = p_data.ptr();
-		str.parse_utf8((const char *)r, datalen);
-	}
-
+	String str = String::utf8((const char *)p_data.ptr(), (int)p_data.size());
 	bool error_abort = true;
 
 	switch (p_status) {
@@ -1370,7 +1372,7 @@ void EditorAssetLibrary::_http_request_completed(int p_status, int p_code, const
 					// This is typically because the version number changed recently
 					// and no assets compatible with the new version have been published yet.
 					_set_library_message(
-							vformat(TTR("No results compatible with %s %s for support level(s): %s.\nCheck the enabled support levels using the 'Support' button in the top-right corner."), String(VERSION_SHORT_NAME).capitalize(), String(VERSION_BRANCH), support_list));
+							vformat(TTR("No results compatible with %s %s for support level(s): %s.\nCheck the enabled support levels using the 'Support' button in the top-right corner."), String(GODOT_VERSION_SHORT_NAME).capitalize(), String(GODOT_VERSION_BRANCH), support_list));
 				}
 			} else {
 				library_message_box->hide();
@@ -1779,7 +1781,7 @@ bool AssetLibraryEditorPlugin::is_available() {
 	// directly from GitHub which does not set CORS.
 	return false;
 #else
-	return StreamPeerTLS::is_available();
+	return StreamPeerTLS::is_available() && !Engine::get_singleton()->is_recovery_mode_hint();
 #endif
 }
 
@@ -1794,10 +1796,7 @@ void AssetLibraryEditorPlugin::make_visible(bool p_visible) {
 AssetLibraryEditorPlugin::AssetLibraryEditorPlugin() {
 	addon_library = memnew(EditorAssetLibrary);
 	addon_library->set_v_size_flags(Control::SIZE_EXPAND_FILL);
-	EditorNode::get_singleton()->get_main_screen_control()->add_child(addon_library);
+	EditorNode::get_singleton()->get_editor_main_screen()->get_control()->add_child(addon_library);
 	addon_library->set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT);
 	addon_library->hide();
-}
-
-AssetLibraryEditorPlugin::~AssetLibraryEditorPlugin() {
 }

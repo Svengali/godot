@@ -56,7 +56,9 @@ Point2 AnimatedSprite2D::_edit_get_pivot() const {
 bool AnimatedSprite2D::_edit_use_pivot() const {
 	return true;
 }
+#endif // TOOLS_ENABLED
 
+#ifdef DEBUG_ENABLED
 Rect2 AnimatedSprite2D::_edit_get_rect() const {
 	return _get_rect();
 }
@@ -75,7 +77,7 @@ bool AnimatedSprite2D::_edit_use_rect() const {
 	}
 	return t.is_valid();
 }
-#endif
+#endif // DEBUG_ENABLED
 
 Rect2 AnimatedSprite2D::get_anchorable_rect() const {
 	return _get_rect();
@@ -111,7 +113,7 @@ Rect2 AnimatedSprite2D::_get_rect() const {
 }
 
 void AnimatedSprite2D::_validate_property(PropertyInfo &p_property) const {
-	if (!frames.is_valid()) {
+	if (frames.is_null()) {
 		return;
 	}
 
@@ -165,8 +167,19 @@ void AnimatedSprite2D::_validate_property(PropertyInfo &p_property) const {
 
 void AnimatedSprite2D::_notification(int p_what) {
 	switch (p_what) {
+		case NOTIFICATION_ACCESSIBILITY_UPDATE: {
+			RID ae = get_accessibility_element();
+			ERR_FAIL_COND(ae.is_null());
+
+			Rect2 dst_rect = _get_rect();
+
+			DisplayServer::get_singleton()->accessibility_update_set_role(ae, DisplayServer::AccessibilityRole::ROLE_IMAGE);
+			DisplayServer::get_singleton()->accessibility_update_set_transform(ae, get_transform());
+			DisplayServer::get_singleton()->accessibility_update_set_bounds(ae, dst_rect);
+		} break;
+
 		case NOTIFICATION_READY: {
-			if (!Engine::get_singleton()->is_editor_hint() && !frames.is_null() && frames->has_animation(autoplay)) {
+			if (!Engine::get_singleton()->is_editor_hint() && frames.is_valid() && frames->has_animation(autoplay)) {
 				play(autoplay);
 			}
 		} break;
@@ -299,7 +312,7 @@ void AnimatedSprite2D::set_sprite_frames(const Ref<SpriteFrames> &p_frames) {
 
 		List<StringName> al;
 		frames->get_animation_list(&al);
-		if (al.size() == 0) {
+		if (al.is_empty()) {
 			set_animation(StringName());
 			autoplay = String();
 		} else {
@@ -463,7 +476,7 @@ void AnimatedSprite2D::play(const StringName &p_name, float p_custom_scale, bool
 		name = animation;
 	}
 
-	ERR_FAIL_NULL_MSG(frames, vformat("There is no animation with name '%s'.", name));
+	ERR_FAIL_COND_MSG(frames.is_null(), vformat("There is no animation with name '%s'.", name));
 	ERR_FAIL_COND_MSG(!frames->get_animation_names().has(name), vformat("There is no animation with name '%s'.", name));
 
 	if (frames->get_frame_count(name) == 0) {
@@ -541,7 +554,7 @@ void AnimatedSprite2D::set_animation(const StringName &p_name) {
 
 	emit_signal(SceneStringName(animation_changed));
 
-	if (frames == nullptr) {
+	if (frames.is_null()) {
 		animation = StringName();
 		stop();
 		ERR_FAIL_MSG(vformat("There is no animation with name '%s'.", p_name));
@@ -593,7 +606,7 @@ void AnimatedSprite2D::get_argument_options(const StringName &p_function, int p_
 	}
 	Node2D::get_argument_options(p_function, p_idx, r_options);
 }
-#endif
+#endif // TOOLS_ENABLED
 
 #ifndef DISABLE_DEPRECATED
 bool AnimatedSprite2D::_set(const StringName &p_name, const Variant &p_value) {

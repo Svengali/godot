@@ -30,8 +30,8 @@
 
 #include "editor_help_search.h"
 
-#include "core/os/keyboard.h"
 #include "editor/editor_feature_profile.h"
+#include "editor/editor_main_screen.h"
 #include "editor/editor_node.h"
 #include "editor/editor_settings.h"
 #include "editor/editor_string_names.h"
@@ -150,7 +150,7 @@ void EditorHelpSearch::_update_results() {
 			search_flags |= SEARCH_SHOW_HIERARCHY;
 		}
 
-		search = Ref<Runner>(memnew(Runner(results_tree, results_tree, &tree_cache, term, search_flags)));
+		search.instantiate(results_tree, results_tree, &tree_cache, term, search_flags);
 
 		// Clear old search flags to force rebuild on short term.
 		old_search_flags = 0;
@@ -161,7 +161,7 @@ void EditorHelpSearch::_update_results() {
 		hierarchy_button->set_disabled(true);
 
 		// Always show hierarchy for short searches.
-		search = Ref<Runner>(memnew(Runner(results_tree, results_tree, &tree_cache, term, search_flags | SEARCH_SHOW_HIERARCHY)));
+		search.instantiate(results_tree, results_tree, &tree_cache, term, search_flags | SEARCH_SHOW_HIERARCHY);
 
 		old_search_flags = search_flags;
 		set_process(true);
@@ -169,19 +169,12 @@ void EditorHelpSearch::_update_results() {
 }
 
 void EditorHelpSearch::_search_box_gui_input(const Ref<InputEvent> &p_event) {
-	// Redirect up and down navigational key events to the results list.
+	// Redirect navigational key events to the tree.
 	Ref<InputEventKey> key = p_event;
 	if (key.is_valid()) {
-		switch (key->get_keycode()) {
-			case Key::UP:
-			case Key::DOWN:
-			case Key::PAGEUP:
-			case Key::PAGEDOWN: {
-				results_tree->gui_input(key);
-				search_box->accept_event();
-			} break;
-			default:
-				break;
+		if (key->is_action("ui_up", true) || key->is_action("ui_down", true) || key->is_action("ui_page_up") || key->is_action("ui_page_down")) {
+			results_tree->gui_input(key);
+			search_box->accept_event();
 		}
 	}
 }
@@ -201,7 +194,7 @@ void EditorHelpSearch::_confirmed() {
 	}
 
 	// Activate the script editor and emit the signal with the documentation link to display.
-	EditorNode::get_singleton()->set_visible_editor(EditorNode::EDITOR_SCRIPT);
+	EditorNode::get_singleton()->get_editor_main_screen()->select(EditorMainScreen::EDITOR_SCRIPT);
 
 	emit_signal(SNAME("go_to_help"), item->get_metadata(0));
 
@@ -250,8 +243,8 @@ void EditorHelpSearch::_notification(int p_what) {
 			search_box->set_right_icon(get_editor_theme_icon(SNAME("Search")));
 			search_box->add_theme_icon_override("right_icon", get_editor_theme_icon(SNAME("Search")));
 
-			case_sensitive_button->set_icon(get_editor_theme_icon(SNAME("MatchCase")));
-			hierarchy_button->set_icon(get_editor_theme_icon(SNAME("ClassList")));
+			case_sensitive_button->set_button_icon(get_editor_theme_icon(SNAME("MatchCase")));
+			hierarchy_button->set_button_icon(get_editor_theme_icon(SNAME("ClassList")));
 
 			if (is_visible()) {
 				_update_results();
@@ -335,6 +328,7 @@ EditorHelpSearch::EditorHelpSearch() {
 	vbox->add_child(hbox);
 
 	search_box = memnew(LineEdit);
+	search_box->set_accessibility_name(TTRC("Search"));
 	search_box->set_custom_minimum_size(Size2(200, 0) * EDSCALE);
 	search_box->set_h_size_flags(Control::SIZE_EXPAND_FILL);
 	search_box->set_clear_button_enabled(true);
@@ -344,16 +338,18 @@ EditorHelpSearch::EditorHelpSearch() {
 	hbox->add_child(search_box);
 
 	case_sensitive_button = memnew(Button);
-	case_sensitive_button->set_theme_type_variation("FlatButton");
+	case_sensitive_button->set_theme_type_variation(SceneStringName(FlatButton));
 	case_sensitive_button->set_tooltip_text(TTR("Case Sensitive"));
+	case_sensitive_button->set_accessibility_name(TTRC("Case Sensitive"));
 	case_sensitive_button->connect(SceneStringName(pressed), callable_mp(this, &EditorHelpSearch::_update_results));
 	case_sensitive_button->set_toggle_mode(true);
 	case_sensitive_button->set_focus_mode(Control::FOCUS_NONE);
 	hbox->add_child(case_sensitive_button);
 
 	hierarchy_button = memnew(Button);
-	hierarchy_button->set_theme_type_variation("FlatButton");
+	hierarchy_button->set_theme_type_variation(SceneStringName(FlatButton));
 	hierarchy_button->set_tooltip_text(TTR("Show Hierarchy"));
+	hierarchy_button->set_accessibility_name(TTRC("Show Hierarchy"));
 	hierarchy_button->connect(SceneStringName(pressed), callable_mp(this, &EditorHelpSearch::_update_results));
 	hierarchy_button->set_toggle_mode(true);
 	hierarchy_button->set_pressed(true);
@@ -361,6 +357,7 @@ EditorHelpSearch::EditorHelpSearch() {
 	hbox->add_child(hierarchy_button);
 
 	filter_combo = memnew(OptionButton);
+	filter_combo->set_accessibility_name(TTRC("Filter"));
 	filter_combo->set_custom_minimum_size(Size2(200, 0) * EDSCALE);
 	filter_combo->set_stretch_ratio(0); // Fixed width.
 	filter_combo->add_item(TTR("Display All"), SEARCH_ALL);
@@ -379,6 +376,7 @@ EditorHelpSearch::EditorHelpSearch() {
 
 	// Create the results tree.
 	results_tree = memnew(Tree);
+	results_tree->set_accessibility_name(TTRC("Search Results"));
 	results_tree->set_auto_translate_mode(AUTO_TRANSLATE_MODE_DISABLED);
 	results_tree->set_v_size_flags(Control::SIZE_EXPAND_FILL);
 	results_tree->set_columns(2);
@@ -536,7 +534,7 @@ bool EditorHelpSearch::Runner::_phase_fill_member_items_init() {
 	return true;
 }
 
-TreeItem *EditorHelpSearch::Runner::_create_category_item(TreeItem *p_parent, const String &p_class, const StringName &p_icon, const String &p_metatype, const String &p_text) {
+TreeItem *EditorHelpSearch::Runner::_create_category_item(TreeItem *p_parent, const String &p_class, const StringName &p_icon, const String &p_text, const String &p_metatype) {
 	const String item_meta = "class_" + p_metatype + ":" + p_class;
 
 	TreeItem *item = nullptr;
@@ -626,7 +624,7 @@ bool EditorHelpSearch::Runner::_phase_fill_member_items() {
 		if ((search_flags & SEARCH_PROPERTIES) && !class_doc->properties.is_empty()) {
 			TreeItem *parent_item = item;
 			if (search_all) {
-				parent_item = _create_category_item(parent_item, class_doc->name, SNAME("MemberProperty"), TTRC("Prtoperties"), "propertiess");
+				parent_item = _create_category_item(parent_item, class_doc->name, SNAME("MemberProperty"), TTRC("Properties"), "properties");
 			}
 			for (const DocData::PropertyDoc &property_doc : class_doc->properties) {
 				_create_property_item(parent_item, class_doc, &property_doc);
@@ -963,7 +961,7 @@ void EditorHelpSearch::Runner::_match_method_name_and_push_back(Vector<DocData::
 				(term.begins_with(".") && method_name.begins_with(term.substr(1))) ||
 				(term.ends_with("(") && method_name.ends_with(term.left(term.length() - 1).strip_edges())) ||
 				(term.begins_with(".") && term.ends_with("(") && method_name == term.substr(1, term.length() - 2).strip_edges())) {
-			method.doc = const_cast<DocData::MethodDoc *>(&p_methods[i]);
+			method.doc = &p_methods[i];
 			r_match_methods->push_back(method);
 		}
 	}
@@ -1172,7 +1170,7 @@ TreeItem *EditorHelpSearch::Runner::_create_class_item(TreeItem *p_parent, const
 	if (p_matching_keyword.is_empty()) {
 		item->set_text(0, p_doc->name);
 	} else {
-		item->set_text(0, p_doc->name + "      - " + TTR(vformat("Matches the \"%s\" keyword.", p_matching_keyword)));
+		item->set_text(0, p_doc->name + "      - " + vformat(TTR("Matches the \"%s\" keyword."), p_matching_keyword));
 	}
 
 	if (!term.is_empty()) {
@@ -1248,7 +1246,7 @@ TreeItem *EditorHelpSearch::Runner::_create_property_item(TreeItem *p_parent, co
 TreeItem *EditorHelpSearch::Runner::_create_theme_property_item(TreeItem *p_parent, const DocData::ClassDoc *p_class_doc, const MemberMatch<DocData::ThemeItemDoc> &p_match) {
 	String tooltip = p_match.doc->type + " " + p_class_doc->name + "." + p_match.doc->name;
 	tooltip += _build_keywords_tooltip(p_match.doc->keywords);
-	return _create_member_item(p_parent, p_class_doc->name, SNAME("MemberTheme"), p_match.doc->name, p_match.doc->name, TTRC("Theme Property"), "theme_item", p_match.doc->keywords, tooltip, false, false, p_match.name ? String() : p_match.keyword);
+	return _create_member_item(p_parent, p_class_doc->name, SNAME("MemberTheme"), p_match.doc->name, p_match.doc->name, TTRC("Theme Property"), "theme_item", p_match.doc->keywords, tooltip, p_match.doc->is_deprecated, p_match.doc->is_experimental, p_match.name ? String() : p_match.keyword);
 }
 
 TreeItem *EditorHelpSearch::Runner::_create_member_item(TreeItem *p_parent, const String &p_class_name, const StringName &p_icon, const String &p_name, const String &p_text, const String &p_type, const String &p_metatype, const String &p_tooltip, const String &p_keywords, bool p_is_deprecated, bool p_is_experimental, const String &p_matching_keyword) {
@@ -1278,7 +1276,7 @@ TreeItem *EditorHelpSearch::Runner::_create_member_item(TreeItem *p_parent, cons
 		text = p_class_name + "." + p_text;
 	}
 	if (!p_matching_keyword.is_empty()) {
-		text += "      - " + TTR(vformat("Matches the \"%s\" keyword.", p_matching_keyword));
+		text += "      - " + vformat(TTR("Matches the \"%s\" keyword."), p_matching_keyword);
 	}
 	item->set_text(0, text);
 

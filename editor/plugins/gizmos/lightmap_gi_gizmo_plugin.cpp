@@ -33,18 +33,20 @@
 #include "editor/editor_node.h"
 #include "editor/editor_settings.h"
 #include "editor/editor_string_names.h"
-#include "editor/plugins/node_3d_editor_plugin.h"
 #include "scene/3d/lightmap_gi.h"
 
 LightmapGIGizmoPlugin::LightmapGIGizmoPlugin() {
-	Color gizmo_color = EDITOR_DEF_RST("editors/3d_gizmos/gizmo_colors/lightmap_lines", Color(0.5, 0.6, 1));
+	Color gizmo_color = EDITOR_GET("editors/3d_gizmos/gizmo_colors/lightmap_lines");
 
 	gizmo_color.a = 0.1;
 	create_material("lightmap_lines", gizmo_color);
 
 	Ref<StandardMaterial3D> mat = memnew(StandardMaterial3D);
 	mat->set_shading_mode(StandardMaterial3D::SHADING_MODE_UNSHADED);
-	mat->set_cull_mode(StandardMaterial3D::CULL_DISABLED);
+	// Fade out probes when camera gets too close to them.
+	mat->set_distance_fade(StandardMaterial3D::DISTANCE_FADE_PIXEL_DITHER);
+	mat->set_distance_fade_min_distance(0.5);
+	mat->set_distance_fade_max_distance(1.5);
 	mat->set_flag(StandardMaterial3D::FLAG_ALBEDO_FROM_VERTEX_COLOR, true);
 	mat->set_flag(StandardMaterial3D::FLAG_SRGB_VERTEX_COLOR, false);
 	mat->set_flag(StandardMaterial3D::FLAG_DISABLE_FOG, true);
@@ -86,7 +88,7 @@ void LightmapGIGizmoPlugin::redraw(EditorNode3DGizmo *p_gizmo) {
 	HashSet<Vector2i> lines_found;
 
 	Vector<Vector3> points = data->get_capture_points();
-	if (points.size() == 0) {
+	if (points.is_empty()) {
 		return;
 	}
 	Vector<Color> sh = data->get_capture_sh();
@@ -121,8 +123,8 @@ void LightmapGIGizmoPlugin::redraw(EditorNode3DGizmo *p_gizmo) {
 	int stack_count = 8;
 	int sector_count = 16;
 
-	float sector_step = (Math_PI * 2.0) / sector_count;
-	float stack_step = Math_PI / stack_count;
+	float sector_step = (Math::PI * 2.0) / sector_count;
+	float stack_step = Math::PI / stack_count;
 
 	Vector<Vector3> vertices;
 	Vector<Color> colors;
@@ -139,7 +141,7 @@ void LightmapGIGizmoPlugin::redraw(EditorNode3DGizmo *p_gizmo) {
 		}
 
 		for (int i = 0; i <= stack_count; ++i) {
-			float stack_angle = Math_PI / 2 - i * stack_step; // starting from pi/2 to -pi/2
+			float stack_angle = Math::PI / 2 - i * stack_step; // starting from pi/2 to -pi/2
 			float xy = radius * Math::cos(stack_angle); // r * cos(u)
 			float z = radius * Math::sin(stack_angle); // r * sin(u)
 
