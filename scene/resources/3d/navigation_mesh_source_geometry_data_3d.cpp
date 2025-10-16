@@ -71,7 +71,7 @@ void NavigationMeshSourceGeometryData3D::append_arrays(const Vector<float> &p_ve
 bool NavigationMeshSourceGeometryData3D::has_data() {
 	RWLockRead read_lock(geometry_rwlock);
 	return vertices.size() && indices.size();
-};
+}
 
 void NavigationMeshSourceGeometryData3D::clear() {
 	RWLockWrite write_lock(geometry_rwlock);
@@ -195,7 +195,7 @@ void NavigationMeshSourceGeometryData3D::_add_faces(const PackedVector3Array &p_
 }
 
 void NavigationMeshSourceGeometryData3D::add_mesh(const Ref<Mesh> &p_mesh, const Transform3D &p_xform) {
-	ERR_FAIL_COND(!p_mesh.is_valid());
+	ERR_FAIL_COND(p_mesh.is_null());
 
 #ifdef DEBUG_ENABLED
 	if (!Engine::get_singleton()->is_editor_hint()) {
@@ -223,7 +223,7 @@ void NavigationMeshSourceGeometryData3D::add_faces(const PackedVector3Array &p_f
 }
 
 void NavigationMeshSourceGeometryData3D::merge(const Ref<NavigationMeshSourceGeometryData3D> &p_other_geometry) {
-	ERR_FAIL_NULL(p_other_geometry);
+	ERR_FAIL_COND(p_other_geometry.is_null());
 
 	Vector<float> other_vertices;
 	Vector<int> other_indices;

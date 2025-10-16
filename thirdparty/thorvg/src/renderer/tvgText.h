@@ -24,20 +24,17 @@
 #define _TVG_TEXT_H
 
 #include <cstring>
+#include "tvgMath.h"
 #include "tvgShape.h"
 #include "tvgFill.h"
-
-#ifdef THORVG_TTF_LOADER_SUPPORT
-    #include "tvgTtfLoader.h"
-#else
-    #include "tvgLoader.h"
-#endif
+#include "tvgLoader.h"
 
 struct Text::Impl
 {
     FontLoader* loader = nullptr;
     Text* paint;
     Shape* shape;
+    FontMetrics metrics;
     char* utf8 = nullptr;
     float fontSize;
     bool italic = false;
@@ -45,6 +42,7 @@ struct Text::Impl
 
     Impl(Text* p) : paint(p), shape(Shape::gen().release())
     {
+        shape->fill(FillRule::EvenOdd);
     }
 
     ~Impl()
@@ -69,6 +67,11 @@ struct Text::Impl
         auto loader = LoaderMgr::loader(name);
         if (!loader) return Result::InsufficientCondition;
 
+        if (style && strstr(style, "italic")) italic = true;
+        else italic = false;
+
+        fontSize = size;
+
         //Same resource has been loaded.
         if (this->loader == loader) {
             this->loader->sharing--;  //make it sure the reference counting.
@@ -78,8 +81,6 @@ struct Text::Impl
         }
         this->loader = static_cast<FontLoader*>(loader);
 
-        fontSize = size;
-        if (style && strstr(style, "italic")) italic = true;
         changed = true;
         return Result::Success;
     }
@@ -91,31 +92,32 @@ struct Text::Impl
 
     bool render(RenderMethod* renderer)
     {
+        if (!loader) return true;
+        renderer->blend(PP(paint)->blendMethod);
         return PP(shape)->render(renderer);
     }
 
-    bool load()
+    float load()
     {
-        if (!loader) return false;
+        if (!loader) return 0.0f;
 
         //reload
         if (changed) {
-            loader->request(shape, utf8, italic);
-            loader->read();
+            loader->read(shape, utf8, metrics);
             changed = false;
         }
-        return loader->resize(shape, fontSize, fontSize);
+        return loader->transform(shape, metrics, fontSize, italic);
     }
 
     RenderData update(RenderMethod* renderer, const Matrix& transform, Array<RenderData>& clips, uint8_t opacity, RenderUpdateFlag pFlag, TVG_UNUSED bool clipper)
     {
-        if (!load()) return nullptr;
+        auto scale = 1.0f / load();
+        if (tvg::zero(scale)) return nullptr;
 
         //transform the gradient coordinates based on the final scaled font.
         auto fill = P(shape)->rs.fill;
-        if (fill && P(shape)->flag & RenderUpdateFlag::Gradient) {
-            auto scale = 1.0f / loader->scale;
-            if (fill->identifier() == TVG_CLASS_ID_LINEAR) {
+        if (fill && P(shape)->rFlag & RenderUpdateFlag::Gradient) {
+            if (fill->type() == Type::LinearGradient) {
                 P(static_cast<LinearGradient*>(fill))->x1 *= scale;
                 P(static_cast<LinearGradient*>(fill))->y1 *= scale;
                 P(static_cast<LinearGradient*>(fill))->x2 *= scale;
@@ -134,7 +136,7 @@ struct Text::Impl
 
     bool bounds(float* x, float* y, float* w, float* h, TVG_UNUSED bool stroking)
     {
-        if (!load()) return false;
+        if (load() == 0.0f) return false;
         PP(shape)->bounds(x, y, w, h, true, true, false);
         return true;
     }

@@ -215,6 +215,7 @@ enum class SvgParserLengthType
 {
     Vertical,
     Horizontal,
+    Diagonal,
     //In case of, for example, radius of radial gradient
     Other
 };
@@ -554,6 +555,14 @@ struct SvgNodeIdPair
     char *id;
 };
 
+struct FontFace
+{
+    char* name = nullptr;
+    char* src = nullptr;
+    size_t srcLen = 0;
+    char* decoded = nullptr;
+};
+
 enum class OpenedTagType : uint8_t
 {
     Other = 0,
@@ -573,6 +582,7 @@ struct SvgLoaderData
     Array<SvgNodeIdPair> cloneNodes;
     Array<SvgNodeIdPair> nodesToStyle;
     Array<char*> images;        //embedded images
+    Array<FontFace> fonts;
     int level = 0;
     bool result = false;
     OpenedTagType openedTag = OpenedTagType::Other;

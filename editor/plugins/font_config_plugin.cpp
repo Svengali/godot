@@ -121,13 +121,8 @@ bool EditorPropertyFontOTObject::_property_can_revert(const StringName &p_name) 
 
 	if (name.begins_with("keys")) {
 		int key = name.get_slicec('/', 1).to_int();
-		if (defaults_dict.has(key) && dict.has(key)) {
-			int value = dict[key];
-			Vector3i range = defaults_dict[key];
-			return range.z != value;
-		}
+		return defaults_dict.has(key) && dict.has(key);
 	}
-
 	return false;
 }
 
@@ -142,7 +137,6 @@ bool EditorPropertyFontOTObject::_property_get_revert(const StringName &p_name, 
 			return true;
 		}
 	}
-
 	return false;
 }
 
@@ -155,7 +149,7 @@ void EditorPropertyFontMetaOverride::_notification(int p_what) {
 		case NOTIFICATION_ENTER_TREE:
 		case NOTIFICATION_THEME_CHANGED: {
 			if (button_add) {
-				button_add->set_icon(get_editor_theme_icon(SNAME("Add")));
+				button_add->set_button_icon(get_editor_theme_icon(SNAME("Add")));
 			}
 		} break;
 	}
@@ -164,7 +158,7 @@ void EditorPropertyFontMetaOverride::_notification(int p_what) {
 void EditorPropertyFontMetaOverride::_property_changed(const String &p_property, const Variant &p_value, const String &p_name, bool p_changing) {
 	if (p_property.begins_with("keys")) {
 		Dictionary dict = object->get_dict();
-		String key = p_property.get_slice("/", 1);
+		String key = p_property.get_slicec('/', 1);
 		dict[key] = (bool)p_value;
 
 		emit_changed(get_edited_property(), dict, "", true);
@@ -301,7 +295,8 @@ void EditorPropertyFontMetaOverride::update_property() {
 			hbox->add_child(prop);
 			prop->set_h_size_flags(SIZE_EXPAND_FILL);
 			Button *remove = memnew(Button);
-			remove->set_icon(get_editor_theme_icon(SNAME("Remove")));
+			remove->set_accessibility_name(TTRC("Remove"));
+			remove->set_button_icon(get_editor_theme_icon(SNAME("Remove")));
 			hbox->add_child(remove);
 			remove->connect(SceneStringName(pressed), callable_mp(this, &EditorPropertyFontMetaOverride::_remove).bind(remove, name));
 
@@ -355,6 +350,7 @@ EditorPropertyFontMetaOverride::EditorPropertyFontMetaOverride(bool p_script) {
 	page_length = int(EDITOR_GET("interface/inspector/max_array_dictionary_items_per_page"));
 
 	edit = memnew(Button);
+	edit->set_accessibility_name(TTRC("Edit"));
 	edit->set_h_size_flags(SIZE_EXPAND_FILL);
 	edit->set_clip_text(true);
 	edit->connect(SceneStringName(pressed), callable_mp(this, &EditorPropertyFontMetaOverride::_edit_pressed));
@@ -384,7 +380,7 @@ EditorPropertyFontMetaOverride::EditorPropertyFontMetaOverride(bool p_script) {
 void EditorPropertyOTVariation::_property_changed(const String &p_property, const Variant &p_value, const String &p_name, bool p_changing) {
 	if (p_property.begins_with("keys")) {
 		Dictionary dict = object->get_dict();
-		int key = p_property.get_slice("/", 1).to_int();
+		int key = p_property.get_slicec('/', 1).to_int();
 		dict[key] = (int)p_value;
 
 		emit_changed(get_edited_property(), dict, "", true);
@@ -413,9 +409,9 @@ void EditorPropertyOTVariation::update_property() {
 
 	Dictionary supported = (fd.is_valid()) ? fd->get_supported_variation_list() : Dictionary();
 
-	for (int i = 0; i < supported.size(); i++) {
-		int name_tag = supported.get_key_at_index(i);
-		Vector3i range = supported.get_value_at_index(i);
+	for (const KeyValue<Variant, Variant> &kv : supported) {
+		const int &name_tag = kv.key;
+		const Vector3i &range = kv.value;
 		if ((dict.has(name_tag) && dict[name_tag].get_type() == Variant::NIL) || !dict.has(name_tag)) {
 			dict[name_tag] = range.z;
 		}
@@ -476,13 +472,13 @@ void EditorPropertyOTVariation::update_property() {
 			Vector3i range = supported.get_value_at_index(i);
 
 			EditorPropertyInteger *prop = memnew(EditorPropertyInteger);
-			prop->setup(range.x, range.y, false, 1, false, false);
+			prop->setup(range.x, range.y, false, true, false, false);
 			prop->set_object_and_property(object.ptr(), "keys/" + itos(name_tag));
 
 			String name = TS->tag_to_name(name_tag);
 			String name_cap;
 			{
-				String aux = name.replace("_", " ").strip_edges();
+				String aux = name.replace_char('_', ' ').strip_edges();
 				for (int j = 0; j < aux.get_slice_count(" "); j++) {
 					String slice = aux.get_slicec(' ', j);
 					if (slice.length() > 0) {
@@ -541,6 +537,7 @@ EditorPropertyOTVariation::EditorPropertyOTVariation() {
 	page_length = int(EDITOR_GET("interface/inspector/max_array_dictionary_items_per_page"));
 
 	edit = memnew(Button);
+	edit->set_accessibility_name(TTRC("Edit"));
 	edit->set_h_size_flags(SIZE_EXPAND_FILL);
 	edit->set_clip_text(true);
 	edit->connect(SceneStringName(pressed), callable_mp(this, &EditorPropertyOTVariation::_edit_pressed));
@@ -558,7 +555,7 @@ void EditorPropertyOTFeatures::_notification(int p_what) {
 		case NOTIFICATION_ENTER_TREE:
 		case NOTIFICATION_THEME_CHANGED: {
 			if (button_add) {
-				button_add->set_icon(get_editor_theme_icon(SNAME("Add")));
+				button_add->set_button_icon(get_editor_theme_icon(SNAME("Add")));
 			}
 		} break;
 	}
@@ -567,7 +564,7 @@ void EditorPropertyOTFeatures::_notification(int p_what) {
 void EditorPropertyOTFeatures::_property_changed(const String &p_property, const Variant &p_value, const String &p_name, bool p_changing) {
 	if (p_property.begins_with("keys")) {
 		Dictionary dict = object->get_dict();
-		int key = p_property.get_slice("/", 1).to_int();
+		int key = p_property.get_slicec('/', 1).to_int();
 		dict[key] = (int)p_value;
 
 		emit_changed(get_edited_property(), dict, "", true);
@@ -795,7 +792,8 @@ void EditorPropertyOTFeatures::update_property() {
 				hbox->add_child(prop);
 				prop->set_h_size_flags(SIZE_EXPAND_FILL);
 				Button *remove = memnew(Button);
-				remove->set_icon(get_editor_theme_icon(SNAME("Remove")));
+				remove->set_accessibility_name(TTRC("Remove"));
+				remove->set_button_icon(get_editor_theme_icon(SNAME("Remove")));
 				hbox->add_child(remove);
 				remove->connect(SceneStringName(pressed), callable_mp(this, &EditorPropertyOTFeatures::_remove).bind(remove, name_tag));
 
@@ -804,7 +802,7 @@ void EditorPropertyOTFeatures::update_property() {
 		}
 
 		button_add = EditorInspector::create_inspector_action_button(TTR("Add Feature"));
-		button_add->set_icon(get_editor_theme_icon(SNAME("Add")));
+		button_add->set_button_icon(get_editor_theme_icon(SNAME("Add")));
 		button_add->connect(SceneStringName(pressed), callable_mp(this, &EditorPropertyOTFeatures::_add_menu));
 		property_vbox->add_child(button_add);
 
@@ -844,6 +842,7 @@ EditorPropertyOTFeatures::EditorPropertyOTFeatures() {
 	page_length = int(EDITOR_GET("interface/inspector/max_array_dictionary_items_per_page"));
 
 	edit = memnew(Button);
+	edit->set_accessibility_name(TTRC("Edit"));
 	edit->set_h_size_flags(SIZE_EXPAND_FILL);
 	edit->set_clip_text(true);
 	edit->connect(SceneStringName(pressed), callable_mp(this, &EditorPropertyOTFeatures::_edit_pressed));
@@ -977,9 +976,6 @@ void FontPreview::set_data(const Ref<Font> &p_f) {
 
 void FontPreview::_preview_changed() {
 	queue_redraw();
-}
-
-FontPreview::FontPreview() {
 }
 
 /*************************************************************************/

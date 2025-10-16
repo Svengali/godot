@@ -28,28 +28,24 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef RENDERER_SCENE_RENDER_RD_H
-#define RENDERER_SCENE_RENDER_RD_H
+#pragma once
 
-#include "core/templates/local_vector.h"
-#include "core/templates/rid_owner.h"
 #include "servers/rendering/renderer_compositor.h"
-#include "servers/rendering/renderer_rd/cluster_builder_rd.h"
 #include "servers/rendering/renderer_rd/effects/bokeh_dof.h"
 #include "servers/rendering/renderer_rd/effects/copy_effects.h"
 #include "servers/rendering/renderer_rd/effects/debug_effects.h"
 #include "servers/rendering/renderer_rd/effects/fsr.h"
 #include "servers/rendering/renderer_rd/effects/luminance.h"
+#ifdef METAL_ENABLED
+#include "servers/rendering/renderer_rd/effects/metal_fx.h"
+#endif
 #include "servers/rendering/renderer_rd/effects/tone_mapper.h"
 #include "servers/rendering/renderer_rd/effects/vrs.h"
-#include "servers/rendering/renderer_rd/environment/fog.h"
 #include "servers/rendering/renderer_rd/environment/gi.h"
 #include "servers/rendering/renderer_rd/environment/sky.h"
-#include "servers/rendering/renderer_rd/framebuffer_cache_rd.h"
 #include "servers/rendering/renderer_rd/storage_rd/light_storage.h"
 #include "servers/rendering/renderer_rd/storage_rd/render_data_rd.h"
 #include "servers/rendering/renderer_rd/storage_rd/render_scene_buffers_rd.h"
-#include "servers/rendering/renderer_rd/storage_rd/render_scene_data_rd.h"
 #include "servers/rendering/renderer_scene_render.h"
 #include "servers/rendering/rendering_device.h"
 #include "servers/rendering/rendering_method.h"
@@ -67,6 +63,9 @@ protected:
 	RendererRD::ToneMapper *tone_mapper = nullptr;
 	RendererRD::FSR *fsr = nullptr;
 	RendererRD::VRS *vrs = nullptr;
+#ifdef METAL_ENABLED
+	RendererRD::MFXSpatialEffect *mfx_spatial = nullptr;
+#endif
 	double time = 0.0;
 	double time_step = 0.0;
 
@@ -78,7 +77,7 @@ protected:
 
 	////////////////////////////////
 
-	virtual RendererRD::ForwardIDStorage *create_forward_id_storage() { return memnew(RendererRD::ForwardIDStorage); };
+	virtual RendererRD::ForwardIDStorage *create_forward_id_storage() { return memnew(RendererRD::ForwardIDStorage); }
 
 	void _update_vrs(Ref<RenderSceneBuffersRD> p_render_buffers);
 
@@ -103,7 +102,9 @@ protected:
 	bool _compositor_effects_has_flag(const RenderDataRD *p_render_data, RS::CompositorEffectFlags p_flag, RS::CompositorEffectCallbackType p_callback_type = RS::COMPOSITOR_EFFECT_CALLBACK_TYPE_ANY);
 	bool _has_compositor_effect(RS::CompositorEffectCallbackType p_callback_type, const RenderDataRD *p_render_data);
 	void _process_compositor_effects(RS::CompositorEffectCallbackType p_callback_type, const RenderDataRD *p_render_data);
+	void _render_buffers_ensure_screen_texture(const RenderDataRD *p_render_data);
 	void _render_buffers_copy_screen_texture(const RenderDataRD *p_render_data);
+	void _render_buffers_ensure_depth_texture(const RenderDataRD *p_render_data);
 	void _render_buffers_copy_depth_texture(const RenderDataRD *p_render_data);
 	void _render_buffers_post_process_and_tonemap(const RenderDataRD *p_render_data);
 	void _post_process_subpass(RID p_source_texture, RID p_framebuffer, const RenderDataRD *p_render_data);
@@ -165,9 +166,9 @@ public:
 
 	/* LIGHTING */
 
-	virtual void setup_added_reflection_probe(const Transform3D &p_transform, const Vector3 &p_half_size){};
-	virtual void setup_added_light(const RS::LightType p_type, const Transform3D &p_transform, float p_radius, float p_spot_aperture){};
-	virtual void setup_added_decal(const Transform3D &p_transform, const Vector3 &p_half_size){};
+	virtual void setup_added_reflection_probe(const Transform3D &p_transform, const Vector3 &p_half_size) {}
+	virtual void setup_added_light(const RS::LightType p_type, const Transform3D &p_transform, float p_radius, float p_spot_aperture) {}
+	virtual void setup_added_decal(const Transform3D &p_transform, const Vector3 &p_half_size) {}
 
 	/* GI */
 
@@ -342,5 +343,3 @@ public:
 	RendererSceneRenderRD();
 	~RendererSceneRenderRD();
 };
-
-#endif // RENDERER_SCENE_RENDER_RD_H

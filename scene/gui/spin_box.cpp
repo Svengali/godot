@@ -34,19 +34,72 @@
 #include "core/math/expression.h"
 #include "scene/theme/theme_db.h"
 
+void SpinBoxLineEdit::_accessibility_action_inc(const Variant &p_data) {
+	SpinBox *parent_sb = Object::cast_to<SpinBox>(get_parent());
+	if (parent_sb) {
+		double step = ((parent_sb->get_step() > 0) ? parent_sb->get_step() : 1);
+		parent_sb->set_value(parent_sb->get_value() + step);
+	}
+}
+
+void SpinBoxLineEdit::_accessibility_action_dec(const Variant &p_data) {
+	SpinBox *parent_sb = Object::cast_to<SpinBox>(get_parent());
+	if (parent_sb) {
+		double step = ((parent_sb->get_step() > 0) ? parent_sb->get_step() : 1);
+		parent_sb->set_value(parent_sb->get_value() - step);
+	}
+}
+
+void SpinBoxLineEdit::_notification(int p_what) {
+	ERR_MAIN_THREAD_GUARD;
+	switch (p_what) {
+		case NOTIFICATION_ACCESSIBILITY_UPDATE: {
+			RID ae = get_accessibility_element();
+			ERR_FAIL_COND(ae.is_null());
+
+			SpinBox *parent_sb = Object::cast_to<SpinBox>(get_parent());
+			if (parent_sb) {
+				DisplayServer::get_singleton()->accessibility_update_set_role(ae, DisplayServer::AccessibilityRole::ROLE_SPIN_BUTTON);
+				DisplayServer::get_singleton()->accessibility_update_set_name(ae, parent_sb->get_accessibility_name());
+				DisplayServer::get_singleton()->accessibility_update_set_description(ae, parent_sb->get_accessibility_description());
+				DisplayServer::get_singleton()->accessibility_update_set_live(ae, parent_sb->get_accessibility_live());
+				DisplayServer::get_singleton()->accessibility_update_set_num_value(ae, parent_sb->get_value());
+				DisplayServer::get_singleton()->accessibility_update_set_num_range(ae, parent_sb->get_min(), parent_sb->get_max());
+				if (parent_sb->get_step() > 0) {
+					DisplayServer::get_singleton()->accessibility_update_set_num_step(ae, parent_sb->get_step());
+				} else {
+					DisplayServer::get_singleton()->accessibility_update_set_num_step(ae, 1);
+				}
+				//DisplayServer::get_singleton()->accessibility_update_set_num_jump(ae, ???);
+				DisplayServer::get_singleton()->accessibility_update_add_action(ae, DisplayServer::AccessibilityAction::ACTION_DECREMENT, callable_mp(this, &SpinBoxLineEdit::_accessibility_action_dec));
+				DisplayServer::get_singleton()->accessibility_update_add_action(ae, DisplayServer::AccessibilityAction::ACTION_INCREMENT, callable_mp(this, &SpinBoxLineEdit::_accessibility_action_inc));
+			}
+		} break;
+	}
+}
+
 Size2 SpinBox::get_minimum_size() const {
 	Size2 ms = line_edit->get_combined_minimum_size();
 	ms.width += sizing_cache.buttons_block_width;
 	return ms;
 }
 
-void SpinBox::_update_text(bool p_keep_line_edit) {
-	String value = String::num(get_value(), Math::range_step_decimals(get_step()));
+void SpinBox::_update_text(bool p_only_update_if_value_changed) {
+	double step = get_step();
+	if (use_custom_arrow_step && custom_arrow_step != 0.0) {
+		step = custom_arrow_step;
+	}
+	String value = String::num(get_value(), Math::range_step_decimals(step));
 	if (is_localizing_numeral_system()) {
 		value = TS->format_number(value);
 	}
 
-	if (!line_edit->has_focus()) {
+	if (p_only_update_if_value_changed && value == last_text_value) {
+		return;
+	}
+	last_text_value = value;
+
+	if (!line_edit->is_editing()) {
 		if (!prefix.is_empty()) {
 			value = prefix + " " + value;
 		}
@@ -55,26 +108,47 @@ void SpinBox::_update_text(bool p_keep_line_edit) {
 		}
 	}
 
-	if (p_keep_line_edit && value == last_updated_text && value != line_edit->get_text()) {
-		return;
+	if (!accepted && update_on_text_changed && !line_edit->get_text().replace_char(',', '.').contains_char('.')) {
+		value = String::num(get_value(), 0);
 	}
 
 	line_edit->set_text_with_selection(value);
-	last_updated_text = value;
 }
 
 void SpinBox::_text_submitted(const String &p_string) {
+	if (p_string.is_empty()) {
+		return;
+	}
+
+	String text = p_string;
+
+	if (update_on_text_changed) {
+		// Convert commas ',' to dots '.' for French/German etc. keyboard layouts.
+		text = p_string.replace_char(',', '.');
+
+		if (!text.begins_with(".") && p_string.ends_with(".")) {
+			return;
+		}
+
+		if (text.begins_with(".")) {
+			line_edit->set_text("0.");
+			line_edit->set_caret_column(line_edit->get_text().length());
+			return;
+		}
+	}
+
 	Ref<Expression> expr;
 	expr.instantiate();
 
-	// Convert commas ',' to dots '.' for French/German etc. keyboard layouts.
-	String text = p_string.replace(",", ".");
-	text = text.replace(";", ",");
+	text = text.replace_char(';', ',');
 	text = TS->parse_number(text);
 	// Ignore the prefix and suffix in the expression.
 	text = text.trim_prefix(prefix + " ").trim_suffix(" " + suffix);
 
 	Error err = expr->parse(text);
+
+	use_custom_arrow_step = false;
+
 	if (err != OK) {
 		// If the expression failed try without converting commas to dots - they might have been for parameter separation.
 		text = p_string;
@@ -96,12 +170,17 @@ void SpinBox::_text_submitted(const String &p_string) {
 }
 
 void SpinBox::_text_changed(const String &p_string) {
+	accepted = false;
 	int cursor_pos = line_edit->get_caret_column();
 
 	_text_submitted(p_string);
 
+	String text = p_string.replace_char(',', '.');
+
 	// Line edit 'set_text' method resets the cursor position so we need to undo that.
-	line_edit->set_caret_column(cursor_pos);
+	if (update_on_text_changed && !text.begins_with(".")) {
+		line_edit->set_caret_column(cursor_pos);
+	}
 }
 
 LineEdit *SpinBox::get_line_edit() {
@@ -109,13 +188,21 @@ LineEdit *SpinBox::get_line_edit() {
 }
 
 void SpinBox::_line_edit_input(const Ref<InputEvent> &p_event) {
+	if (drag.enabled) {
+		line_edit->accept_event();
+	}
 }
 
 void SpinBox::_range_click_timeout() {
 	if (!drag.enabled && Input::get_singleton()->is_mouse_button_pressed(MouseButton::LEFT)) {
 		bool up = get_local_mouse_position().y < (get_size().height / 2);
-		double step = get_custom_arrow_step() != 0.0 ? get_custom_arrow_step() : get_step();
-		set_value(get_value() + (up ? step : -step));
+		double step = get_step();
+		// Arrow button is being pressed, so we also need to set the step to the same value as custom_arrow_step if its not 0.
+		double temp_step = get_custom_arrow_step() != 0.0 ? get_custom_arrow_step() : get_step();
+		_set_step_no_signal(temp_step);
+		set_value(get_value() + (up ? temp_step : -temp_step));
+		_set_step_no_signal(step);
+		use_custom_arrow_step = true;
 
 		if (range_click_timer->is_one_shot()) {
 			range_click_timer->set_wait_time(0.075);
@@ -156,8 +243,7 @@ void SpinBox::gui_input(const Ref<InputEvent> &p_event) {
 	Ref<InputEventMouseButton> mb = p_event;
 	Ref<InputEventMouseMotion> mm = p_event;
 
-	double step = get_custom_arrow_step() != 0.0 ? get_custom_arrow_step() : get_step();
-
+	double step = get_step();
 	Vector2 mpos;
 	bool mouse_on_up_button = false;
 	bool mouse_on_down_button = false;
@@ -174,10 +260,16 @@ void SpinBox::gui_input(const Ref<InputEvent> &p_event) {
 	if (mb.is_valid() && mb->is_pressed()) {
 		switch (mb->get_button_index()) {
 			case MouseButton::LEFT: {
+				accepted = true;
 				line_edit->grab_focus();
 
 				if (mouse_on_up_button || mouse_on_down_button) {
-					set_value(get_value() + (mouse_on_up_button ? step : -step));
+					// Arrow button is being pressed, so step is being changed temporarily.
+					double temp_step = get_custom_arrow_step() != 0.0 ? get_custom_arrow_step() : get_step();
+					_set_step_no_signal(temp_step);
+					set_value(get_value() + (mouse_on_up_button ? temp_step : -temp_step));
+					_set_step_no_signal(step);
+					use_custom_arrow_step = true;
 				}
 				state_cache.up_button_pressed = mouse_on_up_button;
 				state_cache.down_button_pressed = mouse_on_down_button;
@@ -193,17 +285,20 @@ void SpinBox::gui_input(const Ref<InputEvent> &p_event) {
 			case MouseButton::RIGHT: {
 				line_edit->grab_focus();
 				if (mouse_on_up_button || mouse_on_down_button) {
+					use_custom_arrow_step = false;
 					set_value(mouse_on_up_button ? get_max() : get_min());
 				}
 			} break;
 			case MouseButton::WHEEL_UP: {
-				if (line_edit->has_focus()) {
+				if (line_edit->is_editing()) {
+					use_custom_arrow_step = false;
 					set_value(get_value() + step * mb->get_factor());
 					accept_event();
 				}
 			} break;
 			case MouseButton::WHEEL_DOWN: {
-				if (line_edit->has_focus()) {
+				if (line_edit->is_editing()) {
+					use_custom_arrow_step = false;
 					set_value(get_value() - step * mb->get_factor());
 					accept_event();
 				}
@@ -242,7 +337,8 @@ void SpinBox::gui_input(const Ref<InputEvent> &p_event) {
 	if (mm.is_valid() && (mm->get_button_mask().has_flag(MouseButtonMask::LEFT))) {
 		if (drag.enabled) {
 			drag.diff_y += mm->get_relative().y;
-			double diff_y = -0.01 * Math::pow(ABS(drag.diff_y), 1.8) * SIGN(drag.diff_y);
+			double diff_y = -0.01 * Math::pow(Math::abs(drag.diff_y), 1.8) * SIGN(drag.diff_y);
+			use_custom_arrow_step = false;
 			set_value(CLAMP(drag.base_val + step * diff_y, get_min(), get_max()));
 		} else if (drag.allowed && drag.capture_pos.distance_to(mm->get_position()) > 2) {
 			Input::get_singleton()->set_mouse_mode(Input::MOUSE_MODE_CAPTURED);
@@ -253,41 +349,39 @@ void SpinBox::gui_input(const Ref<InputEvent> &p_event) {
 	}
 }
 
-void SpinBox::_line_edit_focus_enter() {
-	int col = line_edit->get_caret_column();
-	_update_text();
-	line_edit->set_caret_column(col);
-
-	// LineEdit text might change and it clears any selection. Have to re-select here.
-	if (line_edit->is_select_all_on_focus() && !Input::get_singleton()->is_mouse_button_pressed(MouseButton::LEFT)) {
-		line_edit->select_all();
-	}
-}
-
-void SpinBox::_line_edit_focus_exit() {
-	// Discontinue because the focus_exit was caused by left-clicking the arrows.
-	const Viewport *viewport = get_viewport();
-	if (!viewport || viewport->gui_get_focus_owner() == get_line_edit()) {
-		return;
-	}
-	// Discontinue because the focus_exit was caused by right-click context menu.
-	if (line_edit->is_menu_visible()) {
-		return;
-	}
-	// Discontinue because the focus_exit was caused by canceling.
-	if (Input::get_singleton()->is_action_pressed("ui_cancel")) {
+void SpinBox::_line_edit_editing_toggled(bool p_toggled_on) {
+	if (p_toggled_on) {
+		int col = line_edit->get_caret_column();
 		_update_text();
-		return;
-	}
+		line_edit->set_caret_column(col);
 
-	_text_submitted(line_edit->get_text());
+		// LineEdit text might change and it clears any selection. Have to re-select here.
+		if (line_edit->is_select_all_on_focus() && !Input::get_singleton()->is_mouse_button_pressed(MouseButton::LEFT)) {
+			line_edit->select_all();
+		}
+	} else {
+		accepted = true;
+
+		if (Input::get_singleton()->is_action_pressed("ui_cancel") || line_edit->get_text().is_empty()) {
+			_update_text(); // Revert text if editing was canceled.
+		} else {
+			line_edit->set_text(line_edit->get_text().trim_suffix(".").trim_suffix(","));
+			_update_text(true); // Update text in case value was changed this frame (e.g. on `focus_exited`).
+			_text_submitted(line_edit->get_text());
+		}
+	}
 }
 
 inline void SpinBox::_compute_sizes() {
 	int buttons_block_wanted_width = theme_cache.buttons_width + theme_cache.field_and_buttons_separation;
 	int buttons_block_icon_enforced_width = _get_widest_button_icon_width() + theme_cache.field_and_buttons_separation;
 
-	int w = theme_cache.set_min_buttons_width_from_icons != 0 ? MAX(buttons_block_icon_enforced_width, buttons_block_wanted_width) : buttons_block_wanted_width;
+#ifndef DISABLE_DEPRECATED
+	const bool min_width_from_icons = theme_cache.set_min_buttons_width_from_icons || (theme_cache.buttons_width < 0);
+#else
+	const bool min_width_from_icons = theme_cache.buttons_width < 0;
+#endif
+	int w = min_width_from_icons != 0 ? MAX(buttons_block_icon_enforced_width, buttons_block_wanted_width) : buttons_block_wanted_width;
 
 	if (w != sizing_cache.buttons_block_width) {
 		line_edit->set_offset(SIDE_LEFT, 0);
@@ -522,6 +616,18 @@ void SpinBox::_update_buttons_state_for_current_value() {
 	}
 }
 
+void SpinBox::_set_step_no_signal(double p_step) {
+	set_block_signals(true);
+	set_step(p_step);
+	set_block_signals(false);
+}
+
+void SpinBox::_validate_property(PropertyInfo &p_property) const {
+	if (p_property.name == "exp_edit") {
+		p_property.usage = PROPERTY_USAGE_NONE;
+	}
+}
+
 void SpinBox::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_horizontal_alignment", "alignment"), &SpinBox::set_horizontal_alignment);
 	ClassDB::bind_method(D_METHOD("get_horizontal_alignment"), &SpinBox::get_horizontal_alignment);
@@ -551,7 +657,9 @@ void SpinBox::_bind_methods() {
 	BIND_THEME_ITEM(Theme::DATA_TYPE_CONSTANT, SpinBox, buttons_vertical_separation);
 	BIND_THEME_ITEM(Theme::DATA_TYPE_CONSTANT, SpinBox, field_and_buttons_separation);
 	BIND_THEME_ITEM(Theme::DATA_TYPE_CONSTANT, SpinBox, buttons_width);
+#ifndef DISABLE_DEPRECATED
 	BIND_THEME_ITEM(Theme::DATA_TYPE_CONSTANT, SpinBox, set_min_buttons_width_from_icons);
+#endif
 
 	BIND_THEME_ITEM_CUSTOM(Theme::DATA_TYPE_ICON, SpinBox, updown_icon, "updown");
 	BIND_THEME_ITEM_CUSTOM(Theme::DATA_TYPE_ICON, SpinBox, up_icon, "up");
@@ -586,7 +694,8 @@ void SpinBox::_bind_methods() {
 }
 
 SpinBox::SpinBox() {
-	line_edit = memnew(LineEdit);
+	line_edit = memnew(SpinBoxLineEdit);
+	line_edit->set_emoji_menu_enabled(false);
 	add_child(line_edit, false, INTERNAL_MODE_FRONT);
 
 	line_edit->set_theme_type_variation("SpinBoxInnerLineEdit");
@@ -594,9 +703,8 @@ SpinBox::SpinBox() {
 	line_edit->set_mouse_filter(MOUSE_FILTER_PASS);
 	line_edit->set_horizontal_alignment(HORIZONTAL_ALIGNMENT_LEFT);
 
-	line_edit->connect("text_submitted", callable_mp(this, &SpinBox::_text_submitted), CONNECT_DEFERRED);
-	line_edit->connect(SceneStringName(focus_entered), callable_mp(this, &SpinBox::_line_edit_focus_enter), CONNECT_DEFERRED);
-	line_edit->connect(SceneStringName(focus_exited), callable_mp(this, &SpinBox::_line_edit_focus_exit), CONNECT_DEFERRED);
+	line_edit->connect(SceneStringName(text_submitted), callable_mp(this, &SpinBox::_text_submitted), CONNECT_DEFERRED);
+	line_edit->connect("editing_toggled", callable_mp(this, &SpinBox::_line_edit_editing_toggled), CONNECT_DEFERRED);
 	line_edit->connect(SceneStringName(gui_input), callable_mp(this, &SpinBox::_line_edit_input));
 
 	range_click_timer = memnew(Timer);

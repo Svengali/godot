@@ -28,13 +28,11 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef BINDER_COMMON_H
-#define BINDER_COMMON_H
+#pragma once
 
 #include "core/input/input_enums.h"
 #include "core/object/object.h"
 #include "core/os/keyboard.h"
-#include "core/templates/list.h"
 #include "core/templates/simple_type.h"
 #include "core/typedefs.h"
 #include "core/variant/method_ptrcall.h"
@@ -83,61 +81,8 @@ struct VariantCaster<const T &> {
 	}
 };
 
-#define VARIANT_ENUM_CAST(m_enum)                                                                                       \
-	MAKE_ENUM_TYPE_INFO(m_enum)                                                                                         \
-	template <>                                                                                                         \
-	struct VariantCaster<m_enum> {                                                                                      \
-		static _FORCE_INLINE_ m_enum cast(const Variant &p_variant) {                                                   \
-			return (m_enum)p_variant.operator int64_t();                                                                \
-		}                                                                                                               \
-	};                                                                                                                  \
-	template <>                                                                                                         \
-	struct PtrToArg<m_enum> {                                                                                           \
-		_FORCE_INLINE_ static m_enum convert(const void *p_ptr) {                                                       \
-			return m_enum(*reinterpret_cast<const int64_t *>(p_ptr));                                                   \
-		}                                                                                                               \
-		typedef int64_t EncodeT;                                                                                        \
-		_FORCE_INLINE_ static void encode(m_enum p_val, const void *p_ptr) {                                            \
-			*(int64_t *)p_ptr = (int64_t)p_val;                                                                         \
-		}                                                                                                               \
-	};                                                                                                                  \
-	template <>                                                                                                         \
-	struct ZeroInitializer<m_enum> {                                                                                    \
-		static void initialize(m_enum &value) { value = (m_enum)0; }                                                    \
-	};                                                                                                                  \
-	template <>                                                                                                         \
-	struct VariantInternalAccessor<m_enum> {                                                                            \
-		static _FORCE_INLINE_ m_enum get(const Variant *v) { return m_enum(*VariantInternal::get_int(v)); }             \
-		static _FORCE_INLINE_ void set(Variant *v, m_enum p_value) { *VariantInternal::get_int(v) = (int64_t)p_value; } \
-	};
-
-#define VARIANT_BITFIELD_CAST(m_enum)                                                                                                       \
-	MAKE_BITFIELD_TYPE_INFO(m_enum)                                                                                                         \
-	template <>                                                                                                                             \
-	struct VariantCaster<BitField<m_enum>> {                                                                                                \
-		static _FORCE_INLINE_ BitField<m_enum> cast(const Variant &p_variant) {                                                             \
-			return BitField<m_enum>(p_variant.operator int64_t());                                                                          \
-		}                                                                                                                                   \
-	};                                                                                                                                      \
-	template <>                                                                                                                             \
-	struct PtrToArg<BitField<m_enum>> {                                                                                                     \
-		_FORCE_INLINE_ static BitField<m_enum> convert(const void *p_ptr) {                                                                 \
-			return BitField<m_enum>(*reinterpret_cast<const int64_t *>(p_ptr));                                                             \
-		}                                                                                                                                   \
-		typedef int64_t EncodeT;                                                                                                            \
-		_FORCE_INLINE_ static void encode(BitField<m_enum> p_val, const void *p_ptr) {                                                      \
-			*(int64_t *)p_ptr = p_val;                                                                                                      \
-		}                                                                                                                                   \
-	};                                                                                                                                      \
-	template <>                                                                                                                             \
-	struct ZeroInitializer<BitField<m_enum>> {                                                                                              \
-		static void initialize(BitField<m_enum> &value) { value = 0; }                                                                      \
-	};                                                                                                                                      \
-	template <>                                                                                                                             \
-	struct VariantInternalAccessor<BitField<m_enum>> {                                                                                      \
-		static _FORCE_INLINE_ BitField<m_enum> get(const Variant *v) { return BitField<m_enum>(*VariantInternal::get_int(v)); }             \
-		static _FORCE_INLINE_ void set(Variant *v, BitField<m_enum> p_value) { *VariantInternal::get_int(v) = p_value.operator int64_t(); } \
-	};
+#define VARIANT_ENUM_CAST(m_enum) MAKE_ENUM_TYPE_INFO(m_enum)
+#define VARIANT_BITFIELD_CAST(m_enum) MAKE_BITFIELD_TYPE_INFO(m_enum)
 
 // Object enum casts must go here
 VARIANT_ENUM_CAST(Object::ConnectFlags);
@@ -177,32 +122,6 @@ VARIANT_ENUM_CAST(Variant::Operator);
 VARIANT_ENUM_CAST(Key);
 VARIANT_BITFIELD_CAST(KeyModifierMask);
 VARIANT_ENUM_CAST(KeyLocation);
-
-static inline Key &operator|=(Key &a, BitField<KeyModifierMask> b) {
-	a = static_cast<Key>(static_cast<int>(a) | static_cast<int>(b.operator int64_t()));
-	return a;
-}
-
-static inline Key &operator&=(Key &a, BitField<KeyModifierMask> b) {
-	a = static_cast<Key>(static_cast<int>(a) & static_cast<int>(b.operator int64_t()));
-	return a;
-}
-
-static inline Key operator|(Key a, BitField<KeyModifierMask> b) {
-	return (Key)((int)a | (int)b.operator int64_t());
-}
-
-static inline Key operator&(Key a, BitField<KeyModifierMask> b) {
-	return (Key)((int)a & (int)b.operator int64_t());
-}
-
-static inline Key operator+(BitField<KeyModifierMask> a, Key b) {
-	return (Key)((int)a.operator int64_t() + (int)b);
-}
-
-static inline Key operator|(BitField<KeyModifierMask> a, Key b) {
-	return (Key)((int)a.operator int64_t() | (int)b);
-}
 
 template <>
 struct VariantCaster<char32_t> {
@@ -466,7 +385,7 @@ void call_with_variant_argsc(T *p_instance, void (T::*p_method)(P...) const, con
 		return;
 	}
 #endif
-	call_with_variant_args_helper<T, P...>(p_instance, p_method, p_args, r_error, BuildIndexSequence<sizeof...(P)>{});
+	call_with_variant_argsc_helper<T, P...>(p_instance, p_method, p_args, r_error, BuildIndexSequence<sizeof...(P)>{});
 }
 
 template <typename T, typename... P>
@@ -679,10 +598,7 @@ void call_with_validated_object_instance_args_static_retc(T *base, R (*p_method)
 
 // GCC raises "parameter 'p_args' set but not used" when P = {},
 // it's not clever enough to treat other P values as making this branch valid.
-#if defined(__GNUC__) && !defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-but-set-parameter"
-#endif
+GODOT_GCC_WARNING_PUSH_AND_IGNORE("-Wunused-but-set-parameter")
 
 template <typename Q>
 void call_get_argument_type_helper(int p_arg, int &index, Variant::Type &type) {
@@ -830,7 +746,7 @@ void call_with_variant_args_static_ret(R (*p_method)(P...), const Variant **p_ar
 }
 
 template <typename... P>
-void call_with_variant_args_static_ret(void (*p_method)(P...), const Variant **p_args, int p_argcount, Variant &r_ret, Callable::CallError &r_error) {
+void call_with_variant_args_static(void (*p_method)(P...), const Variant **p_args, int p_argcount, Callable::CallError &r_error) {
 #ifdef DEBUG_METHODS_ENABLED
 	if ((size_t)p_argcount > sizeof...(P)) {
 		r_error.error = Callable::CallError::CALL_ERROR_TOO_MANY_ARGUMENTS;
@@ -1023,8 +939,4 @@ void call_with_variant_args_static_dv(void (*p_method)(P...), const Variant **p_
 	call_with_variant_args_static(p_method, args, r_error, BuildIndexSequence<sizeof...(P)>{});
 }
 
-#if defined(__GNUC__) && !defined(__clang__)
-#pragma GCC diagnostic pop
-#endif
-
-#endif // BINDER_COMMON_H
+GODOT_GCC_WARNING_POP

@@ -30,7 +30,7 @@
 
 #include "navigation_mesh_source_geometry_data_2d.h"
 
-#include "scene/resources/mesh.h"
+#include "core/variant/typed_array.h"
 
 void NavigationMeshSourceGeometryData2D::clear() {
 	RWLockWrite write_lock(geometry_rwlock);
@@ -43,7 +43,7 @@ void NavigationMeshSourceGeometryData2D::clear() {
 bool NavigationMeshSourceGeometryData2D::has_data() {
 	RWLockRead read_lock(geometry_rwlock);
 	return traversable_outlines.size();
-};
+}
 
 void NavigationMeshSourceGeometryData2D::clear_projected_obstructions() {
 	RWLockWrite write_lock(geometry_rwlock);
@@ -176,7 +176,7 @@ void NavigationMeshSourceGeometryData2D::add_obstruction_outline(const PackedVec
 }
 
 void NavigationMeshSourceGeometryData2D::merge(const Ref<NavigationMeshSourceGeometryData2D> &p_other_geometry) {
-	ERR_FAIL_NULL(p_other_geometry);
+	ERR_FAIL_COND(p_other_geometry.is_null());
 
 	Vector<Vector<Vector2>> other_traversable_outlines;
 	Vector<Vector<Vector2>> other_obstruction_outlines;
