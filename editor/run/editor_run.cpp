@@ -159,6 +159,13 @@ Error EditorRun::run(const String &p_scene, const String &p_write_movie, const V
 	String exec = OS::get_singleton()->get_executable_path();
 	int instance_count = RunInstancesDialog::get_singleton()->get_instance_count();
 	for (int i = 0; i < instance_count; i++) {
+
+		const bool instance_enabled = RunInstancesDialog::get_singleton()->is_instance_enabled(i);
+
+		if (!instance_enabled) {
+			continue;
+		}
+
 		List<String> instance_args(args);
 		RunInstancesDialog::get_singleton()->get_argument_list_for_instance(i, instance_args);
 		RunInstancesDialog::get_singleton()->apply_custom_features(i);

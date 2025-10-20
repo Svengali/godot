@@ -81,6 +81,11 @@ void RunInstancesDialog::_create_instance(InstanceData &p_instance, const Dictio
 	TreeItem *instance_item = instance_tree->create_item();
 	p_instance.item = instance_item;
 
+	instance_item->set_cell_mode(COLUMN_OVERRIDE_RUN, TreeItem::CELL_MODE_CHECK);
+	instance_item->set_editable(COLUMN_OVERRIDE_RUN, true);
+	instance_item->set_text(COLUMN_OVERRIDE_RUN, TTR("Enabled"));
+	instance_item->set_checked(COLUMN_OVERRIDE_RUN, p_data.get("override_run", false));
+
 	instance_item->set_cell_mode(COLUMN_OVERRIDE_ARGS, TreeItem::CELL_MODE_CHECK);
 	instance_item->set_editable(COLUMN_OVERRIDE_ARGS, true);
 	instance_item->set_text(COLUMN_OVERRIDE_ARGS, TTR("Enabled"));
@@ -109,6 +114,7 @@ void RunInstancesDialog::_save_arguments() {
 	for (int i = 0; i < instances_data.size(); i++) {
 		const InstanceData &instance = instances_data[i];
 		Dictionary dict;
+		dict["override_run"] = instance.overrides_run();
 		dict["override_args"] = instance.overrides_run_args();
 		dict["arguments"] = instance.get_launch_arguments();
 		dict["override_features"] = instance.overrides_features();
@@ -205,6 +211,11 @@ int RunInstancesDialog::get_instance_count() const {
 		return 1;
 	}
 }
+
+bool RunInstancesDialog::is_instance_enabled(int p_idx) const {
+	return instances_data[p_idx].overrides_run();
+}
+
 
 void RunInstancesDialog::get_argument_list_for_instance(int p_idx, List<String> &r_list) const {
 	bool override_args = instances_data[p_idx].overrides_run_args();
@@ -373,10 +384,10 @@ RunInstancesDialog::RunInstancesDialog() {
 	instance_tree = memnew(Tree);
 	instance_tree->set_v_size_flags(Control::SIZE_EXPAND_FILL);
 	instance_tree->set_h_scroll_enabled(false);
-	instance_tree->set_columns(4);
+	instance_tree->set_columns(Columns::COUNT);
 	instance_tree->set_column_titles_visible(true);
-	instance_tree->set_column_title(COLUMN_OVERRIDE_ARGS, TTR("Override Main Run Args"));
-	instance_tree->set_column_expand(COLUMN_OVERRIDE_ARGS, false);
+	instance_tree->set_column_title(COLUMN_OVERRIDE_RUN, TTR("Ovr Run"));
+	instance_tree->set_column_expand(COLUMN_OVERRIDE_RUN, false);
 	instance_tree->set_column_title(COLUMN_LAUNCH_ARGUMENTS, TTR("Launch Arguments"));
 	instance_tree->set_column_title(COLUMN_OVERRIDE_FEATURES, TTR("Override Main Tags"));
 	instance_tree->set_column_expand(COLUMN_OVERRIDE_FEATURES, false);
@@ -394,6 +405,10 @@ RunInstancesDialog::RunInstancesDialog() {
 
 	_refresh_argument_count();
 	instance_tree->connect("item_edited", callable_mp(this, &RunInstancesDialog::_start_instance_timer));
+}
+
+bool RunInstancesDialog::InstanceData::overrides_run() const {
+	return item->is_checked(COLUMN_OVERRIDE_ARGS);
 }
 
 bool RunInstancesDialog::InstanceData::overrides_run_args() const {
