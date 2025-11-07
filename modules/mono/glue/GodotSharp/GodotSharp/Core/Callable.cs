@@ -1,10 +1,24 @@
 using System;
+using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Godot.NativeInterop;
 
 namespace Godot
 {
+    // A record struct to hold all the captured caller info.
+    // This is bundled with the delegate in a ValueTuple.
+    public record struct CallableDebugInfo(
+        string Exp = "{BAD_EXPRESSION}",
+        string Path = "{BAD_PATH}",
+        int Line = -1,
+        string Method = "{BAD_MEMBER}"
+    ) {
+    //public readonly ref CallableDebugInfo Bad = new("{BAD_EXPRESSION}", "{BAD_PATH}", -1, "{BAD_MEMBER}");
+    }
+
+
+
     /// <summary>
     /// Callable is a first class object which can be held in variables and passed to functions.
     /// It represents a given method in an Object, and is typically used for signal callbacks.
@@ -54,6 +68,8 @@ namespace Godot
         public unsafe delegate* managed<object, NativeVariantPtrArgs, out godot_variant, void> Trampoline
             => _trampoline;
 
+
+
         /// <summary>
         /// Constructs a new <see cref="Callable"/> for the method called <paramref name="method"/>
         /// in the specified <paramref name="target"/>.
@@ -68,13 +84,20 @@ namespace Godot
             _trampoline = null;
         }
 
+        static public ImmutableDictionary<IntPtr, CallableDebugInfo> s_debugInfo = ImmutableDictionary<IntPtr, CallableDebugInfo>.Empty;
+
         private unsafe Callable(Delegate @delegate,
-            delegate* managed<object, NativeVariantPtrArgs, out godot_variant, void> trampoline)
+            delegate* managed<object, NativeVariantPtrArgs, out godot_variant, void> trampoline, CallableDebugInfo? di)
         {
             _target = @delegate?.Target as GodotObject;
             _method = null;
             _delegate = @delegate;
             _trampoline = trampoline;
+
+            if( di != null )
+			{
+                ImmutableInterlocked.TryAdd(ref s_debugInfo, new IntPtr(trampoline), di.Value );
+			}
         }
 
         private const int VarArgsSpanThreshold = 10;
@@ -208,9 +231,18 @@ namespace Godot
         /// </example>
         /// <param name="delegate">Delegate method that will be called.</param>
         /// <param name="trampoline">Trampoline function pointer for invoking the delegate.</param>
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe Callable CreateWithUnsafeTrampoline(Delegate @delegate,
-            delegate* managed<object, NativeVariantPtrArgs, out godot_variant, void> trampoline)
-            => new(@delegate, trampoline);
+            delegate* managed<object, NativeVariantPtrArgs, out godot_variant, void> trampoline, CallableDebugInfo di )
+            => new(@delegate, trampoline, di);
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe Callable CreateWithUnsafeTrampoline(Delegate @delegate,
+            delegate* managed<object, NativeVariantPtrArgs, out godot_variant, void> trampoline,
+            [CallerFilePath] string dbgPath = "", [CallerLineNumber] int dbgLine = -1, [CallerMemberName] string dbgMethod = "", [CallerArgumentExpression( "action" )] string dbgExp = ""
+            )
+            => new(@delegate, trampoline, new CallableDebugInfo( dbgExp, dbgPath, dbgLine, dbgMethod ));
+
     }
 }
