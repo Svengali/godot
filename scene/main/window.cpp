@@ -36,7 +36,7 @@
 #include "scene/theme/theme_db.h"
 #include "scene/theme/theme_owner.h"
 
-#include "modules/tracy/profiler.h"
+
 
 // Editor integration.
 

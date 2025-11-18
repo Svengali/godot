@@ -65,7 +65,7 @@
 #include "servers/physics_3d/physics_server_3d.h"
 #endif // PHYSICS_3D_DISABLED
 
-#include "modules/tracy/profiler.h"
+
 
 void SceneTreeTimer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_time_left", "time"), &SceneTreeTimer::set_time_left);

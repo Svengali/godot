@@ -44,7 +44,7 @@
 #include "core/os/thread_safe.h"
 #include "core/variant/typed_array.h"
 
-#include "modules/tracy/profiler.h"
+
 
 namespace CoreBind {
 

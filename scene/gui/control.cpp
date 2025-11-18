@@ -44,7 +44,7 @@
 #include "servers/rendering/rendering_server.h"
 #include "servers/text/text_server.h"
 
-#include "modules/tracy/profiler.h"
+
 
 #ifdef TOOLS_ENABLED
 #include "editor/scene/gui/control_editor_plugin.h"

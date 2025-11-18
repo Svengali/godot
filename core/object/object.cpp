@@ -40,7 +40,7 @@
 #include "core/string/translation_server.h"
 #include "core/variant/typed_array.h"
 
-#include "modules/tracy/profiler.h"
+
 
 #ifdef DEBUG_ENABLED
 

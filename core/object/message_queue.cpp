@@ -36,7 +36,7 @@
 
 #include <cstdio>
 
-#include "modules/tracy/profiler.h"
+
 
 #ifdef DEV_ENABLED
 // Includes safety checks to ensure that a queue set as a thread singleton override

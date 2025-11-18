@@ -32,7 +32,7 @@
 
 #include "servers/rendering/rendering_server.h"
 
-#include "modules/tracy/profiler.h"
+
 
 class DependencyTracker;
 

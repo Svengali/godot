@@ -32,7 +32,7 @@
 
 #include "core/object/script_language.h"
 
-#include "modules/tracy/profiler.h"
+
 
 int ScriptInstance::get_method_argument_count(const StringName &p_method, bool *r_is_valid) const {
 	// Default implementation simply traverses hierarchy.
