@@ -1,0 +1,3 @@
+[submodule "modules/tracy"]
+	path = modules/tracy
+	url = https://github.com/Svengali/godot_tracy.git

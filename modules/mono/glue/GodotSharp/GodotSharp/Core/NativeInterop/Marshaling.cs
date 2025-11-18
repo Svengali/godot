@@ -133,9 +133,6 @@ namespace Godot.NativeInterop
                         if (type == typeof(Vector3[]))
                             return Variant.Type.PackedVector3Array;
 
-                        if (type == typeof(Vector4[]))
-                            return Variant.Type.PackedVector4Array;
-
                         if (type == typeof(Color[]))
                             return Variant.Type.PackedColorArray;
 

@@ -49,8 +49,16 @@
 #include "core/config/project_settings.h"
 #include "core/input/input.h"
 #include "core/os/main_loop.h"
+#include "core/profiling/profiling.h"
 #include "main/main.h"
 #include "servers/rendering/rendering_server.h"
+
+#include "modules/modules_enabled.gen.h" // For camera.
+
+#ifdef MODULE_CAMERA_ENABLED
+#include "modules/camera/camera_android.h"
+#include "servers/camera/camera_server.h"
+#endif
 
 #ifndef XR_DISABLED
 #include "servers/xr/xr_server.h"
@@ -144,6 +152,8 @@ JNIEXPORT void JNICALL Java_org_godotengine_godot_GodotLib_setVirtualKeyboardHei
 }
 
 JNIEXPORT jboolean JNICALL Java_org_godotengine_godot_GodotLib_initialize(JNIEnv *env, jclass clazz, jobject p_godot_instance, jobject p_asset_manager, jobject p_godot_io, jobject p_net_utils, jobject p_directory_access_handler, jobject p_file_access_handler, jboolean p_use_apk_expansion) {
+	godot_init_profiler();
+
 	JavaVM *jvm;
 	env->GetJavaVM(&jvm);
 
@@ -256,7 +266,7 @@ JNIEXPORT void JNICALL Java_org_godotengine_godot_GodotLib_back(JNIEnv *env, jcl
 	}
 }
 
-JNIEXPORT void JNICALL Java_org_godotengine_godot_GodotLib_ttsCallback(JNIEnv *env, jclass clazz, jint event, jint id, jint pos) {
+JNIEXPORT void JNICALL Java_org_godotengine_godot_GodotLib_ttsCallback(JNIEnv *env, jclass clazz, jint event, jlong id, jint pos) {
 	TTS_Android::_java_utterance_callback(event, id, pos);
 }
 
@@ -426,7 +436,10 @@ JNIEXPORT void JNICALL Java_org_godotengine_godot_GodotLib_joyhat(JNIEnv *env, j
 JNIEXPORT void JNICALL Java_org_godotengine_godot_GodotLib_joyconnectionchanged(JNIEnv *env, jclass clazz, jint p_device, jboolean p_connected, jstring p_name) {
 	if (os_android) {
 		String name = jstring_to_string(p_name, env);
-		Input::get_singleton()->joy_connection_changed(p_device, p_connected, name);
+		Input *input = Input::get_singleton();
+		if (input) {
+			input->joy_connection_changed(p_device, p_connected, name);
+		}
 	}
 }
 
@@ -593,6 +606,12 @@ JNIEXPORT void JNICALL Java_org_godotengine_godot_GodotLib_onRendererResumed(JNI
 
 	// We force redraw to ensure we render at least once when resuming the app.
 	Main::force_redraw();
+#ifdef MODULE_CAMERA_ENABLED
+	CameraAndroid *camera_android = Object::cast_to<CameraAndroid>(CameraServer::get_singleton());
+	if (camera_android) {
+		camera_android->handle_resume();
+	}
+#endif // MODULE_CAMERA_ENABLED
 	if (os_android->get_main_loop()) {
 		os_android->get_main_loop()->notification(MainLoop::NOTIFICATION_APPLICATION_RESUMED);
 	}
@@ -603,9 +622,29 @@ JNIEXPORT void JNICALL Java_org_godotengine_godot_GodotLib_onRendererPaused(JNIE
 		return;
 	}
 
+#ifdef MODULE_CAMERA_ENABLED
+	CameraAndroid *camera_android = Object::cast_to<CameraAndroid>(CameraServer::get_singleton());
+	if (camera_android) {
+		camera_android->handle_pause();
+	}
+#endif // MODULE_CAMERA_ENABLED
+
 	if (os_android->get_main_loop()) {
 		os_android->get_main_loop()->notification(MainLoop::NOTIFICATION_APPLICATION_PAUSED);
 	}
+}
+
+JNIEXPORT void JNICALL Java_org_godotengine_godot_GodotLib_onScreenRotationChange(JNIEnv *env, jclass clazz) {
+	if (step.get() <= STEP_SETUP) {
+		return;
+	}
+
+#ifdef MODULE_CAMERA_ENABLED
+	CameraAndroid *camera_android = Object::cast_to<CameraAndroid>(CameraServer::get_singleton());
+	if (camera_android) {
+		camera_android->handle_rotation_change();
+	}
+#endif // MODULE_CAMERA_ENABLED
 }
 
 JNIEXPORT jboolean JNICALL Java_org_godotengine_godot_GodotLib_shouldDispatchInputToRenderThread(JNIEnv *env, jclass clazz) {

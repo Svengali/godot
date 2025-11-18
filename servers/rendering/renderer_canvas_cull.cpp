@@ -98,7 +98,7 @@ void RendererCanvasCull::_render_canvas_item_tree(RID p_to_render_target, Canvas
 		}
 	}
 
-	RENDER_TIMESTAMP("Render CanvasItems");
+	RENDER_NAMED_TIMESTAMP("Render CanvasItems");
 
 	bool sdf_flag;
 	RSG::canvas_render->canvas_render_items(p_to_render_target, list, p_modulate, p_lights, p_directional_lights, p_transform, p_default_filter, p_default_repeat, p_snap_2d_vertices_to_pixel, sdf_flag, r_render_info);
@@ -116,7 +116,7 @@ void RendererCanvasCull::_collect_ysort_children(RendererCanvasCull::Item *p_can
 				// To y-sort according to the item's final position, physics interpolation
 				// and transform snapping need to be applied before y-sorting.
 				Transform2D child_xform;
-				if (!_interpolation_data.interpolation_enabled || !child_items[i]->interpolated) {
+				if (!_interpolation_data.interpolation_enabled || !child_items[i]->interpolated || !child_items[i]->on_interpolate_transform_list) {
 					child_xform = child_items[i]->xform_curr;
 				} else {
 					real_t f = Engine::get_singleton()->get_physics_interpolation_fraction();
@@ -348,7 +348,7 @@ void RendererCanvasCull::_cull_canvas_item(Item *p_canvas_item, const Transform2
 		// and is passed as `p_parent_xform` afterwards. No need to recalculate.
 		final_xform = p_parent_xform;
 	} else {
-		if (!_interpolation_data.interpolation_enabled || !ci->interpolated) {
+		if (!_interpolation_data.interpolation_enabled || !ci->interpolated || !ci->on_interpolate_transform_list) {
 			self_xform = ci->xform_curr;
 		} else {
 			real_t f = Engine::get_singleton()->get_physics_interpolation_fraction();
@@ -507,7 +507,7 @@ void RendererCanvasCull::render_canvas(RID p_render_target, Canvas *p_canvas, co
 
 	_render_canvas_item_tree(p_render_target, ci, l, p_transform, p_clip_rect, p_canvas->modulate, p_lights, p_directional_lights, p_default_filter, p_default_repeat, p_snap_2d_vertices_to_pixel, canvas_cull_mask, r_render_info);
 
-	RENDER_TIMESTAMP("< Render Canvas");
+	RENDER_NAMED_TIMESTAMP("< Render Canvas");
 }
 
 bool RendererCanvasCull::was_sdf_used() {

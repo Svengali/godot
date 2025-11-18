@@ -50,6 +50,7 @@
 #include "scene/gui/menu_button.h"
 #include "scene/gui/option_button.h"
 #include "scene/gui/popup_menu.h"
+#include "scene/gui/rich_text_label.h"
 #include "scene/gui/split_container.h"
 #include "scene/gui/tab_container.h"
 #include "scene/gui/texture_rect.h"
@@ -286,7 +287,6 @@ void ProjectExportDialog::_edit_preset(int p_index) {
 	export_path->setup(extension_vector, false, true, false);
 	export_path->update_property();
 	advanced_options->set_disabled(false);
-	advanced_options->set_pressed(current->are_advanced_options_enabled());
 	runnable->set_disabled(false);
 	runnable->set_pressed(current->is_runnable());
 	if (parameters->get_edited_object() != current.ptr()) {
@@ -494,11 +494,13 @@ void ProjectExportDialog::_advanced_options_pressed() {
 	if (updating) {
 		return;
 	}
+	EditorSettings::get_singleton()->set_setting("_export_preset_advanced_mode", advanced_options->is_pressed());
+	EditorSettings::get_singleton()->save();
 
 	Ref<EditorExportPreset> current = get_current_preset();
-	ERR_FAIL_COND(current.is_null());
-
-	current->set_advanced_options_enabled(advanced_options->is_pressed());
+	if (current.is_valid()) {
+		current->notify_property_list_changed();
+	}
 	_update_presets();
 }
 
@@ -532,8 +534,31 @@ void ProjectExportDialog::_name_changed(const String &p_string) {
 	Ref<EditorExportPreset> current = get_current_preset();
 	ERR_FAIL_COND(current.is_null());
 
-	current->set_name(p_string);
+	int current_index = presets->get_current();
+
+	String trimmed_name = p_string.strip_edges();
+	if (trimmed_name.is_empty()) {
+		ERR_PRINT_ED("Invalid preset name: preset name cannot be empty!");
+		name->set_text(current->get_name());
+		return;
+	}
+
+	if (EditorExport::get_singleton()->has_preset_with_name(trimmed_name, current_index)) {
+		ERR_PRINT_ED(vformat("Invalid preset name: a preset with the name '%s' already exists!", trimmed_name));
+		name->set_text(current->get_name());
+		return;
+	}
+
+	current->set_name(trimmed_name);
 	_update_presets();
+}
+
+void ProjectExportDialog::_name_editing_finished() {
+	if (updating) {
+		return;
+	}
+
+	_name_changed(name->get_text());
 }
 
 void ProjectExportDialog::set_export_path(const String &p_value) {
@@ -715,7 +740,6 @@ void ProjectExportDialog::_duplicate_preset() {
 	if (make_runnable) {
 		preset->set_runnable(make_runnable);
 	}
-	preset->set_advanced_options_enabled(current->are_advanced_options_enabled());
 	preset->set_dedicated_server(current->is_dedicated_server());
 	preset->set_export_filter(current->get_export_filter());
 	preset->set_include_filter(current->get_include_filter());
@@ -1445,6 +1469,7 @@ void ProjectExportDialog::_bind_methods() {
 
 ProjectExportDialog::ProjectExportDialog() {
 	set_title(TTR("Export"));
+	set_flag(FLAG_MAXIMIZE_DISABLED, false);
 	set_clamp_to_embedder(true);
 
 	VBoxContainer *main_vb = memnew(VBoxContainer);
@@ -1461,6 +1486,7 @@ ProjectExportDialog::ProjectExportDialog() {
 
 	VBoxContainer *preset_vb = memnew(VBoxContainer);
 	preset_vb->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+	preset_vb->set_stretch_ratio(0.35);
 	hbox->add_child(preset_vb);
 
 	Label *l = memnew(Label(TTR("Presets")));
@@ -1503,7 +1529,8 @@ ProjectExportDialog::ProjectExportDialog() {
 
 	name = memnew(LineEdit);
 	settings_vb->add_margin_child(TTR("Name:"), name);
-	name->connect(SceneStringName(text_changed), callable_mp(this, &ProjectExportDialog::_name_changed));
+	name->connect(SceneStringName(text_submitted), callable_mp(this, &ProjectExportDialog::_name_changed));
+	name->connect(SceneStringName(focus_exited), callable_mp(this, &ProjectExportDialog::_name_editing_finished));
 
 	runnable = memnew(CheckButton);
 	runnable->set_text(TTR("Runnable"));
@@ -1513,6 +1540,7 @@ ProjectExportDialog::ProjectExportDialog() {
 	advanced_options = memnew(CheckButton);
 	advanced_options->set_text(TTR("Advanced Options"));
 	advanced_options->set_tooltip_text(TTR("If checked, the advanced options will be shown."));
+	advanced_options->set_pressed(EDITOR_GET("_export_preset_advanced_mode"));
 	advanced_options->connect(SceneStringName(pressed), callable_mp(this, &ProjectExportDialog::_advanced_options_pressed));
 
 	HBoxContainer *preset_configs_container = memnew(HBoxContainer);

@@ -33,6 +33,7 @@
 #include "core/config/project_settings.h"
 #include "core/math/transform_interpolator.h"
 #include "core/object/worker_thread_pool.h"
+#include "core/profiling/profiling.h"
 #include "renderer_canvas_cull.h"
 #include "renderer_scene_cull.h"
 #include "rendering_server_globals.h"
@@ -316,7 +317,7 @@ void RendererViewport::_draw_3d(Viewport *p_viewport) {
 	float screen_mesh_lod_threshold = p_viewport->mesh_lod_threshold / float(p_viewport->size.width);
 	RSG::scene->render_camera(p_viewport->render_buffers, p_viewport->camera, p_viewport->scenario, p_viewport->self, p_viewport->internal_size, p_viewport->jitter_phase_count, screen_mesh_lod_threshold, p_viewport->shadow_atlas, xr_interface, &p_viewport->render_info);
 
-	RENDER_TIMESTAMP("< Render 3D Scene");
+	RENDER_NAMED_TIMESTAMP("< Render 3D Scene");
 #endif // _3D_DISABLED
 }
 
@@ -522,7 +523,7 @@ void RendererViewport::_draw_viewport(Viewport *p_viewport) {
 			RendererCanvasRender::LightOccluderInstance *occluders = nullptr;
 
 			RENDER_TIMESTAMP("> Render PointLight2D Shadows");
-			RENDER_TIMESTAMP("Cull LightOccluder2Ds");
+			//RENDER_TIMESTAMP("Cull LightOccluder2Ds");
 
 			//make list of occluders
 			for (KeyValue<RID, Viewport::CanvasData> &E : p_viewport->canvas_map) {
@@ -556,7 +557,7 @@ void RendererViewport::_draw_viewport(Viewport *p_viewport) {
 				light = light->shadows_next_ptr;
 			}
 
-			RENDER_TIMESTAMP("< Render PointLight2D Shadows");
+			RENDER_NAMED_TIMESTAMP("< Render PointLight2D Shadows");
 		}
 
 		if (directional_lights_with_shadow) {
@@ -643,7 +644,7 @@ void RendererViewport::_draw_viewport(Viewport *p_viewport) {
 				light = light->shadows_next_ptr;
 			}
 
-			RENDER_TIMESTAMP("< Render DirectionalLight2D Shadows");
+			RENDER_NAMED_TIMESTAMP("< Render DirectionalLight2D Shadows");
 		}
 
 		if (scenario_draw_canvas_bg && canvas_map.begin() && canvas_map.begin()->key.get_layer() > scenario_canvas_max_layer) {
@@ -733,6 +734,7 @@ void RendererViewport::_draw_viewport(Viewport *p_viewport) {
 }
 
 void RendererViewport::draw_viewports(bool p_swap_buffers) {
+	GodotProfileZoneGroupedFirst(_profile_zone, "prepare viewports");
 	timestamp_vp_map.clear();
 
 #ifndef XR_DISABLED
@@ -750,6 +752,7 @@ void RendererViewport::draw_viewports(bool p_swap_buffers) {
 	}
 
 	if (sorted_active_viewports_dirty) {
+		GodotProfileZoneGrouped(_profile_zone, "_sort_active_viewports");
 		sorted_active_viewports = _sort_active_viewports();
 		sorted_active_viewports_dirty = false;
 	}
@@ -758,11 +761,12 @@ void RendererViewport::draw_viewports(bool p_swap_buffers) {
 	//draw viewports
 	RENDER_TIMESTAMP("> Render Viewports");
 
+	GodotProfileZoneGrouped(_profile_zone, "render viewports");
+
 	//determine what is visible
 	draw_viewports_pass++;
 
 	for (int i = sorted_active_viewports.size() - 1; i >= 0; i--) { //to compute parent dependency, must go in reverse draw order
-
 		Viewport *vp = sorted_active_viewports[i];
 
 		if (vp->update_mode == RS::VIEWPORT_UPDATE_DISABLED) {
@@ -821,13 +825,17 @@ void RendererViewport::draw_viewports(bool p_swap_buffers) {
 	int draw_calls_used = 0;
 
 	for (int i = 0; i < sorted_active_viewports.size(); i++) {
+		// TODO Somehow print the index
+		GodotProfileZone("render viewport");
+
 		Viewport *vp = sorted_active_viewports[i];
 
 		if (vp->last_pass != draw_viewports_pass) {
 			continue; //should not draw
 		}
 
-		RENDER_TIMESTAMP("> Render Viewport " + itos(i));
+		//String name( "> Render Viewport " + itos(i) );
+		RENDER_TIMESTAMP( "> Render Viewport " );
 
 		RSG::texture_storage->render_target_set_as_unused(vp->render_target);
 #ifndef XR_DISABLED
@@ -914,7 +922,7 @@ void RendererViewport::draw_viewports(bool p_swap_buffers) {
 			vp->update_mode = RS::VIEWPORT_UPDATE_DISABLED;
 		}
 
-		RENDER_TIMESTAMP("< Render Viewport " + itos(i));
+		RENDER_NAMED_TIMESTAMP("< Render Viewport " ); // + itos(i));
 
 		// 3D render info.
 		objects_drawn += vp->render_info.info[RS::VIEWPORT_RENDER_INFO_TYPE_VISIBLE][RS::VIEWPORT_RENDER_INFO_OBJECTS_IN_FRAME] + vp->render_info.info[RS::VIEWPORT_RENDER_INFO_TYPE_SHADOW][RS::VIEWPORT_RENDER_INFO_OBJECTS_IN_FRAME];
@@ -925,14 +933,16 @@ void RendererViewport::draw_viewports(bool p_swap_buffers) {
 		vertices_drawn += vp->render_info.info[RS::VIEWPORT_RENDER_INFO_TYPE_CANVAS][RS::VIEWPORT_RENDER_INFO_PRIMITIVES_IN_FRAME];
 		draw_calls_used += vp->render_info.info[RS::VIEWPORT_RENDER_INFO_TYPE_CANVAS][RS::VIEWPORT_RENDER_INFO_DRAW_CALLS_IN_FRAME];
 	}
+
 	RSG::scene->set_debug_draw_mode(RS::VIEWPORT_DEBUG_DRAW_DISABLED);
 
 	total_objects_drawn = objects_drawn;
 	total_vertices_drawn = vertices_drawn;
 	total_draw_calls_used = draw_calls_used;
 
-	RENDER_TIMESTAMP("< Render Viewports");
+	RENDER_NAMED_TIMESTAMP("< Render Viewports");
 
+	GodotProfileZoneGrouped(_profile_zone, "rasterizer->blit_render_targets_to_screen");
 	if (p_swap_buffers && !blit_to_screen_list.is_empty()) {
 		for (const KeyValue<int, Vector<BlitToScreen>> &E : blit_to_screen_list) {
 			RSG::rasterizer->blit_render_targets_to_screen(E.key, E.value.ptr(), E.value.size());

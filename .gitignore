@@ -390,3 +390,6 @@ $RECYCLE.BIN/
 *.msp
 *.lnk
 *.generated.props
+macos_template.app
+macos_template.app
+macos.zip

@@ -409,7 +409,7 @@ public:
 
 	void queue_delete(Object *p_object);
 
-	void get_nodes_in_group(const StringName &p_group, List<Node *> *p_list);
+	Vector<Node *> get_nodes_in_group(const StringName &p_group);
 	Node *get_first_node_in_group(const StringName &p_group);
 	bool has_group(const StringName &p_identifier) const;
 	int get_node_count_in_group(const StringName &p_group) const;
@@ -424,6 +424,7 @@ public:
 	Node *get_current_scene() const;
 	Error change_scene_to_file(const String &p_path);
 	Error change_scene_to_packed(const Ref<PackedScene> &p_scene);
+	Error change_scene_to_node(Node *p_node);
 	Error reload_current_scene();
 	void unload_current_scene();
 

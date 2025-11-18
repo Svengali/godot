@@ -48,6 +48,7 @@
 #include "editor/import/3d/resource_importer_scene.h"
 #include "editor/import/editor_import_plugin.h"
 #include "editor/inspector/editor_inspector.h"
+#include "editor/plugins/editor_plugin_list.h"
 #include "editor/plugins/editor_resource_conversion_plugin.h"
 #include "editor/scene/3d/node_3d_editor_plugin.h"
 #include "editor/scene/canvas_item_editor_plugin.h"
@@ -248,14 +249,12 @@ PopupMenu *EditorPlugin::get_export_as_menu() {
 
 void EditorPlugin::set_input_event_forwarding_always_enabled() {
 	input_event_forwarding_always_enabled = true;
-	EditorPluginList *always_input_forwarding_list = EditorNode::get_singleton()->get_editor_plugins_force_input_forwarding();
-	always_input_forwarding_list->add_plugin(this);
+	EditorNode::get_singleton()->get_editor_plugins_force_input_forwarding()->add_plugin(this);
 }
 
 void EditorPlugin::set_force_draw_over_forwarding_enabled() {
 	force_draw_over_forwarding_enabled = true;
-	EditorPluginList *always_draw_over_forwarding_list = EditorNode::get_singleton()->get_editor_plugins_force_over();
-	always_draw_over_forwarding_list->add_plugin(this);
+	EditorNode::get_singleton()->get_editor_plugins_force_over()->add_plugin(this);
 }
 
 void EditorPlugin::notify_scene_changed(const Node *scn_root) {
@@ -556,6 +555,13 @@ bool EditorPlugin::build() {
 	return success;
 }
 
+void EditorPlugin::run_scene(const String &p_scene, Vector<String> &r_args) {
+	Vector<String> new_args;
+	if (GDVIRTUAL_CALL(_run_scene, p_scene, r_args, new_args)) {
+		r_args = new_args;
+	}
+}
+
 void EditorPlugin::queue_save_layout() {
 	EditorNode::get_singleton()->save_editor_layout_delayed();
 }
@@ -695,6 +701,7 @@ void EditorPlugin::_bind_methods() {
 	GDVIRTUAL_BIND(_set_window_layout, "configuration");
 	GDVIRTUAL_BIND(_get_window_layout, "configuration");
 	GDVIRTUAL_BIND(_build);
+	GDVIRTUAL_BIND(_run_scene, "scene", "args");
 	GDVIRTUAL_BIND(_enable_plugin);
 	GDVIRTUAL_BIND(_disable_plugin);
 

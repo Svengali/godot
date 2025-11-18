@@ -560,7 +560,7 @@ void ClusterBuilderRD::bake_cluster() {
 			RD::get_singleton()->draw_list_end();
 		}
 		// Store elements.
-		RENDER_TIMESTAMP("Pack 3D Cluster Elements");
+		RENDER_NAMED_TIMESTAMP("Pack 3D Cluster Elements");
 
 		{
 			RD::ComputeListID compute_list = RD::get_singleton()->compute_list_begin();
@@ -585,7 +585,7 @@ void ClusterBuilderRD::bake_cluster() {
 			RD::get_singleton()->compute_list_end();
 		}
 	}
-	RENDER_TIMESTAMP("< Bake 3D Cluster");
+	RENDER_NAMED_TIMESTAMP("< Bake 3D Cluster");
 	RD::get_singleton()->draw_command_end_label();
 }
 

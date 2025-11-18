@@ -32,10 +32,11 @@
 
 #include "core/config/project_settings.h"
 #include "core/debugger/engine_debugger.h"
-#include "core/string/translation_server.h"
 #include "scene/gui/control.h"
 #include "scene/theme/theme_db.h"
 #include "scene/theme/theme_owner.h"
+
+#include "modules/tracy/profiler.h"
 
 // Editor integration.
 
@@ -1728,6 +1729,15 @@ real_t Window::get_content_scale_factor() const {
 	return content_scale_factor;
 }
 
+void Window::set_nonclient_area(const Rect2i &p_rect) {
+	ERR_MAIN_THREAD_GUARD;
+	nonclient_area = p_rect;
+}
+
+Rect2i Window::get_nonclient_area() const {
+	return nonclient_area;
+}
+
 DisplayServer::WindowID Window::get_window_id() const {
 	ERR_READ_THREAD_GUARD_V(DisplayServer::INVALID_WINDOW_ID);
 	if (get_embedder()) {
@@ -1801,6 +1811,8 @@ void Window::child_controls_changed() {
 }
 
 void Window::_update_child_controls() {
+	ZoneScoped;
+
 	if (!updating_child_controls) {
 		return;
 	}
@@ -1818,6 +1830,12 @@ void Window::_window_input(const Ref<InputEvent> &p_ev) {
 	ERR_MAIN_THREAD_GUARD;
 
 	if (exclusive_child != nullptr) {
+		if (nonclient_area.has_area() && is_inside_tree()) {
+			Ref<InputEventMouse> me = p_ev;
+			if (me.is_valid() && nonclient_area.has_point(me->get_position())) {
+				emit_signal(SceneStringName(nonclient_window_input), p_ev);
+			}
+		}
 		if (!is_embedding_subwindows()) { // Not embedding, no need for event.
 			return;
 		}
@@ -2934,12 +2952,9 @@ bool Window::is_layout_rtl() const {
 				} else if (proj_root_layout_direction == 2) {
 					return true;
 				} else if (proj_root_layout_direction == 3) {
-					String locale = OS::get_singleton()->get_locale();
-					return TS->is_locale_right_to_left(locale);
+					return TS->is_locale_right_to_left(OS::get_singleton()->get_locale());
 				} else {
-					const Ref<Translation> &t = TranslationServer::get_singleton()->get_translation_object(TranslationServer::get_singleton()->get_locale());
-					String locale = t.is_valid() ? t->get_locale() : TranslationServer::get_singleton()->get_fallback_locale();
-					return TS->is_locale_right_to_left(locale);
+					return TS->is_locale_right_to_left(_get_locale());
 				}
 			}
 		}
@@ -2948,8 +2963,9 @@ bool Window::is_layout_rtl() const {
 			return true;
 		}
 #endif
+		const StringName domain_name = get_translation_domain();
 		Node *parent_node = get_parent();
-		while (parent_node) {
+		while (parent_node && parent_node->get_translation_domain() == domain_name) {
 			Control *parent_control = Object::cast_to<Control>(parent_node);
 			if (parent_control) {
 				return parent_control->is_layout_rtl();
@@ -2967,25 +2983,21 @@ bool Window::is_layout_rtl() const {
 		} else if (root_layout_direction == 2) {
 			return true;
 		} else if (root_layout_direction == 3) {
-			String locale = OS::get_singleton()->get_locale();
-			return TS->is_locale_right_to_left(locale);
+			return TS->is_locale_right_to_left(OS::get_singleton()->get_locale());
 		} else {
-			String locale = TranslationServer::get_singleton()->get_tool_locale();
-			return TS->is_locale_right_to_left(locale);
+			return TS->is_locale_right_to_left(_get_locale());
 		}
 	} else if (layout_dir == LAYOUT_DIRECTION_APPLICATION_LOCALE) {
 		if (GLOBAL_GET_CACHED(bool, "internationalization/rendering/force_right_to_left_layout_direction")) {
 			return true;
 		} else {
-			String locale = TranslationServer::get_singleton()->get_tool_locale();
-			return TS->is_locale_right_to_left(locale);
+			return TS->is_locale_right_to_left(_get_locale());
 		}
 	} else if (layout_dir == LAYOUT_DIRECTION_SYSTEM_LOCALE) {
 		if (GLOBAL_GET_CACHED(bool, "internationalization/rendering/force_right_to_left_layout_direction")) {
 			return true;
 		} else {
-			String locale = OS::get_singleton()->get_locale();
-			return TS->is_locale_right_to_left(locale);
+			return TS->is_locale_right_to_left(OS::get_singleton()->get_locale());
 		}
 	} else {
 		return (layout_dir == LAYOUT_DIRECTION_RTL);
@@ -3229,6 +3241,9 @@ void Window::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_content_scale_stretch", "stretch"), &Window::set_content_scale_stretch);
 	ClassDB::bind_method(D_METHOD("get_content_scale_stretch"), &Window::get_content_scale_stretch);
 
+	ClassDB::bind_method(D_METHOD("set_nonclient_area", "area"), &Window::set_nonclient_area);
+	ClassDB::bind_method(D_METHOD("get_nonclient_area"), &Window::get_nonclient_area);
+
 	ClassDB::bind_method(D_METHOD("set_keep_title_visible", "title_visible"), &Window::set_keep_title_visible);
 	ClassDB::bind_method(D_METHOD("get_keep_title_visible"), &Window::get_keep_title_visible);
 
@@ -3333,6 +3348,7 @@ void Window::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2I, "position", PROPERTY_HINT_NONE, "suffix:px"), "set_position", "get_position");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2I, "size", PROPERTY_HINT_NONE, "suffix:px"), "set_size", "get_size");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "current_screen", PROPERTY_HINT_RANGE, "0,64,1,or_greater"), "set_current_screen", "get_current_screen");
+	ADD_PROPERTY(PropertyInfo(Variant::RECT2I, "nonclient_area", PROPERTY_HINT_NONE, ""), "set_nonclient_area", "get_nonclient_area");
 
 	ADD_PROPERTY(PropertyInfo(Variant::PACKED_VECTOR2_ARRAY, "mouse_passthrough_polygon"), "set_mouse_passthrough_polygon", "get_mouse_passthrough_polygon");
 
@@ -3382,6 +3398,7 @@ void Window::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "theme_type_variation", PROPERTY_HINT_ENUM_SUGGESTION), "set_theme_type_variation", "get_theme_type_variation");
 
 	ADD_SIGNAL(MethodInfo("window_input", PropertyInfo(Variant::OBJECT, "event", PROPERTY_HINT_RESOURCE_TYPE, "InputEvent")));
+	ADD_SIGNAL(MethodInfo("nonclient_window_input", PropertyInfo(Variant::OBJECT, "event", PROPERTY_HINT_RESOURCE_TYPE, "InputEvent")));
 	ADD_SIGNAL(MethodInfo("files_dropped", PropertyInfo(Variant::PACKED_STRING_ARRAY, "files")));
 	ADD_SIGNAL(MethodInfo("mouse_entered"));
 	ADD_SIGNAL(MethodInfo("mouse_exited"));

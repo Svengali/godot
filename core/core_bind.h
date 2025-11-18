@@ -559,9 +559,6 @@ public:
 #ifdef TOOLS_ENABLED
 	virtual void get_argument_options(const StringName &p_function, int p_idx, List<String> *r_options) const override;
 #endif
-
-	ClassDB() {}
-	~ClassDB() {}
 };
 
 } // namespace Special
@@ -691,6 +688,26 @@ public:
 
 	EngineDebugger() { singleton = this; }
 	~EngineDebugger();
+};
+
+class LogManager : public Object {
+	GDCLASS(LogManager, Object);
+
+protected:
+	static void _bind_methods();
+	static LogManager *singleton;
+
+public:
+	LogManager();
+	~LogManager();
+
+	static LogManager *get_singleton() { return singleton; }
+
+	void register_log_capture_non_thread_safe(const Callable &p_callable);
+	void unregister_log_capture_non_thread_safe(const Callable &p_callable);
+
+	void register_log_capture_buffered(const Callable &p_callable);
+	void unregister_log_capture_buffered(const Callable &p_callable);
 };
 
 } // namespace CoreBind

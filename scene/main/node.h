@@ -103,8 +103,10 @@ public:
 		DUPLICATE_GROUPS = 2,
 		DUPLICATE_SCRIPTS = 4,
 		DUPLICATE_USE_INSTANTIATION = 8,
+		DUPLICATE_INTERNAL_STATE = 16,
+		DUPLICATE_DEFAULT = DUPLICATE_SIGNALS | DUPLICATE_GROUPS | DUPLICATE_SCRIPTS | DUPLICATE_USE_INSTANTIATION,
 #ifdef TOOLS_ENABLED
-		DUPLICATE_FROM_EDITOR = 16,
+		DUPLICATE_FROM_EDITOR = 32,
 #endif
 	};
 
@@ -315,6 +317,7 @@ private:
 	void _propagate_translation_domain_dirty();
 	Array _get_node_and_resource(const NodePath &p_path);
 
+	void _duplicate_scripts(const Node *p_original, Node *p_copy) const;
 	void _duplicate_properties(const Node *p_root, const Node *p_original, Node *p_copy, int p_flags) const;
 	void _duplicate_signals(const Node *p_original, Node *p_copy) const;
 	Node *_duplicate(int p_flags, HashMap<const Node *, Node *> *r_duplimap = nullptr) const;
@@ -407,6 +410,7 @@ protected:
 	void _call_unhandled_key_input(const Ref<InputEvent> &p_event);
 
 	void _validate_property(PropertyInfo &p_property) const;
+	virtual String _to_string() override;
 
 	Variant _get_node_rpc_config_bind() const {
 		return get_node_rpc_config().duplicate(true);
@@ -630,8 +634,6 @@ public:
 	bool is_part_of_edited_scene() const { return false; }
 #endif
 	void get_storable_properties(HashSet<StringName> &r_storable_properties) const;
-
-	virtual String to_string() override;
 
 	/* NOTIFICATIONS */
 
@@ -876,6 +878,7 @@ public:
 	virtual void get_signal_connection_list(const StringName &p_signal, List<Connection> *p_connections) const override;
 	virtual void get_all_signal_connections(List<Connection> *p_connections) const override;
 	virtual int get_persistent_signal_connection_count() const override;
+	virtual uint32_t get_signal_connection_flags(const StringName &p_name, const Callable &p_callable) const override;
 	virtual void get_signals_connected_to_this(List<Connection> *p_connections) const override;
 
 	virtual Error connect(const StringName &p_signal, const Callable &p_callable, uint32_t p_flags = 0) override;

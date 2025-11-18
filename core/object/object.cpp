@@ -40,6 +40,8 @@
 #include "core/string/translation_server.h"
 #include "core/variant/typed_array.h"
 
+#include "modules/tracy/profiler.h"
+
 #ifdef DEBUG_ENABLED
 
 struct _ObjectDebugLock {
@@ -849,6 +851,9 @@ Variant Object::callv(const StringName &p_method, const Array &p_args) {
 }
 
 Variant Object::callp(const StringName &p_method, const Variant **p_args, int p_argcount, Callable::CallError &r_error) {
+
+	ZoneScoped;
+
 	r_error.error = Callable::CallError::CALL_OK;
 
 	if (p_method == CoreStringName(free_)) {
@@ -1044,7 +1049,7 @@ String Object::to_string() {
 			return ret;
 		}
 	}
-	return "<" + get_class() + "#" + itos(get_instance_id()) + ">";
+	return _to_string();
 }
 
 void Object::set_script(const Variant &p_script) {
@@ -1522,6 +1527,18 @@ int Object::get_persistent_signal_connection_count() const {
 	return count;
 }
 
+uint32_t Object::get_signal_connection_flags(const StringName &p_name, const Callable &p_callable) const {
+	OBJ_SIGNAL_LOCK
+	const SignalData *signal_data = signal_map.getptr(p_name);
+	if (signal_data) {
+		const SignalData::Slot *slot = signal_data->slot_map.getptr(p_callable);
+		if (slot) {
+			return slot->conn.flags;
+		}
+	}
+	return 0;
+}
+
 void Object::get_signals_connected_to_this(List<Connection> *p_connections) const {
 	OBJ_SIGNAL_LOCK
 
@@ -1688,6 +1705,19 @@ bool Object::_uses_signal_mutex() const {
 	return true;
 }
 
+String Object::_get_locale() const {
+	TranslationServer *ts = TranslationServer::get_singleton();
+	const StringName domain_name = get_translation_domain();
+	if (ts->has_domain(domain_name)) {
+		const Ref<TranslationDomain> domain = ts->get_or_add_domain(domain_name);
+		const String &overridden = domain->get_locale_override();
+		if (!overridden.is_empty()) {
+			return overridden;
+		}
+	}
+	return ts->get_locale();
+}
+
 void Object::_set_bind(const StringName &p_set, const Variant &p_value) {
 	set(p_set, p_value);
 }
@@ -1824,6 +1854,10 @@ void Object::clear_internal_resource_paths() {
 
 void Object::notify_property_list_changed() {
 	emit_signal(CoreStringName(property_list_changed));
+}
+
+String Object::_to_string() {
+	return "<" + get_class() + "#" + itos(get_instance_id()) + ">";
 }
 
 void Object::_bind_methods() {

@@ -549,12 +549,25 @@ public:
 	};
 
 	struct VertexAttribute {
+		uint32_t binding = UINT32_MAX; // Attribute buffer binding index. When set to UINT32_MAX, it uses the index of the attribute in the layout.
 		uint32_t location = 0; // Shader location.
 		uint32_t offset = 0;
 		DataFormat format = DATA_FORMAT_MAX;
 		uint32_t stride = 0;
 		VertexFrequency frequency = VERTEX_FREQUENCY_VERTEX;
 	};
+
+	struct VertexAttributeBinding {
+		uint32_t stride = 0;
+		VertexFrequency frequency = VERTEX_FREQUENCY_VERTEX;
+
+		VertexAttributeBinding() = default;
+		VertexAttributeBinding(uint32_t p_stride, VertexFrequency p_frequency) :
+				stride(p_stride),
+				frequency(p_frequency) {}
+	};
+
+	typedef HashMap<uint32_t, VertexAttributeBinding> VertexAttributeBindingsMap;
 
 	/*********************/
 	/**** FRAMEBUFFER ****/
@@ -607,6 +620,7 @@ public:
 	struct ShaderStageSPIRVData {
 		ShaderStage shader_stage = SHADER_STAGE_MAX;
 		Vector<uint8_t> spirv;
+		Vector<uint64_t> dynamic_buffers;
 	};
 
 	/*********************/
@@ -626,6 +640,8 @@ public:
 		UNIFORM_TYPE_UNIFORM_BUFFER, // Regular uniform buffer (or UBO).
 		UNIFORM_TYPE_STORAGE_BUFFER, // Storage buffer ("buffer" qualifier) like UBO, but supports storage, for compute mostly.
 		UNIFORM_TYPE_INPUT_ATTACHMENT, // Used for sub-pass read/write, for mobile mostly.
+		UNIFORM_TYPE_UNIFORM_BUFFER_DYNAMIC, // Same as UNIFORM but created with BUFFER_USAGE_DYNAMIC_PERSISTENT_BIT.
+		UNIFORM_TYPE_STORAGE_BUFFER_DYNAMIC, // Same as STORAGE but created with BUFFER_USAGE_DYNAMIC_PERSISTENT_BIT.
 		UNIFORM_TYPE_MAX
 	};
 
@@ -1062,6 +1078,7 @@ public:
 		uint32_t fragment_output_mask = 0;
 		bool is_compute = false;
 		bool has_multiview = false;
+		bool has_dynamic_buffers = false;
 		uint32_t compute_local_size[3] = {};
 		uint32_t push_constant_size = 0;
 
