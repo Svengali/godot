@@ -56,6 +56,8 @@ class OpenXRExtensionWrapper : public Object {
 protected:
 	static void _bind_methods();
 
+	Ref<OpenXRAPIExtension> openxr_api_extension;
+
 public:
 	// `get_requested_extensions` should return a list of OpenXR extensions related to this extension.
 	// If the bool * is a nullptr this extension is mandatory
@@ -71,7 +73,7 @@ public:
 	// You should return the pointer to the last struct you define as your result.
 	// If you are not adding any structs, just return `p_next_pointer`.
 	// See existing extensions for examples of this implementation.
-	virtual void *set_system_properties_and_get_next_pointer(void *p_next_pointer); // Add additional data structures when we interrogate OpenXRS system abilities.
+	virtual void *set_system_properties_and_get_next_pointer(void *p_next_pointer); // Add additional data structures when we interrogate OpenXR's system abilities.
 	virtual void *set_instance_create_info_and_get_next_pointer(void *p_next_pointer); // Add additional data structures when we create our OpenXR instance.
 	virtual void *set_session_create_and_get_next_pointer(void *p_next_pointer); // Add additional data structures when we create our OpenXR session.
 	virtual void *set_swapchain_create_info_and_get_next_pointer(void *p_next_pointer); // Add additional data structures when creating OpenXR swap chains.
@@ -82,6 +84,10 @@ public:
 	virtual void *set_frame_wait_info_and_get_next_pointer(void *p_next_pointer); // Add additional data structures when calling xrWaitFrame
 	virtual void *set_view_locate_info_and_get_next_pointer(void *p_next_pointer); // Add additional data structures when calling xrLocateViews
 	virtual void *set_frame_end_info_and_get_next_pointer(void *p_next_pointer); // Add additional data structures when calling xrEndFrame
+
+	virtual void prepare_view_configuration(uint32_t p_view_count);
+	virtual void *set_view_configuration_and_get_next_pointer(uint32_t p_view, void *p_next_pointer); // Add additional data structures when calling xrEnumerateViewConfiguration
+	virtual void print_view_configuration_info(uint32_t p_view) const;
 
 	//TODO workaround as GDExtensionPtr<void> return type results in build error in godot-cpp
 	GDVIRTUAL1R(uint64_t, _set_system_properties_and_get_next_pointer, GDExtensionPtr<void>);
@@ -97,6 +103,9 @@ public:
 	GDVIRTUAL0R(int, _get_composition_layer_count);
 	GDVIRTUAL1R(uint64_t, _get_composition_layer, int);
 	GDVIRTUAL1R(int, _get_composition_layer_order, int);
+	GDVIRTUAL1(_prepare_view_configuration, int);
+	GDVIRTUAL2R(uint64_t, _set_view_configuration_and_get_next_pointer, uint32_t, GDExtensionPtr<void>);
+	GDVIRTUAL1C(_print_view_configuration_info, int);
 
 	virtual PackedStringArray get_suggested_tracker_names();
 
@@ -120,6 +129,7 @@ public:
 	// this happens right before physics process and normal processing is run.
 	// This is when controller data is queried and made available to game logic.
 	virtual void on_process();
+	virtual void on_sync_actions(); // `on_sync_actions` is called right after we sync our action sets.
 	virtual void on_pre_render(); // `on_pre_render` is called right before we start rendering our XR viewports.
 	virtual void on_main_swapchains_created(); // `on_main_swapchains_created` is called right after our main swapchains are (re)created.
 	virtual void on_pre_draw_viewport(RID p_render_target); // `on_pre_draw_viewport` is called right before we start rendering this viewport
@@ -131,6 +141,7 @@ public:
 	GDVIRTUAL0(_on_instance_destroyed);
 	GDVIRTUAL1(_on_session_created, uint64_t);
 	GDVIRTUAL0(_on_process);
+	GDVIRTUAL0(_on_sync_actions);
 	GDVIRTUAL0(_on_pre_render);
 	GDVIRTUAL0(_on_main_swapchains_created);
 	GDVIRTUAL0(_on_session_destroyed);
@@ -178,8 +189,8 @@ public:
 
 	GDVIRTUAL1R(bool, _on_event_polled, GDExtensionConstPtr<void>);
 
-	OpenXRExtensionWrapper() = default;
-	virtual ~OpenXRExtensionWrapper() = default;
+	OpenXRExtensionWrapper();
+	virtual ~OpenXRExtensionWrapper() override;
 };
 
 // `OpenXRGraphicsExtensionWrapper` implements specific logic for each supported graphics API.
@@ -192,4 +203,5 @@ public:
 	virtual void cleanup_swapchain_graphics_data(void **p_swapchain_graphics_data) = 0; // `cleanup_swapchain_graphics_data` cleans up the data held in our implementation dependent data structure and should free up its memory.
 	virtual bool create_projection_fov(const XrFovf p_fov, double p_z_near, double p_z_far, Projection &r_camera_matrix) = 0; // `create_projection_fov` creates a proper projection matrix based on asymmetric FOV data provided by OpenXR.
 	virtual RID get_texture(void *p_swapchain_graphics_data, int p_image_index) = 0; // `get_texture` returns a Godot texture RID for the current active texture in our swapchain.
+	virtual RID get_density_map(void *p_swapchain_graphics_data, int p_image_index) = 0; // `get_density_map` returns a Godot texture RID for the current active density map in our swapchain (if any).
 };

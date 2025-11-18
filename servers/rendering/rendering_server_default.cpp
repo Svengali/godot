@@ -31,16 +31,10 @@
 #include "rendering_server_default.h"
 
 #include "core/os/os.h"
-#include "core/templates/sort_array.h"
-
-#include "modules/tracy/tracy/public/tracy/Tracy.hpp"
-
+#include "core/profiling/profiling.h"
 #include "renderer_canvas_cull.h"
 #include "renderer_scene_cull.h"
 #include "rendering_server_globals.h"
-
-#include "modules/tracy/profiler.h"
-
 
 // careful, these may run in different threads than the rendering server
 
@@ -73,63 +67,59 @@ void RenderingServerDefault::request_frame_drawn_callback(const Callable &p_call
 }
 
 void RenderingServerDefault::_draw(bool p_swap_buffers, double frame_step) {
-	ZoneScoped;
+	GodotProfileZoneGroupedFirst(_profile_zone, "rasterizer->begin_frame");
+	RSG::rasterizer->begin_frame(frame_step);
 
-
-
-	changes = 0;
-
-	{
-			ZoneScopedN( "EMIT AND begin_frame" );
-
-			//needs to be done before changes is reset to 0, to not force the editor to redraw
-			RS::get_singleton()->emit_signal(SNAME("frame_pre_draw"));
-
-			changes = 0;
-
-			RSG::rasterizer->begin_frame(frame_step);
-
-	}
-
-	//TIMESTAMP_BEGIN()
+	TIMESTAMP_BEGIN()
 
 	uint64_t time_usec = OS::get_singleton()->get_ticks_usec();
 
-	{
 	RENDER_TIMESTAMP("Prepare Render Frame");
-	RSG::scene->update(); //update scenes stuff before updating instances
-	RSG::canvas->update();
-
-		{
-			ZoneScopedN( "scene-update" );
-			RSG::scene->update(); //update scenes stuff before updating instances
-		}
-
-		frame_setup_time = double(OS::get_singleton()->get_ticks_usec() - time_usec) / 1000.0;
-
-		{
-			ZoneScopedN( "update_particles" );
-			RSG::particles_storage->update_particles(); //need to be done after instances are updated (colliders and particle transforms), and colliders are rendered
-		}
-
-		{
-			ZoneScopedN( "render_probes" );
-			RSG::scene->render_probes();
-		}
-
-		{
-			ZoneScopedN( "draw_viewports" );
-			RSG::viewport->draw_viewports(p_swap_buffers);
-		}
 
 #ifndef XR_DISABLED
+	GodotProfileZoneGrouped(_profile_zone, "xr_server->pre_render");
 	XRServer *xr_server = XRServer::get_singleton();
 	if (xr_server != nullptr) {
+		// Let XR server know we're about to render a frame.
+		xr_server->pre_render();
+	}
+#endif // XR_DISABLED
+
+	GodotProfileZoneGrouped(_profile_zone, "scene->update");
+	RSG::scene->update(); //update scenes stuff before updating instances
+	GodotProfileZoneGrouped(_profile_zone, "canvas->update");
+	RSG::canvas->update();
+
+	frame_setup_time = double(OS::get_singleton()->get_ticks_usec() - time_usec) / 1000.0;
+
+	GodotProfileZoneGrouped(_profile_zone, "particles_storage->update_particles");
+	RSG::particles_storage->update_particles(); //need to be done after instances are updated (colliders and particle transforms), and colliders are rendered
+
+	GodotProfileZoneGrouped(_profile_zone, "scene->render_probes");
+	RSG::scene->render_probes();
+
+	GodotProfileZoneGrouped(_profile_zone, "viewport->draw_viewports");
+	RSG::viewport->draw_viewports(p_swap_buffers);
+
+	GodotProfileZoneGrouped(_profile_zone, "canvas_render->update");
+	RSG::canvas_render->update();
+
+	GodotProfileZoneGrouped(_profile_zone, "rasterizer->end_frame");
+	RSG::rasterizer->end_frame(p_swap_buffers);
+
+#ifndef XR_DISABLED
+	if (xr_server != nullptr) {
+		GodotProfileZone("xr_server->end_frame");
 		// let our XR server know we're done so we can get our frame timing
 		xr_server->end_frame();
 	}
 #endif // XR_DISABLED
 
+	GodotProfileZoneGrouped(_profile_zone, "update_visibility_notifiers");
+	RSG::canvas->update_visibility_notifiers();
+	RSG::scene->update_visibility_notifiers();
+
+	GodotProfileZoneGrouped(_profile_zone, "post_draw_steps");
 	if (create_thread) {
 		callable_mp(this, &RenderingServerDefault::_run_post_draw_steps).call_deferred();
 	} else {
@@ -137,113 +127,82 @@ void RenderingServerDefault::_draw(bool p_swap_buffers, double frame_step) {
 	}
 
 	if (RSG::utilities->get_captured_timestamps_count()) {
+		GodotProfileZoneGrouped(_profile_zone, "frame_profile");
 		Vector<FrameProfileArea> new_profile;
 		if (RSG::utilities->capturing_timestamps) {
 			new_profile.resize(RSG::utilities->get_captured_timestamps_count());
 		}
 
-		{
-			ZoneScopedN( "FrameCallbacks" );
-			while (frame_drawn_callbacks.front()) {
-				Callable c = frame_drawn_callbacks.front()->get();
-				Variant result;
-				Callable::CallError ce;
-				c.callp(nullptr, 0, result, ce);
-				if (ce.error != Callable::CallError::CALL_OK) {
-					String err = Variant::get_callable_error_text(c, nullptr, 0, ce);
-					ERR_PRINT("Error calling frame drawn function: " + err);
-				}
+		uint64_t base_cpu = RSG::utilities->get_captured_timestamp_cpu_time(0);
+		uint64_t base_gpu = RSG::utilities->get_captured_timestamp_gpu_time(0);
+		for (uint32_t i = 0; i < RSG::utilities->get_captured_timestamps_count(); i++) {
+			uint64_t time_cpu = RSG::utilities->get_captured_timestamp_cpu_time(i);
+			uint64_t time_gpu = RSG::utilities->get_captured_timestamp_gpu_time(i);
 
-				frame_drawn_callbacks.pop_front();
+			String name = RSG::utilities->get_captured_timestamp_name(i);
+
+			if (name.begins_with("vp_")) {
+				RSG::viewport->handle_timestamp(name, time_cpu, time_gpu);
 			}
-			RS::get_singleton()->emit_signal(SNAME("frame_post_draw"));
-		}
 
-		if (RSG::utilities->get_captured_timestamps_count()) {
-
-			ZoneScopedN( "get_captured_timestamps_count" );
-			Vector<FrameProfileArea> new_profile;
 			if (RSG::utilities->capturing_timestamps) {
-				new_profile.resize(RSG::utilities->get_captured_timestamps_count());
+				new_profile.write[i].gpu_msec = double((time_gpu - base_gpu) / 1000) / 1000.0;
+				new_profile.write[i].cpu_msec = double(time_cpu - base_cpu) / 1000.0;
+				new_profile.write[i].name = RSG::utilities->get_captured_timestamp_name(i);
 			}
-
-			uint64_t base_cpu = RSG::utilities->get_captured_timestamp_cpu_time(0);
-			uint64_t base_gpu = RSG::utilities->get_captured_timestamp_gpu_time(0);
-			for (uint32_t i = 0; i < RSG::utilities->get_captured_timestamps_count(); i++) {
-				uint64_t time_cpu = RSG::utilities->get_captured_timestamp_cpu_time(i);
-				uint64_t time_gpu = RSG::utilities->get_captured_timestamp_gpu_time(i);
-
-				String name = RSG::utilities->get_captured_timestamp_name(i);
-
-				if (name.begins_with("vp_")) {
-					RSG::viewport->handle_timestamp(name, time_cpu, time_gpu);
-				}
-
-				if (RSG::utilities->capturing_timestamps) {
-					new_profile.write[i].gpu_msec = double((time_gpu - base_gpu) / 1000) / 1000.0;
-					new_profile.write[i].cpu_msec = double(time_cpu - base_cpu) / 1000.0;
-					new_profile.write[i].name = RSG::utilities->get_captured_timestamp_name(i);
-				}
-			}
-
-			frame_profile = new_profile;
 		}
 
-		{
-			ZoneScopedN( "get_captured_timestamps_frame" );
-			frame_profile_frame = RSG::utilities->get_captured_timestamps_frame();
+		frame_profile = new_profile;
+	}
+
+	frame_profile_frame = RSG::utilities->get_captured_timestamps_frame();
+
+	if (print_gpu_profile) {
+		GodotProfileZoneGrouped(_profile_zone, "gpu_profile");
+		if (print_frame_profile_ticks_from == 0) {
+			print_frame_profile_ticks_from = OS::get_singleton()->get_ticks_usec();
 		}
+		double total_time = 0.0;
 
-		if (print_gpu_profile) {
-
-			ZoneScopedN( "print_gpu_profile" );
-
-			if (print_frame_profile_ticks_from == 0) {
-				print_frame_profile_ticks_from = OS::get_singleton()->get_ticks_usec();
+		for (int i = 0; i < frame_profile.size() - 1; i++) {
+			String name = frame_profile[i].name;
+			if (name[0] == '<' || name[0] == '>') {
+				continue;
 			}
-			double total_time = 0.0;
 
-			for (int i = 0; i < frame_profile.size() - 1; i++) {
-				String name = frame_profile[i].name;
-				if (name[0] == '<' || name[0] == '>') {
-					continue;
-				}
+			double time = frame_profile[i + 1].gpu_msec - frame_profile[i].gpu_msec;
 
 			if (print_gpu_profile_task_time.has(name)) {
 				print_gpu_profile_task_time[name] += time;
 			} else {
 				print_gpu_profile_task_time[name] = time;
 			}
+		}
 
-			if (frame_profile.size()) {
-				total_time = frame_profile[frame_profile.size() - 1].gpu_msec;
-			}
+		if (frame_profile.size()) {
+			total_time = frame_profile[frame_profile.size() - 1].gpu_msec;
+		}
 
-			uint64_t ticks_elapsed = OS::get_singleton()->get_ticks_usec() - print_frame_profile_ticks_from;
-			print_frame_profile_frame_count++;
-			if (ticks_elapsed > 1000000) {
-				print_line("GPU PROFILE (total " + rtos(total_time) + "ms): ");
+		uint64_t ticks_elapsed = OS::get_singleton()->get_ticks_usec() - print_frame_profile_ticks_from;
+		print_frame_profile_frame_count++;
+		if (ticks_elapsed > 1000000) {
+			print_line("GPU PROFILE (total " + rtos(total_time) + "ms): ");
 
-				float print_threshold = 0.01;
-				for (const KeyValue<String, float> &E : print_gpu_profile_task_time) {
-					double time = E.value / double(print_frame_profile_frame_count);
-					if (time > print_threshold) {
-						print_line("\t-" + E.key + ": " + rtos(time) + "ms");
-					}
+			float print_threshold = 0.01;
+			for (const KeyValue<String, float> &E : print_gpu_profile_task_time) {
+				double time = E.value / double(print_frame_profile_frame_count);
+				if (time > print_threshold) {
+					print_line("\t-" + E.key + ": " + rtos(time) + "ms");
 				}
-				print_gpu_profile_task_time.clear();
-				print_frame_profile_ticks_from = OS::get_singleton()->get_ticks_usec();
-				print_frame_profile_frame_count = 0;
 			}
+			print_gpu_profile_task_time.clear();
+			print_frame_profile_ticks_from = OS::get_singleton()->get_ticks_usec();
+			print_frame_profile_frame_count = 0;
 		}
-
-		{
-			ZoneScopedN( "update_memory_info" );
-			RSG::utilities->update_memory_info();
-		}
-
 	}
 
+	GodotProfileZoneGrouped(_profile_zone, "memory_info");
+	RSG::utilities->update_memory_info();
 }
 
 void RenderingServerDefault::_run_post_draw_steps() {
@@ -295,7 +254,7 @@ void RenderingServerDefault::_init() {
 
 void RenderingServerDefault::_finish() {
 	if (test_cube.is_valid()) {
-		free(test_cube);
+		free_rid(test_cube);
 	}
 
 	RSG::canvas->finalize();
@@ -311,7 +270,7 @@ void RenderingServerDefault::init() {
 	if (create_thread) {
 		print_verbose("RenderingServerWrapMT: Starting render thread");
 		DisplayServer::get_singleton()->release_rendering_thread();
-		WorkerThreadPool::TaskID tid = WorkerThreadPool::get_singleton()->add_task(callable_mp(this, &RenderingServerDefault::_thread_loop), true);
+		WorkerThreadPool::TaskID tid = WorkerThreadPool::get_singleton()->add_task(callable_mp(this, &RenderingServerDefault::_thread_loop), true, "Rendering Server pump task", true);
 		command_queue.set_pump_task_id(tid);
 		command_queue.push(this, &RenderingServerDefault::_assign_mt_ids, tid);
 		command_queue.push_and_sync(this, &RenderingServerDefault::_init);
@@ -434,8 +393,12 @@ Size2i RenderingServerDefault::get_maximum_viewport_size() const {
 void RenderingServerDefault::_assign_mt_ids(WorkerThreadPool::TaskID p_pump_task_id) {
 	server_thread = Thread::get_caller_id();
 	server_task_id = p_pump_task_id;
-	// This is needed because the main RD is created on the main thread.
-	RenderingDevice::get_singleton()->make_current();
+
+	RenderingDevice *rd = RenderingDevice::get_singleton();
+	if (rd) {
+		// This is needed because the main RD is created on the main thread.
+		rd->make_current();
+	}
 }
 
 void RenderingServerDefault::_thread_exit() {

@@ -41,6 +41,8 @@
 #include "core/os/os.h"
 #include "editor/export/editor_export_platform.h"
 
+class ImageTexture;
+
 // Optional environment variables for defining confidential information. If any
 // of these is set, they will override the values set in the credentials file.
 const String ENV_ANDROID_KEYSTORE_DEBUG_PATH = "GODOT_ANDROID_KEYSTORE_DEBUG_PATH";
@@ -73,6 +75,7 @@ class EditorExportPlatformAndroid : public EditorExportPlatform {
 	};
 
 	struct APKExportData {
+		EditorExportPlatform::PackData pd;
 		zipFile apk;
 		EditorProgress *ep = nullptr;
 	};
@@ -92,6 +95,7 @@ class EditorExportPlatformAndroid : public EditorExportPlatform {
 	uint64_t last_gradle_build_time = 0;
 	String last_gradle_build_dir;
 
+	bool use_scrcpy = false;
 	Vector<Device> devices;
 	SafeFlag devices_changed;
 	Mutex device_lock;
@@ -163,6 +167,8 @@ class EditorExportPlatformAndroid : public EditorExportPlatform {
 
 	void _write_tmp_manifest(const Ref<EditorExportPreset> &p_preset, bool p_give_internet, bool p_debug);
 
+	bool _is_transparency_allowed(const Ref<EditorExportPreset> &p_preset) const;
+
 	void _fix_themes_xml(const Ref<EditorExportPreset> &p_preset);
 
 	void _fix_manifest(const Ref<EditorExportPreset> &p_preset, Vector<uint8_t> &p_manifest, bool p_give_internet);
@@ -172,8 +178,6 @@ class EditorExportPlatformAndroid : public EditorExportPlatform {
 	static String _parse_string(const uint8_t *p_bytes, bool p_utf8);
 
 	void _fix_resources(const Ref<EditorExportPreset> &p_preset, Vector<uint8_t> &r_manifest);
-
-	void _load_image_data(const Ref<Image> &p_splash_image, Vector<uint8_t> &p_data);
 
 	void _process_launcher_icons(const String &p_file_name, const Ref<Image> &p_source_image, int dimension, Vector<uint8_t> &p_data);
 
@@ -190,6 +194,8 @@ class EditorExportPlatformAndroid : public EditorExportPlatform {
 	static Vector<ABI> get_enabled_abis(const Ref<EditorExportPreset> &p_preset);
 
 	bool _uses_vulkan(const Ref<EditorExportPreset> &p_preset) const;
+
+	Error _generate_sparse_pck_metadata(const Ref<EditorExportPreset> &p_preset, PackData &p_pack_data, Vector<uint8_t> &r_data);
 
 protected:
 	void _notification(int p_what);
@@ -216,6 +222,10 @@ public:
 	virtual bool poll_export() override;
 
 	virtual int get_options_count() const override;
+
+	virtual Ref<Texture2D> get_option_icon(int p_index) const override;
+
+	virtual bool is_option_runnable(int p_index) const override { return p_index != 0; }
 
 	virtual String get_options_tooltip() const override;
 
@@ -274,7 +284,7 @@ public:
 
 	virtual void resolve_platform_feature_priorities(const Ref<EditorExportPreset> &p_preset, HashSet<String> &p_features) override;
 
-	EditorExportPlatformAndroid();
+	virtual void initialize() override;
 
 	~EditorExportPlatformAndroid();
 };

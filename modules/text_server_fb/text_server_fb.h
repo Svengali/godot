@@ -283,6 +283,7 @@ class TextServerFallback : public TextServerExtension {
 		TextServer::SubpixelPositioning subpixel_positioning = TextServer::SUBPIXEL_POSITIONING_AUTO;
 		bool keep_rounding_remainders = true;
 		Dictionary variation_coordinates;
+		double oversampling_override = 0.0;
 		double embolden = 0.0;
 		Transform2D transform;
 
@@ -305,7 +306,7 @@ class TextServerFallback : public TextServerExtension {
 		HashMap<String, bool> script_support_overrides;
 
 		PackedByteArray data;
-		const uint8_t *data_ptr;
+		const uint8_t *data_ptr = nullptr;
 		size_t data_size;
 		int face_index = 0;
 
@@ -324,8 +325,8 @@ class TextServerFallback : public TextServerExtension {
 #ifdef MODULE_FREETYPE_ENABLED
 	_FORCE_INLINE_ FontGlyph rasterize_bitmap(FontForSizeFallback *p_data, int p_rect_margin, FT_Bitmap p_bitmap, int p_yofs, int p_xofs, const Vector2 &p_advance, bool p_bgra) const;
 #endif
-	_FORCE_INLINE_ bool _ensure_glyph(FontFallback *p_font_data, const Vector2i &p_size, int32_t p_glyph, FontGlyph &r_glyph, uint32_t p_oversampling = 0) const;
-	_FORCE_INLINE_ bool _ensure_cache_for_size(FontFallback *p_font_data, const Vector2i &p_size, FontForSizeFallback *&r_cache_for_size, bool p_silent = false, uint32_t p_oversampling = 0) const;
+	bool _ensure_glyph(FontFallback *p_font_data, const Vector2i &p_size, int32_t p_glyph, FontGlyph &r_glyph, uint32_t p_oversampling = 0) const;
+	bool _ensure_cache_for_size(FontFallback *p_font_data, const Vector2i &p_size, FontForSizeFallback *&r_cache_for_size, bool p_silent = false, uint32_t p_oversampling = 0) const;
 	_FORCE_INLINE_ bool _font_validate(const RID &p_font_rid) const;
 	_FORCE_INLINE_ void _font_clear_cache(FontFallback *p_font_data);
 	static void _generateMTSDF_threaded(void *p_td, uint32_t p_y);
@@ -457,7 +458,7 @@ class TextServerFallback : public TextServerExtension {
 			Rect2 rect;
 			double baseline = 0;
 		};
-		HashMap<Variant, EmbeddedObject, VariantHasher, VariantComparator> objects;
+		HashMap<Variant, EmbeddedObject> objects;
 
 		/* Shaped data */
 		TextServer::Direction para_direction = DIRECTION_LTR; // Detected text direction.
@@ -704,6 +705,9 @@ public:
 	MODBIND2(font_set_variation_coordinates, const RID &, const Dictionary &);
 	MODBIND1RC(Dictionary, font_get_variation_coordinates, const RID &);
 
+	MODBIND2(font_set_oversampling, const RID &, double);
+	MODBIND1RC(double, font_get_oversampling, const RID &);
+
 	MODBIND2(font_set_hinting, const RID &, TextServer::Hinting);
 	MODBIND1RC(TextServer::Hinting, font_get_hinting, const RID &);
 
@@ -807,6 +811,7 @@ public:
 	MODBIND2R(RID, create_shaped_text, Direction, Orientation);
 
 	MODBIND1(shaped_text_clear, const RID &);
+	MODBIND1R(RID, shaped_text_duplicate, const RID &);
 
 	MODBIND2(shaped_text_set_direction, const RID &, Direction);
 	MODBIND1RC(Direction, shaped_text_get_direction, const RID &);
@@ -835,6 +840,7 @@ public:
 	MODBIND7R(bool, shaped_text_add_string, const RID &, const String &, const TypedArray<RID> &, int64_t, const Dictionary &, const String &, const Variant &);
 	MODBIND6R(bool, shaped_text_add_object, const RID &, const Variant &, const Size2 &, InlineAlignment, int64_t, double);
 	MODBIND5R(bool, shaped_text_resize_object, const RID &, const Variant &, const Size2 &, InlineAlignment, double);
+	MODBIND2RC(bool, shaped_text_has_object, const RID &, const Variant &);
 	MODBIND1RC(String, shaped_get_text, const RID &);
 
 	MODBIND1RC(int64_t, shaped_get_span_count, const RID &);

@@ -32,9 +32,10 @@
 
 #include "core/config/project_settings.h"
 #include "core/math/math_funcs.h"
+#include "core/os/main_loop.h"
 #include "scene/resources/theme.h"
 #include "scene/theme/theme_db.h"
-#include "servers/rendering_server.h"
+#include "servers/rendering/rendering_server.h"
 #include "thirdparty/misc/polypartition.h"
 
 #define PADDING_REF_SIZE 1024.0
@@ -362,7 +363,7 @@ PrimitiveMesh::PrimitiveMesh() {
 	mesh = RenderingServer::get_singleton()->mesh_create();
 
 	ERR_FAIL_NULL(ProjectSettings::get_singleton());
-	texel_size = float(GLOBAL_GET("rendering/lightmapping/primitive_meshes/texel_size"));
+	texel_size = float(GLOBAL_GET_CACHED(float, "rendering/lightmapping/primitive_meshes/texel_size"));
 	if (texel_size <= 0.0) {
 		texel_size = 0.2;
 	}
@@ -372,7 +373,7 @@ PrimitiveMesh::PrimitiveMesh() {
 
 PrimitiveMesh::~PrimitiveMesh() {
 	ERR_FAIL_NULL(RenderingServer::get_singleton());
-	RenderingServer::get_singleton()->free(mesh);
+	RenderingServer::get_singleton()->free_rid(mesh);
 
 	ERR_FAIL_NULL(ProjectSettings::get_singleton());
 	ProjectSettings *project_settings = ProjectSettings::get_singleton();
@@ -688,8 +689,6 @@ void CapsuleMesh::set_rings(const int p_rings) {
 int CapsuleMesh::get_rings() const {
 	return rings;
 }
-
-CapsuleMesh::CapsuleMesh() {}
 
 /**
   BoxMesh
@@ -1035,8 +1034,6 @@ void BoxMesh::set_subdivide_depth(const int p_divisions) {
 int BoxMesh::get_subdivide_depth() const {
 	return subdivide_d;
 }
-
-BoxMesh::BoxMesh() {}
 
 /**
 	CylinderMesh
@@ -1395,8 +1392,6 @@ bool CylinderMesh::is_cap_bottom() const {
 	return cap_bottom;
 }
 
-CylinderMesh::CylinderMesh() {}
-
 /**
   PlaneMesh
 */
@@ -1588,8 +1583,6 @@ void PlaneMesh::set_orientation(const Orientation p_orientation) {
 PlaneMesh::Orientation PlaneMesh::get_orientation() const {
 	return orientation;
 }
-
-PlaneMesh::PlaneMesh() {}
 
 /**
   PrismMesh
@@ -1961,8 +1954,6 @@ int PrismMesh::get_subdivide_depth() const {
 	return subdivide_d;
 }
 
-PrismMesh::PrismMesh() {}
-
 /**
   SphereMesh
 */
@@ -2181,8 +2172,6 @@ bool SphereMesh::get_is_hemisphere() const {
 	return is_hemisphere;
 }
 
-SphereMesh::SphereMesh() {}
-
 /**
   TorusMesh
 */
@@ -2377,8 +2366,6 @@ void TorusMesh::set_ring_segments(const int p_ring_segments) {
 int TorusMesh::get_ring_segments() const {
 	return ring_segments;
 }
-
-TorusMesh::TorusMesh() {}
 
 /**
   PointMesh
@@ -3078,11 +3065,11 @@ void TextMesh::_generate_glyph_mesh_data(const GlyphMeshKey &p_key, const Glyph 
 		Vector<ContourPoint> polygon;
 
 		for (int32_t j = start; j <= end; j++) {
-			if (points[j].z == TextServer::CONTOUR_CURVE_TAG_ON) {
+			if (points[j].z == (real_t)TextServer::CONTOUR_CURVE_TAG_ON) {
 				// Point on the curve.
 				Vector2 p = Vector2(points[j].x, points[j].y) * pixel_size;
 				polygon.push_back(ContourPoint(p, true));
-			} else if (points[j].z == TextServer::CONTOUR_CURVE_TAG_OFF_CONIC) {
+			} else if (points[j].z == (real_t)TextServer::CONTOUR_CURVE_TAG_OFF_CONIC) {
 				// Conic Bezier arc.
 				int32_t next = (j == end) ? start : (j + 1);
 				int32_t prev = (j == start) ? end : (j - 1);
@@ -3091,16 +3078,16 @@ void TextMesh::_generate_glyph_mesh_data(const GlyphMeshKey &p_key, const Glyph 
 				Vector2 p2;
 
 				// For successive conic OFF points add a virtual ON point in the middle.
-				if (points[prev].z == TextServer::CONTOUR_CURVE_TAG_OFF_CONIC) {
+				if (points[prev].z == (real_t)TextServer::CONTOUR_CURVE_TAG_OFF_CONIC) {
 					p0 = (Vector2(points[prev].x, points[prev].y) + Vector2(points[j].x, points[j].y)) / 2.0;
-				} else if (points[prev].z == TextServer::CONTOUR_CURVE_TAG_ON) {
+				} else if (points[prev].z == (real_t)TextServer::CONTOUR_CURVE_TAG_ON) {
 					p0 = Vector2(points[prev].x, points[prev].y);
 				} else {
 					ERR_FAIL_MSG(vformat("Invalid conic arc point sequence at %d:%d", i, j));
 				}
-				if (points[next].z == TextServer::CONTOUR_CURVE_TAG_OFF_CONIC) {
+				if (points[next].z == (real_t)TextServer::CONTOUR_CURVE_TAG_OFF_CONIC) {
 					p2 = (Vector2(points[j].x, points[j].y) + Vector2(points[next].x, points[next].y)) / 2.0;
-				} else if (points[next].z == TextServer::CONTOUR_CURVE_TAG_ON) {
+				} else if (points[next].z == (real_t)TextServer::CONTOUR_CURVE_TAG_ON) {
 					p2 = Vector2(points[next].x, points[next].y);
 				} else {
 					ERR_FAIL_MSG(vformat("Invalid conic arc point sequence at %d:%d", i, j));
@@ -3118,7 +3105,7 @@ void TextMesh::_generate_glyph_mesh_data(const GlyphMeshKey &p_key, const Glyph 
 					polygon.push_back(ContourPoint(p, false));
 					t += step;
 				}
-			} else if (points[j].z == TextServer::CONTOUR_CURVE_TAG_OFF_CUBIC) {
+			} else if (points[j].z == (real_t)TextServer::CONTOUR_CURVE_TAG_OFF_CUBIC) {
 				// Cubic Bezier arc.
 				int32_t cur = j;
 				int32_t next1 = (j == end) ? start : (j + 1);
@@ -3126,7 +3113,7 @@ void TextMesh::_generate_glyph_mesh_data(const GlyphMeshKey &p_key, const Glyph 
 				int32_t prev = (j == start) ? end : (j - 1);
 
 				// There must be exactly two OFF points and two ON points for each cubic arc.
-				if (points[prev].z != TextServer::CONTOUR_CURVE_TAG_ON) {
+				if (points[prev].z != (real_t)TextServer::CONTOUR_CURVE_TAG_ON) {
 					cur = (cur == 0) ? end : cur - 1;
 					next1 = (next1 == 0) ? end : next1 - 1;
 					next2 = (next2 == 0) ? end : next2 - 1;
@@ -3134,10 +3121,10 @@ void TextMesh::_generate_glyph_mesh_data(const GlyphMeshKey &p_key, const Glyph 
 				} else {
 					j++;
 				}
-				ERR_FAIL_COND_MSG(points[prev].z != TextServer::CONTOUR_CURVE_TAG_ON, vformat("Invalid cubic arc point sequence at %d:%d", i, prev));
-				ERR_FAIL_COND_MSG(points[cur].z != TextServer::CONTOUR_CURVE_TAG_OFF_CUBIC, vformat("Invalid cubic arc point sequence at %d:%d", i, cur));
-				ERR_FAIL_COND_MSG(points[next1].z != TextServer::CONTOUR_CURVE_TAG_OFF_CUBIC, vformat("Invalid cubic arc point sequence at %d:%d", i, next1));
-				ERR_FAIL_COND_MSG(points[next2].z != TextServer::CONTOUR_CURVE_TAG_ON, vformat("Invalid cubic arc point sequence at %d:%d", i, next2));
+				ERR_FAIL_COND_MSG(points[prev].z != (real_t)TextServer::CONTOUR_CURVE_TAG_ON, vformat("Invalid cubic arc point sequence at %d:%d", i, prev));
+				ERR_FAIL_COND_MSG(points[cur].z != (real_t)TextServer::CONTOUR_CURVE_TAG_OFF_CUBIC, vformat("Invalid cubic arc point sequence at %d:%d", i, cur));
+				ERR_FAIL_COND_MSG(points[next1].z != (real_t)TextServer::CONTOUR_CURVE_TAG_OFF_CUBIC, vformat("Invalid cubic arc point sequence at %d:%d", i, next1));
+				ERR_FAIL_COND_MSG(points[next2].z != (real_t)TextServer::CONTOUR_CURVE_TAG_ON, vformat("Invalid cubic arc point sequence at %d:%d", i, next2));
 
 				Vector2 p0 = Vector2(points[prev].x, points[prev].y);
 				Vector2 p1 = Vector2(points[cur].x, points[cur].y);
@@ -3240,8 +3227,9 @@ void TextMesh::_create_mesh_array(Array &p_arr) const {
 		TS->shaped_text_clear(text_rid);
 		TS->shaped_text_set_direction(text_rid, text_direction);
 
-		String txt = (uppercase) ? TS->string_to_upper(xl_text, language) : xl_text;
-		TS->shaped_text_add_string(text_rid, txt, font->get_rids(), font_size, font->get_opentype_features(), language);
+		const String &lang = language.is_empty() ? _get_locale() : language;
+		String txt = (uppercase) ? TS->string_to_upper(xl_text, lang) : xl_text;
+		TS->shaped_text_add_string(text_rid, txt, font->get_rids(), font_size, font->get_opentype_features(), lang);
 
 		TypedArray<Vector3i> stt;
 		if (st_parser == TextServer::STRUCTURED_TEXT_CUSTOM) {
@@ -3699,11 +3687,8 @@ void TextMesh::_bind_methods() {
 void TextMesh::_notification(int p_what) {
 	switch (p_what) {
 		case MainLoop::NOTIFICATION_TRANSLATION_CHANGED: {
-			String new_text = tr(text);
-			if (new_text == xl_text) {
-				return; // Nothing new.
-			}
-			xl_text = new_text;
+			// Language update might change the appearance of some characters.
+			xl_text = tr(text);
 			dirty_text = true;
 			request_update();
 		} break;
@@ -3966,16 +3951,16 @@ TextServer::StructuredTextParser TextMesh::get_structured_text_bidi_override() c
 	return st_parser;
 }
 
-void TextMesh::set_structured_text_bidi_override_options(Array p_args) {
+void TextMesh::set_structured_text_bidi_override_options(const Array &p_args) {
 	if (st_args != p_args) {
-		st_args = p_args;
+		st_args = Array(p_args);
 		dirty_text = true;
 		request_update();
 	}
 }
 
 Array TextMesh::get_structured_text_bidi_override_options() const {
-	return st_args;
+	return Array(st_args);
 }
 
 void TextMesh::set_uppercase(bool p_uppercase) {

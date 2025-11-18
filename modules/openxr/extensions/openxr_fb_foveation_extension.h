@@ -35,11 +35,6 @@
 // Other Android based devices are implementing this as well, see:
 // https://github.khronos.org/OpenXR-Inventory/extension_support.html#XR_FB_foveation
 
-// Note: Currently we only support this for OpenGL.
-// This extension works on enabling foveated rendering on the swapchain.
-// Vulkan does not render 3D content directly to the swapchain image
-// hence this extension can't be used.
-
 #include "../openxr_api.h"
 #include "../util.h"
 #include "openxr_extension_wrapper.h"
@@ -62,6 +57,7 @@ public:
 	virtual void on_instance_created(const XrInstance p_instance) override;
 	virtual void on_instance_destroyed() override;
 
+	virtual void *set_system_properties_and_get_next_pointer(void *p_next_pointer) override;
 	virtual void *set_swapchain_create_info_and_get_next_pointer(void *p_next_pointer) override;
 
 	virtual void on_main_swapchains_created() override;
@@ -74,6 +70,8 @@ public:
 	XrFoveationDynamicFB get_foveation_dynamic() const;
 	void set_foveation_dynamic(XrFoveationDynamicFB p_foveation_dynamic);
 
+	LocalVector<Vector2i> get_fragment_density_offsets();
+
 private:
 	static OpenXRFBFoveationExtension *singleton;
 
@@ -81,6 +79,8 @@ private:
 	String rendering_driver;
 	bool fb_foveation_ext = false;
 	bool fb_foveation_configuration_ext = false;
+	bool fb_foveation_vulkan_ext = false;
+	bool meta_foveation_eye_tracked = false;
 
 	// Configuration
 	XrFoveationLevelFB foveation_level = XR_FOVEATION_LEVEL_NONE_FB;
@@ -100,7 +100,12 @@ private:
 	XrSwapchainCreateInfoFoveationFB swapchain_create_info_foveation_fb;
 	OpenXRFBUpdateSwapchainExtension *swapchain_update_state_ext = nullptr;
 
+	// Enable eye tracked foveation
+	XrSystemFoveationEyeTrackedPropertiesMETA meta_foveation_eye_tracked_properties;
+	XrFoveationEyeTrackedProfileCreateInfoMETA meta_foveation_eye_tracked_create_info;
+
 	// OpenXR API call wrappers
 	EXT_PROTO_XRRESULT_FUNC3(xrCreateFoveationProfileFB, (XrSession), session, (const XrFoveationProfileCreateInfoFB *), create_info, (XrFoveationProfileFB *), profile);
 	EXT_PROTO_XRRESULT_FUNC1(xrDestroyFoveationProfileFB, (XrFoveationProfileFB), profile);
+	EXT_PROTO_XRRESULT_FUNC2(xrGetFoveationEyeTrackedStateMETA, (XrSession), session, (XrFoveationEyeTrackedStateMETA *), foveationState);
 };

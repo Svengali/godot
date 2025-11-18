@@ -41,14 +41,13 @@ void OpenXRSelectInteractionProfileDialog::_bind_methods() {
 
 void OpenXRSelectInteractionProfileDialog::_notification(int p_what) {
 	switch (p_what) {
-		case NOTIFICATION_ENTER_TREE:
 		case NOTIFICATION_THEME_CHANGED: {
 			scroll->add_theme_style_override(SceneStringName(panel), get_theme_stylebox(SceneStringName(panel), SNAME("Tree")));
 		} break;
 	}
 }
 
-void OpenXRSelectInteractionProfileDialog::_on_select_interaction_profile(const String p_interaction_profile) {
+void OpenXRSelectInteractionProfileDialog::_on_select_interaction_profile(const String &p_interaction_profile) {
 	if (selected_interaction_profile != "") {
 		NodePath button_path = ip_buttons[selected_interaction_profile];
 		Button *button = Object::cast_to<Button>(get_node(button_path));
@@ -68,7 +67,7 @@ void OpenXRSelectInteractionProfileDialog::_on_select_interaction_profile(const 
 	}
 }
 
-void OpenXRSelectInteractionProfileDialog::open(PackedStringArray p_do_not_include) {
+void OpenXRSelectInteractionProfileDialog::open(const PackedStringArray &p_do_not_include) {
 	int available_count = 0;
 
 	OpenXRInteractionProfileMetadata *meta_data = OpenXRInteractionProfileMetadata::get_singleton();
@@ -126,6 +125,7 @@ OpenXRSelectInteractionProfileDialog::OpenXRSelectInteractionProfileDialog() {
 	scroll->add_child(main_vb);
 
 	all_selected = memnew(Label);
+	all_selected->set_focus_mode(Control::FOCUS_ACCESSIBILITY);
 	all_selected->set_text(TTR("All interaction profiles have been added to the action map."));
 	main_vb->add_child(all_selected);
 }

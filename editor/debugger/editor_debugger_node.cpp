@@ -31,19 +31,19 @@
 #include "editor_debugger_node.h"
 
 #include "core/object/undo_redo.h"
+#include "editor/debugger/editor_debugger_plugin.h"
 #include "editor/debugger/editor_debugger_tree.h"
 #include "editor/debugger/script_editor_debugger.h"
+#include "editor/docks/inspector_dock.h"
+#include "editor/docks/scene_tree_dock.h"
 #include "editor/editor_log.h"
 #include "editor/editor_node.h"
-#include "editor/editor_settings.h"
 #include "editor/editor_string_names.h"
 #include "editor/editor_undo_redo_manager.h"
 #include "editor/gui/editor_bottom_panel.h"
-#include "editor/gui/editor_run_bar.h"
-#include "editor/inspector_dock.h"
-#include "editor/plugins/editor_debugger_plugin.h"
-#include "editor/plugins/script_editor_plugin.h"
-#include "editor/scene_tree_dock.h"
+#include "editor/run/editor_run_bar.h"
+#include "editor/script/script_editor_plugin.h"
+#include "editor/settings/editor_settings.h"
 #include "editor/themes/editor_theme_manager.h"
 #include "scene/gui/menu_button.h"
 #include "scene/gui/tab_container.h"
@@ -65,8 +65,11 @@ EditorDebuggerNode::EditorDebuggerNode() {
 		singleton = this;
 	}
 
-	add_theme_constant_override("margin_left", -EditorNode::get_singleton()->get_editor_theme()->get_stylebox(SNAME("BottomPanelDebuggerOverride"), EditorStringName(EditorStyles))->get_margin(SIDE_LEFT));
-	add_theme_constant_override("margin_right", -EditorNode::get_singleton()->get_editor_theme()->get_stylebox(SNAME("BottomPanelDebuggerOverride"), EditorStringName(EditorStyles))->get_margin(SIDE_RIGHT));
+	Ref<StyleBox> bottom_panel_margins = EditorNode::get_singleton()->get_editor_theme()->get_stylebox(SNAME("BottomPanel"), EditorStringName(EditorStyles));
+	add_theme_constant_override("margin_top", -bottom_panel_margins->get_margin(SIDE_TOP));
+	add_theme_constant_override("margin_left", -bottom_panel_margins->get_margin(SIDE_LEFT));
+	add_theme_constant_override("margin_right", -bottom_panel_margins->get_margin(SIDE_RIGHT));
+	add_theme_constant_override("margin_bottom", -bottom_panel_margins->get_margin(SIDE_BOTTOM));
 
 	tabs = memnew(TabContainer);
 	tabs->set_tabs_visible(false);
@@ -242,8 +245,7 @@ ScriptEditorDebugger *EditorDebuggerNode::get_default_debugger() const {
 }
 
 String EditorDebuggerNode::get_server_uri() const {
-	ERR_FAIL_COND_V(server.is_null(), "");
-	return server->get_uri();
+	return server.is_valid() ? server->get_uri() : "";
 }
 
 void EditorDebuggerNode::set_keep_open(bool p_keep_open) {
@@ -328,11 +330,14 @@ void EditorDebuggerNode::_notification(int p_what) {
 			}
 
 			if (tabs->get_tab_count() > 1) {
-				add_theme_constant_override("margin_left", -EditorNode::get_singleton()->get_editor_theme()->get_stylebox(SNAME("BottomPanelDebuggerOverride"), EditorStringName(EditorStyles))->get_margin(SIDE_LEFT));
-				add_theme_constant_override("margin_right", -EditorNode::get_singleton()->get_editor_theme()->get_stylebox(SNAME("BottomPanelDebuggerOverride"), EditorStringName(EditorStyles))->get_margin(SIDE_RIGHT));
-
 				tabs->add_theme_style_override(SceneStringName(panel), EditorNode::get_singleton()->get_editor_theme()->get_stylebox(SNAME("DebuggerPanel"), EditorStringName(EditorStyles)));
 			}
+
+			Ref<StyleBox> bottom_panel_margins = EditorNode::get_singleton()->get_editor_theme()->get_stylebox(SNAME("BottomPanel"), EditorStringName(EditorStyles));
+			add_theme_constant_override("margin_top", -bottom_panel_margins->get_margin(SIDE_TOP));
+			add_theme_constant_override("margin_left", -bottom_panel_margins->get_margin(SIDE_LEFT));
+			add_theme_constant_override("margin_right", -bottom_panel_margins->get_margin(SIDE_RIGHT));
+			add_theme_constant_override("margin_bottom", -bottom_panel_margins->get_margin(SIDE_BOTTOM));
 
 			remote_scene_tree->update_icon_max_width();
 		} break;
@@ -402,7 +407,8 @@ void EditorDebuggerNode::_notification(int p_what) {
 
 				EditorRunBar::get_singleton()->get_pause_button()->set_disabled(false);
 				// Switch to remote tree view if so desired.
-				auto_switch_remote_scene_tree = (bool)EDITOR_GET("debugger/auto_switch_to_remote_scene_tree");
+				remote_scene_tree->set_new_session();
+				auto_switch_remote_scene_tree = EDITOR_GET("debugger/auto_switch_to_remote_scene_tree");
 				if (auto_switch_remote_scene_tree) {
 					SceneTreeDock::get_singleton()->show_remote_tree();
 				}
@@ -435,26 +441,35 @@ void EditorDebuggerNode::_update_errors() {
 			dbg->update_tabs();
 		});
 
-		if (error_count == 0 && warning_count == 0) {
-			debugger_button->set_text(TTR("Debugger"));
-			debugger_button->remove_theme_color_override(SceneStringName(font_color));
-			debugger_button->set_button_icon(Ref<Texture2D>());
-		} else {
-			debugger_button->set_text(TTR("Debugger") + " (" + itos(error_count + warning_count) + ")");
-			if (error_count >= 1 && warning_count >= 1) {
-				debugger_button->set_button_icon(get_editor_theme_icon(SNAME("ErrorWarning")));
-				// Use error color to represent the highest level of severity reported.
-				debugger_button->add_theme_color_override(SceneStringName(font_color), get_theme_color(SNAME("error_color"), EditorStringName(Editor)));
-			} else if (error_count >= 1) {
-				debugger_button->set_button_icon(get_editor_theme_icon(SNAME("Error")));
-				debugger_button->add_theme_color_override(SceneStringName(font_color), get_theme_color(SNAME("error_color"), EditorStringName(Editor)));
-			} else {
-				debugger_button->set_button_icon(get_editor_theme_icon(SNAME("Warning")));
-				debugger_button->add_theme_color_override(SceneStringName(font_color), get_theme_color(SNAME("warning_color"), EditorStringName(Editor)));
-			}
-		}
 		last_error_count = error_count;
 		last_warning_count = warning_count;
+
+		// TODO: Replace logic when EditorDock class is merged to be more flexible.
+		TabContainer *parent = Object::cast_to<TabContainer>(get_parent());
+		if (!parent) {
+			return;
+		}
+
+		int idx = parent->get_tab_idx_from_control(this);
+
+		if (error_count == 0 && warning_count == 0) {
+			set_name(TTR("Debugger"));
+			parent->set_tab_icon(idx, Ref<Texture2D>());
+			parent->get_tab_bar()->set_font_color_override_all(idx, Color(0, 0, 0, 0));
+		} else {
+			set_name(TTR("Debugger") + " (" + itos(error_count + warning_count) + ")");
+			if (error_count >= 1 && warning_count >= 1) {
+				parent->set_tab_icon(idx, get_editor_theme_icon(SNAME("ErrorWarning")));
+				// Use error color to represent the highest level of severity reported.
+				parent->get_tab_bar()->set_font_color_override_all(idx, get_theme_color(SNAME("error_color"), EditorStringName(Editor)));
+			} else if (error_count >= 1) {
+				parent->set_tab_icon(idx, get_editor_theme_icon(SNAME("Error")));
+				parent->get_tab_bar()->set_font_color_override_all(idx, get_theme_color(SNAME("error_color"), EditorStringName(Editor)));
+			} else {
+				parent->set_tab_icon(idx, get_editor_theme_icon(SNAME("Warning")));
+				parent->get_tab_bar()->set_font_color_override_all(idx, get_theme_color(SNAME("warning_color"), EditorStringName(Editor)));
+			}
+		}
 	}
 }
 
@@ -471,8 +486,11 @@ void EditorDebuggerNode::_debugger_stopped(int p_id) {
 	if (!found) {
 		EditorRunBar::get_singleton()->get_pause_button()->set_pressed(false);
 		EditorRunBar::get_singleton()->get_pause_button()->set_disabled(true);
-		SceneTreeDock::get_singleton()->hide_remote_tree();
-		SceneTreeDock::get_singleton()->hide_tab_buttons();
+		SceneTreeDock *dock = SceneTreeDock::get_singleton();
+		if (dock->is_inside_tree()) {
+			dock->hide_remote_tree();
+			dock->hide_tab_buttons();
+		}
 		EditorNode::get_singleton()->notify_all_debug_sessions_exited();
 	}
 }
@@ -524,7 +542,7 @@ void EditorDebuggerNode::_debug_data(const String &p_msg, const Array &p_data, i
 
 void EditorDebuggerNode::set_script_debug_button(MenuButton *p_button) {
 	script_menu = p_button;
-	script_menu->set_text(TTR("Debug"));
+	script_menu->set_text(TTRC("Debug"));
 	script_menu->set_switch_on_hover(true);
 	PopupMenu *p = script_menu->get_popup();
 	p->add_shortcut(ED_GET_SHORTCUT("debugger/step_into"), DEBUG_STEP);

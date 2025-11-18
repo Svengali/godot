@@ -34,7 +34,7 @@
 #include "core/object/class_db.h"
 #include "core/object/script_language.h"
 
-#include <stdio.h>
+#include <cstdio>
 
 #include "modules/tracy/profiler.h"
 

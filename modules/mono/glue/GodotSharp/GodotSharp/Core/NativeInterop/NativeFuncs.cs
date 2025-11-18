@@ -433,6 +433,12 @@ namespace Godot.NativeInterop
 
         public static partial void godotsharp_array_to_string(ref godot_array p_self, out godot_string r_str);
 
+        public static partial void godotsharp_packed_byte_array_compress(scoped in godot_packed_byte_array p_src, int p_mode, out godot_packed_byte_array r_dst);
+
+        public static partial void godotsharp_packed_byte_array_decompress(scoped in godot_packed_byte_array p_src, long p_buffer_size, int p_mode, out godot_packed_byte_array r_dst);
+
+        public static partial void godotsharp_packed_byte_array_decompress_dynamic(scoped in godot_packed_byte_array p_src, long p_buffer_size, int p_mode, out godot_packed_byte_array r_dst);
+
         // Dictionary
 
         public static partial godot_bool godotsharp_dictionary_try_get_value(scoped ref godot_dictionary p_self,
@@ -601,12 +607,30 @@ namespace Godot.NativeInterop
 
         public static partial void godotsharp_object_to_string(IntPtr ptr, out godot_string r_str);
 
-        public static partial ulong godotsharp_tracy_begin( ref godot_string p_name );
+        // Vector
 
-        public static partial ulong godotsharp_tracy_end( ulong id );
+        public static partial long godotsharp_string_size(in godot_string p_self);
 
-        public static partial ulong godotsharp_tracy_text( ulong id, ref godot_string p_name );
+        public static partial long godotsharp_packed_byte_array_size(in godot_packed_byte_array p_self);
 
-        public static partial ulong godotsharp_tracy_ulong( ulong id, ulong value );
+        public static partial long godotsharp_packed_int32_array_size(in godot_packed_int32_array p_self);
+
+        public static partial long godotsharp_packed_int64_array_size(in godot_packed_int64_array p_self);
+
+        public static partial long godotsharp_packed_float32_array_size(in godot_packed_float32_array p_self);
+
+        public static partial long godotsharp_packed_float64_array_size(in godot_packed_float64_array p_self);
+
+        public static partial long godotsharp_packed_string_array_size(in godot_packed_string_array p_self);
+
+        public static partial long godotsharp_packed_vector2_array_size(in godot_packed_vector2_array p_self);
+
+        public static partial long godotsharp_packed_vector3_array_size(in godot_packed_vector3_array p_self);
+
+        public static partial long godotsharp_packed_vector4_array_size(in godot_packed_vector4_array p_self);
+
+        public static partial long godotsharp_packed_color_array_size(in godot_packed_color_array p_self);
+
+        public static partial long godotsharp_array_size(in godot_array p_self);
     }
 }

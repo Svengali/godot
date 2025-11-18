@@ -50,13 +50,13 @@ void ScrollBar::gui_input(const Ref<InputEvent> &p_event) {
 		accept_event();
 
 		if (b->get_button_index() == MouseButton::WHEEL_DOWN && b->is_pressed()) {
-			double change = get_page() != 0.0 ? get_page() / 4.0 : (get_max() - get_min()) / 16.0;
+			double change = ((get_page() != 0.0) ? get_page() / PAGE_DIVISOR : (get_max() - get_min()) / 16.0) * b->get_factor();
 			scroll(MAX(change, get_step()));
 			accept_event();
 		}
 
 		if (b->get_button_index() == MouseButton::WHEEL_UP && b->is_pressed()) {
-			double change = get_page() != 0.0 ? get_page() / 4.0 : (get_max() - get_min()) / 16.0;
+			double change = ((get_page() != 0.0) ? get_page() / PAGE_DIVISOR : (get_max() - get_min()) / 16.0) * b->get_factor();
 			scroll(-MAX(change, get_step()));
 			accept_event();
 		}
@@ -279,7 +279,7 @@ void ScrollBar::_notification(int p_what) {
 				area.height -= incr->get_height() + decr->get_height();
 			}
 
-			if (has_focus()) {
+			if (has_focus(true)) {
 				theme_cache.scroll_focus_style->draw(ci, Rect2(ofs, area));
 			} else {
 				theme_cache.scroll_style->draw(ci, Rect2(ofs, area));
@@ -295,15 +295,19 @@ void ScrollBar::_notification(int p_what) {
 			Rect2 grabber_rect;
 
 			if (orientation == HORIZONTAL) {
+				int padding_top = MAX(theme_cache.padding_top, 0);
+				int padding_bottom = MAX(theme_cache.padding_bottom, 0);
 				grabber_rect.size.width = get_grabber_size();
-				grabber_rect.size.height = get_size().height;
-				grabber_rect.position.y = 0;
+				grabber_rect.size.height = get_size().height - padding_top - padding_bottom;
+				grabber_rect.position.y = padding_top;
 				grabber_rect.position.x = get_grabber_offset() + decr->get_width() + theme_cache.scroll_style->get_margin(SIDE_LEFT);
 			} else {
-				grabber_rect.size.width = get_size().width;
+				int padding_left = MAX(theme_cache.padding_left, 0);
+				int padding_right = MAX(theme_cache.padding_right, 0);
+				grabber_rect.size.width = get_size().width - padding_left - padding_right;
 				grabber_rect.size.height = get_grabber_size();
 				grabber_rect.position.y = get_grabber_offset() + decr->get_height() + theme_cache.scroll_style->get_margin(SIDE_TOP);
-				grabber_rect.position.x = 0;
+				grabber_rect.position.x = padding_left;
 			}
 
 			grabber->draw(ci, grabber_rect);
@@ -334,7 +338,7 @@ void ScrollBar::_notification(int p_what) {
 			if (scrolling) {
 				if (get_value() != target_scroll) {
 					double target = target_scroll - get_value();
-					double dist = abs(target);
+					double dist = std::abs(target);
 					double vel = ((target / dist) * 500) * get_process_delta_time();
 
 					if (Math::abs(vel) >= dist) {
@@ -488,7 +492,10 @@ Size2 ScrollBar::get_minimum_size() const {
 	Size2 minsize;
 
 	if (orientation == VERTICAL) {
+		int padding_left = MAX(theme_cache.padding_left, 0);
+		int padding_right = MAX(theme_cache.padding_right, 0);
 		minsize.width = MAX(incr->get_size().width, bg->get_minimum_size().width);
+		minsize.width += padding_left + padding_right;
 		minsize.height += incr->get_size().height;
 		minsize.height += decr->get_size().height;
 		minsize.height += bg->get_minimum_size().height;
@@ -496,7 +503,10 @@ Size2 ScrollBar::get_minimum_size() const {
 	}
 
 	if (orientation == HORIZONTAL) {
+		int padding_top = MAX(theme_cache.padding_top, 0);
+		int padding_bottom = MAX(theme_cache.padding_bottom, 0);
 		minsize.height = MAX(incr->get_size().height, bg->get_minimum_size().height);
+		minsize.height += padding_top + padding_bottom;
 		minsize.width += incr->get_size().width;
 		minsize.width += decr->get_size().width;
 		minsize.width += bg->get_minimum_size().width;
@@ -668,4 +678,14 @@ ScrollBar::ScrollBar(Orientation p_orientation) {
 }
 
 ScrollBar::~ScrollBar() {
+}
+
+void VScrollBar::_bind_methods() {
+	BIND_THEME_ITEM(Theme::DATA_TYPE_CONSTANT, VScrollBar, padding_left);
+	BIND_THEME_ITEM(Theme::DATA_TYPE_CONSTANT, VScrollBar, padding_right);
+}
+
+void HScrollBar::_bind_methods() {
+	BIND_THEME_ITEM(Theme::DATA_TYPE_CONSTANT, HScrollBar, padding_top);
+	BIND_THEME_ITEM(Theme::DATA_TYPE_CONSTANT, HScrollBar, padding_bottom);
 }

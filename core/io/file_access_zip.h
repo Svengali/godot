@@ -41,19 +41,17 @@ public:
 	struct File {
 		int package = -1;
 		unz_file_pos file_pos;
-		File() {}
 	};
 
 private:
 	struct Package {
 		String filename;
-		unzFile zfile = nullptr;
 	};
 	Vector<Package> packages;
 
 	HashMap<String, File> files;
 
-	static ZipArchive *instance;
+	static inline ZipArchive *instance = nullptr;
 
 public:
 	void close_handle(unzFile p_file) const;
