@@ -200,9 +200,7 @@ namespace Godot.SourceGenerators
                 string signalName = signalDelegate.Name;
 
                 source.Append("        /// <summary>\n")
-                    .Append("        /// Cached name for the '")
-                    .Append(signalName)
-                    .Append("' signal.\n")
+                   .Append($"        /// Cached 2 name for the '{signalName}' ({string.Join( ", ", signalDelegate.InvokeMethodData.ParamTypes.Select(p => p.ToString()))})' signal.\n")
                     .Append("        /// </summary>\n");
 
                 source.Append("        public new static readonly global::Godot.StringName @");

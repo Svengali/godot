@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Microsoft.CodeAnalysis;
@@ -22,6 +23,94 @@ namespace Godot.SourceGenerators
                 GodotObjectType = GetTypeByMetadataNameOrThrow(GodotClasses.GodotObject);
             }
         }
+
+
+        // Source - https://stackoverflow.com/a
+        // Posted by Jon Skeet, modified by community. See post 'Timeline' for change history
+        // Retrieved 2025-11-08, License - CC BY-SA 3.0
+
+        public static void ThrowIfNull<T>(this T data, string name) where T : class
+        {
+            if (data == null)
+            {
+                throw new ArgumentNullException(name);
+            }
+        }
+
+        //*
+        // Helper class for construction
+//        public static class ProjEq
+//        {
+//            public static ProjEq<TSource, TKey>
+//                Create<TSource, TKey>( Func<TSource, TKey> projection )
+//            {
+//                return new ProjEq<TSource, TKey>(projection);
+//            }
+//
+//            public static ProjEq<TSource, TKey>
+//                Create<TSource, TKey>(TSource ignored,
+//                                    Func<TSource, TKey> projection)
+//            {
+//                return new ProjEq<TSource, TKey>(projection);
+//            }
+//        }
+
+        public static class ProjEq<TSource>
+        {
+            public static ProjEq<TSource, TKey>
+                Create<TKey>(Func<TSource, TKey> projection)
+            {
+                return new ProjEq<TSource, TKey>(projection);
+            }
+        }
+        //*/
+
+        public class ProjEq<TSource, TKey>
+            : IEqualityComparer<TSource>
+        {
+            readonly Func<TSource, TKey> projection;
+            readonly IEqualityComparer<TKey> comparer;
+
+            public ProjEq(Func<TSource, TKey> projection)
+                : this(projection, null)
+            {
+            }
+
+            public ProjEq(
+                Func<TSource, TKey> projection,
+                IEqualityComparer<TKey> comparer)
+            {
+                projection.ThrowIfNull("projection");
+                this.comparer = comparer ?? EqualityComparer<TKey>.Default;
+                this.projection = projection;
+            }
+
+            public bool Equals(TSource x, TSource y)
+            {
+                if (x == null && y == null)
+                {
+                    return true;
+                }
+                if (x == null || y == null)
+                {
+                    return false;
+                }
+                return comparer.Equals(projection(x), projection(y));
+            }
+
+            public int GetHashCode(TSource obj)
+            {
+                if (obj == null)
+                {
+                    throw new ArgumentNullException("obj");
+                }
+                return comparer.GetHashCode(projection(obj));
+            }
+
+        }
+
+
+
 
         public static VariantType? ConvertMarshalTypeToVariantType(MarshalType marshalType)
             => marshalType switch

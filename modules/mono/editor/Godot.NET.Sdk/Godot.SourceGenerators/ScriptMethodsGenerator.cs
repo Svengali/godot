@@ -4,6 +4,7 @@ using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
+using static Godot.SourceGenerators.MarshalUtils;
 
 namespace Godot.SourceGenerators
 {
@@ -146,22 +147,20 @@ namespace Godot.SourceGenerators
             // Generate cached StringNames for methods and properties, for fast lookup
 
             var distinctMethodNames = godotClassMethods
-                .Select(m => m.Method.Name)
-                .Distinct()
+                .Select(m => m.Method)
+                .Distinct( ProjEq<IMethodSymbol>.Create( m => m.Name) )
                 .ToArray();
 
-            foreach (string methodName in distinctMethodNames)
+            foreach (var method in distinctMethodNames)
             {
                 source.Append("        /// <summary>\n")
-                    .Append("        /// Cached name for the '")
-                    .Append(methodName)
-                    .Append("' method.\n")
+                    .Append($"        /// Cached 2 name for the 'method.Name' ({string.Join( ", ", method.Parameters.Select(p => p.Type.Name))})' method.\n")
                     .Append("        /// </summary>\n");
 
                 source.Append("        public new static readonly global::Godot.StringName @");
-                source.Append(methodName);
+                source.Append(method.Name);
                 source.Append(" = \"");
-                source.Append(methodName);
+                source.Append(method.Name);
                 source.Append("\";\n");
             }
 
@@ -253,8 +252,10 @@ namespace Godot.SourceGenerators
                 source.Append("    [global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]\n");
                 source.Append("    protected override bool HasGodotClassMethod(in godot_string_name method)\n    {\n");
 
-                foreach (string methodName in distinctMethodNames)
+                foreach (var method in distinctMethodNames)
                 {
+                    var methodName = method.Name;
+
                     GenerateHasMethodEntry(methodName, source);
                 }
 

@@ -2143,7 +2143,7 @@ Error BindingsGenerator::_generate_cs_type(const TypeInterface &itype, const Str
 		CRASH_COND(itype.is_singleton);
 	}
 
-	_log("Generating %s.cs...\n", itype.proxy_name.utf8().get_data());
+	_log("Generating 2 %s.cs...\n", itype.proxy_name.utf8().get_data());
 
 	StringBuilder output;
 
@@ -2635,7 +2635,7 @@ Error BindingsGenerator::_generate_cs_type(const TypeInterface &itype, const Str
 		   << INDENT1 "{\n";
 	for (const PropertyInterface &iprop : itype.properties) {
 		output << INDENT2 "/// <summary>\n"
-			   << INDENT2 "/// Cached name for the '" << iprop.cname << "' property.\n"
+			   << INDENT2 "/// Cached 3 name for the '" << iprop.cname << "' property.\n"
 			   << INDENT2 "/// </summary>\n"
 			   << INDENT2 "public static "
 			   << (prop_allowed_inherited_member_hiding.has(itype.proxy_name + ".PropertyName." + iprop.proxy_name) ? "new " : "")
@@ -2661,7 +2661,7 @@ Error BindingsGenerator::_generate_cs_type(const TypeInterface &itype, const Str
 		}
 		method_names[imethod.proxy_name] = imethod.cname;
 		output << INDENT2 "/// <summary>\n"
-			   << INDENT2 "/// Cached name for the '" << imethod.cname << "' method.\n"
+			   << INDENT2 "/// Cached 3 name for the '" << imethod.cname << "' method.\n"
 			   << INDENT2 "/// </summary>\n"
 			   << INDENT2 "public static "
 			   << (prop_allowed_inherited_member_hiding.has(itype.proxy_name + ".MethodName." + imethod.proxy_name) ? "new " : "")
@@ -2681,7 +2681,7 @@ Error BindingsGenerator::_generate_cs_type(const TypeInterface &itype, const Str
 		   << INDENT1 "{\n";
 	for (const SignalInterface &isignal : itype.signals_) {
 		output << INDENT2 "/// <summary>\n"
-			   << INDENT2 "/// Cached name for the '" << isignal.cname << "' signal.\n"
+			   << INDENT2 "/// Cached 3 name for the '" << isignal.cname << "' signal.\n"
 			   << INDENT2 "/// </summary>\n"
 			   << INDENT2 "public static "
 			   << (prop_allowed_inherited_member_hiding.has(itype.proxy_name + ".SignalName." + isignal.proxy_name) ? "new " : "")
