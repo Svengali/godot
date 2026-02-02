@@ -211,7 +211,7 @@ Manifold::Impl::Impl(Shape shape, const mat3x4 m) {
 }
 
 void Manifold::Impl::RemoveUnreferencedVerts() {
-  ZoneScoped;
+  // PROF ZoneScoped;
   const int numVert = NumVert();
   Vec<int> keep(numVert, 0);
   auto policy = autoPolicy(numVert, 1e5);
@@ -244,7 +244,7 @@ void Manifold::Impl::InitializeOriginal(bool keepFaceID) {
 }
 
 void Manifold::Impl::MarkCoplanar() {
-  ZoneScoped;
+  // PROF ZoneScoped;
   const int numTri = NumTri();
   struct TriPriority {
     double area2;
@@ -308,7 +308,7 @@ void Manifold::Impl::MarkCoplanar() {
  * equal. These unreferenced properties are then removed by CompactProps.
  */
 void Manifold::Impl::DedupePropVerts() {
-  ZoneScoped;
+  // PROF ZoneScoped;
   const size_t numProp = NumProp();
   if (numProp == 0) return;
 
@@ -394,7 +394,7 @@ struct PrepHalfedges {
  */
 void Manifold::Impl::CreateHalfedges(const Vec<ivec3>& triProp,
                                      const Vec<ivec3>& triVert) {
-  ZoneScoped;
+  // PROF ZoneScoped;
   const size_t numTri = triProp.size();
   const int numHalfedge = 3 * numTri;
   // drop the old value first to avoid copy
@@ -405,7 +405,7 @@ void Manifold::Impl::CreateHalfedges(const Vec<ivec3>& triProp,
   int vertCount = static_cast<int>(vertPos_.size());
   Vec<int> ids(numHalfedge);
   {
-    ZoneScopedN("PrepHalfedges");
+    // PERF ZoneScopedN("PrepHalfedges");
     if (vertCount < (1 << 18)) {
       // For small vertex count, it is faster to just do sorting
       Vec<uint64_t> edge(numHalfedge);
@@ -588,7 +588,7 @@ void Manifold::Impl::WarpBatch(std::function<void(VecView<vec3>)> warpFunc) {
 }
 
 Manifold::Impl Manifold::Impl::Transform(const mat3x4& transform_) const {
-  ZoneScoped;
+  // PROF ZoneScoped;
   if (transform_ == mat3x4(la::identity)) return *this;
   auto policy = autoPolicy(NumVert());
   Impl result;
@@ -678,7 +678,7 @@ void Manifold::Impl::SetEpsilon(double minEpsilon, bool useSingle) {
  * recalculation.
  */
 void Manifold::Impl::CalculateNormals() {
-  ZoneScoped;
+  // PROF ZoneScoped;
   vertNormal_.resize(NumVert());
   auto policy = autoPolicy(NumTri());
 

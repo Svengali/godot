@@ -161,7 +161,7 @@ public:
 		if (RSG::utilities->capturing_timestamps)      \
 			RSG::utilities->capture_timestamp(m_text); \
 	} \
-	ZoneScopedN( m_text )  \
+	// PERF ZoneScopedN( m_text )  \
 	// END RENDER_TIMESTAMP
 
 
@@ -170,7 +170,7 @@ public:
 		if (RSG::utilities->capturing_timestamps)      \
 			RSG::utilities->capture_timestamp(m_text); \
 	} \
-	ZoneText( m_text, 32 )  \
+	// PERF ZoneText( m_text, 32 )  \
 	// END RENDER_SCOPED_TIMESTAMP
 
 

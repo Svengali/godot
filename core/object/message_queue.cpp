@@ -226,7 +226,7 @@ void CallQueue::_call_function(const Callable &p_callable, const Variant *p_args
 }
 
 Error CallQueue::flush() {
-	ZoneScoped;
+	// PROF ZoneScoped;
 
 	// Thread overrides are not meant to be flushed, but appended to the main one.
 	//if (unlikely(this == MessageQueue::thread_singleton)) {

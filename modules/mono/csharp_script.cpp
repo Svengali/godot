@@ -32,7 +32,6 @@
 
 #include "godotsharp_dirs.h"
 #include "managed_callable.h"
-#include "modules/tracy/tracy/public/tracy/Tracy.hpp"
 #include "mono_gd/gd_mono_cache.h"
 #include "signal_awaiter_utils.h"
 #include "utils/macros.h"
@@ -1745,7 +1744,7 @@ int CSharpInstance::get_method_argument_count(const StringName &p_method, bool *
 
 Variant CSharpInstance::callp(const StringName &p_method, const Variant **p_args, int p_argcount, Callable::CallError &r_error) {
 
-	ZoneScoped;
+	// PROF ZoneScoped;
 
 	const auto class_name = script->type_info.class_name;
 
@@ -1756,9 +1755,9 @@ Variant CSharpInstance::callp(const StringName &p_method, const Variant **p_args
 	full_name += "::";
 	full_name += method_string;
 
-	ZoneName( full_name.ascii().ptr(), 128 );
+	// PERF ZoneName( full_name.ascii().ptr(), 128 );
 
-	ZoneValue(p_argcount);
+	// PERF ZoneValue(p_argcount);
 
 
 	ERR_FAIL_COND_V(script.is_null(), Variant());
@@ -1768,7 +1767,7 @@ Variant CSharpInstance::callp(const StringName &p_method, const Variant **p_args
 			gchandle.get_intptr(), &p_method, p_args, p_argcount, &r_error, &ret);
 
 	const auto ret_string = ret.stringify();
-	ZoneText( ret_string.ascii(), 128 );
+	// PERF ZoneText( ret_string.ascii(), 128 );
 
 	return ret;
 }
@@ -2652,12 +2651,12 @@ MethodInfo CSharpScript::get_method_info(const StringName &p_method) const {
 
 Variant CSharpScript::callp(const StringName &p_method, const Variant **p_args, int p_argcount, Callable::CallError &r_error) {
 
-	ZoneScoped;
+	// PROF ZoneScoped;
 
 	if (valid) {
 
 		const auto method_string = static_cast<String>( p_method );
-		ZoneName( method_string.ascii().ptr(), 128 );
+		// PERF ZoneName( method_string.ascii().ptr(), 128 );
 
 		Variant ret;
 		bool ok = GDMonoCache::managed_callbacks.ScriptManagerBridge_CallStatic(this, &p_method, p_args, p_argcount, &r_error, &ret);
@@ -2669,7 +2668,7 @@ Variant CSharpScript::callp(const StringName &p_method, const Variant **p_args, 
 
 	{
 		const auto method_string = static_cast<String>( p_method );
-		ZoneName( method_string.ascii().ptr(), 128 );
+		// PERF ZoneName( method_string.ascii().ptr(), 128 );
 
 		return Script::callp(p_method, p_args, p_argcount, r_error);
 	}

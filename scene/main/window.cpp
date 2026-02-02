@@ -1811,7 +1811,7 @@ void Window::child_controls_changed() {
 }
 
 void Window::_update_child_controls() {
-	ZoneScoped;
+	// PROF ZoneScoped;
 
 	if (!updating_child_controls) {
 		return;

@@ -229,7 +229,7 @@ Manifold Manifold::Sphere(double radius, int circularSegments) {
  */
 Manifold Manifold::Extrude(const Polygons& crossSection, double height,
                            int nDivisions, double twistDegrees, vec2 scaleTop) {
-  ZoneScoped;
+  // PROF ZoneScoped;
   if (crossSection.size() == 0 || height <= 0.0) {
     return Invalid();
   }
@@ -316,7 +316,7 @@ Manifold Manifold::Extrude(const Polygons& crossSection, double height,
  */
 Manifold Manifold::Revolve(const Polygons& crossSection, int circularSegments,
                            double revolveDegrees) {
-  ZoneScoped;
+  // PROF ZoneScoped;
 
   Polygons polygons;
   double radius = 0;
@@ -466,7 +466,7 @@ Manifold Manifold::Compose(const std::vector<Manifold>& manifolds) {
  * containing a copy of the original. It is the inverse operation of Compose().
  */
 std::vector<Manifold> Manifold::Decompose() const {
-  ZoneScoped;
+  // PROF ZoneScoped;
   DisjointSets uf(NumVert());
   // Graph graph;
   auto pImpl_ = GetCsgLeafNode().GetImpl();

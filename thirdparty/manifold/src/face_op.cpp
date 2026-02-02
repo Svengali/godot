@@ -100,7 +100,7 @@ using AddTriangle = std::function<void(int, ivec3, vec3, TriRef)>;
 void Manifold::Impl::Face2Tri(const Vec<int>& faceEdge,
                               const Vec<TriRef>& halfedgeRef,
                               bool allowConvex) {
-  ZoneScoped;
+  // PROF ZoneScoped;
   Vec<ivec3> triVerts;
   Vec<vec3> triNormal;
   Vec<ivec3> triProp;

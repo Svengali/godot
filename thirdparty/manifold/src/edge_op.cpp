@@ -249,7 +249,7 @@ void Manifold::Impl::RemoveDegenerates(int firstNewVert) {
 }
 
 void Manifold::Impl::CollapseShortEdges(int firstNewVert) {
-  ZoneScopedN("CollapseShortEdge");
+  // PERF ZoneScopedN("CollapseShortEdge");
   FlagStore s;
   size_t numFlagged = 0;
   const size_t nbEdges = halfedge_.size();
@@ -281,7 +281,7 @@ void Manifold::Impl::CollapseColinearEdges(int firstNewVert) {
   std::vector<int> scratchBuffer;
   scratchBuffer.reserve(10);
   while (1) {
-    ZoneScopedN("CollapseFlaggedEdge");
+    // PERF ZoneScopedN("CollapseFlaggedEdge");
     numFlagged = 0;
     // Collapse colinear edges, but only remove new verts, i.e. verts with
     // index
@@ -306,7 +306,7 @@ void Manifold::Impl::CollapseColinearEdges(int firstNewVert) {
 }
 
 void Manifold::Impl::SwapDegenerates(int firstNewVert) {
-  ZoneScopedN("RecursiveEdgeSwap");
+  // PERF ZoneScopedN("RecursiveEdgeSwap");
   FlagStore s;
   size_t numFlagged = 0;
   const size_t nbEdges = halfedge_.size();
@@ -731,7 +731,7 @@ void Manifold::Impl::RecursiveEdgeSwap(const int edge, int& tag,
 }
 
 void Manifold::Impl::SplitPinchedVerts() {
-  ZoneScoped;
+  // PROF ZoneScoped;
 
   auto nbEdges = halfedge_.size();
 #if MANIFOLD_PAR == 1
@@ -827,7 +827,7 @@ void Manifold::Impl::SplitPinchedVerts() {
 
 void Manifold::Impl::DedupeEdges() {
   while (1) {
-    ZoneScopedN("DedupeEdge");
+    // PERF ZoneScopedN("DedupeEdge");
 
     const size_t nbEdges = halfedge_.size();
     std::vector<size_t> duplicates;

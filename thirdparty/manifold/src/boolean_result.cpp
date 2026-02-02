@@ -110,7 +110,7 @@ std::tuple<Vec<int>, Vec<int>> SizeOutput(
     const Vec<int>& i03, const Vec<int>& i30, const Vec<int>& i12,
     const Vec<int>& i21, const Vec<std::array<int, 2>>& p1q2,
     const Vec<std::array<int, 2>>& p2q1, bool invertQ) {
-  ZoneScoped;
+  // PROF ZoneScoped;
   Vec<int> sidesPerFacePQ(inP.NumTri() + inQ.NumTri(), 0);
   // note: numFaceR <= facePQ2R.size() = sidesPerFacePQ.size() + 1
 
@@ -215,7 +215,7 @@ void AddNewEdgeVerts(
     concurrent_map<std::pair<int, int>, std::vector<EdgePos>> &edgesNew,
     const Vec<std::array<int, 2>> &p1q2, const Vec<int> &i12, const Vec<int> &v12R,
     const Vec<Halfedge> &halfedgeP, bool forward, size_t offset) {
-  ZoneScoped;
+  // PROF ZoneScoped;
   // For each edge of P that intersects a face of Q (p1q2), add this vertex to
   // P's corresponding edge vector and to the two new edges, which are
   // intersections between the face of Q and the two faces of P attached to the
@@ -310,7 +310,7 @@ void AppendPartialEdges(Manifold::Impl& outR, Vec<char>& wholeHalfedgeP,
                         Vec<TriRef>& halfedgeRef, const Manifold::Impl& inP,
                         const Vec<int>& i03, const Vec<int>& vP2R,
                         const Vec<int>::IterC faceP2R, bool forward) {
-  ZoneScoped;
+  // PROF ZoneScoped;
   // Each edge in the map is partially retained; for each of these, look up
   // their original verts and include them based on their winding number (i03),
   // while remapping them to the output using vP2R. Use the verts position
@@ -388,7 +388,7 @@ void AppendNewEdges(
     Manifold::Impl& outR, Vec<int>& facePtrR,
     concurrent_map<std::pair<int, int>, std::vector<EdgePos>>& edgesNew,
     Vec<TriRef>& halfedgeRef, const Vec<int>& facePQ2R, const int numFaceP) {
-  ZoneScoped;
+  // PROF ZoneScoped;
   // Pair up each edge's verts and distribute to faces based on indices in key.
   Vec<Halfedge>& halfedgeR = outR.halfedge_;
   Vec<vec3>& vertPosR = outR.vertPos_;
@@ -490,7 +490,7 @@ void AppendWholeEdges(Manifold::Impl& outR, Vec<int>& facePtrR,
                       const Vec<char> wholeHalfedgeP, const Vec<int>& i03,
                       const Vec<int>& vP2R, VecView<const int> faceP2R,
                       bool forward) {
-  ZoneScoped;
+  // PROF ZoneScoped;
   for_each_n(
       autoPolicy(inP.halfedge_.size()), countAt(0), inP.halfedge_.size(),
       DuplicateHalfedges({outR.halfedge_, halfedgeRef, facePtrR, wholeHalfedgeP,
@@ -561,7 +561,7 @@ struct Barycentric {
 
 void CreateProperties(Manifold::Impl& outR, const Manifold::Impl& inP,
                       const Manifold::Impl& inQ) {
-  ZoneScoped;
+  // PROF ZoneScoped;
   const int numPropP = inP.NumProp();
   const int numPropQ = inQ.NumProp();
   const int numProp = std::max(numPropP, numPropQ);
@@ -663,7 +663,7 @@ void CreateProperties(Manifold::Impl& outR, const Manifold::Impl& inP,
 }
 
 void ReorderHalfedges(VecView<Halfedge>& halfedges) {
-  ZoneScoped;
+  // PROF ZoneScoped;
   // halfedges in the same face are added in non-deterministic order, so we have
   // to reorder them for determinism
 

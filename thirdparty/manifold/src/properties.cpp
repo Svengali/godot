@@ -222,7 +222,7 @@ int Manifold::Impl::NumDegenerateTris() const {
 }
 
 double Manifold::Impl::GetProperty(Property prop) const {
-  ZoneScoped;
+  // PROF ZoneScoped;
   if (IsEmpty()) return 0;
 
   auto Volume = [this](size_t tri) {
@@ -254,7 +254,7 @@ double Manifold::Impl::GetProperty(Property prop) const {
 }
 
 void Manifold::Impl::CalculateCurvature(int gaussianIdx, int meanIdx) {
-  ZoneScoped;
+  // PROF ZoneScoped;
   if (IsEmpty()) return;
   if (gaussianIdx < 0 && meanIdx < 0) return;
   Vec<double> vertMeanCurvature(NumVert(), 0);
@@ -396,7 +396,7 @@ struct MinDistanceRecorder {
  */
 double Manifold::Impl::MinGap(const Manifold::Impl& other,
                               double searchLength) const {
-  ZoneScoped;
+  // PROF ZoneScoped;
   Vec<Box> faceBoxOther;
   Vec<uint32_t> faceMortonOther;
 

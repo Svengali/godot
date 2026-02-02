@@ -213,7 +213,7 @@ struct NearSurface {
   const double tol;
 
   inline void operator()(uint64_t index) {
-    ZoneScoped;
+    // PROF ZoneScoped;
     if (gridVerts.Full()) return;
 
     const ivec4 gridIndex = DecodeIndex(index, gridPow);
@@ -296,7 +296,7 @@ struct ComputeVerts {
   const double tol;
 
   void operator()(int idx) {
-    ZoneScoped;
+    // PROF ZoneScoped;
     uint64_t baseKey = gridVerts.KeyAt(idx);
     if (baseKey == kOpen) return;
 
@@ -358,7 +358,7 @@ struct BuildTris {
   }
 
   void operator()(int idx) {
-    ZoneScoped;
+    // PROF ZoneScoped;
     uint64_t baseKey = gridVerts.KeyAt(idx);
     if (baseKey == kOpen) return;
 

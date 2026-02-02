@@ -246,7 +246,7 @@ std::vector<ivec3> TriangulateConvex(const PolygonsIdx& polys) {
 class EarClip {
  public:
   EarClip(const PolygonsIdx& polys, double epsilon) : epsilon_(epsilon) {
-    ZoneScoped;
+    // PROF ZoneScoped;
 
     size_t numVert = 0;
     for (const SimplePolygonIdx& poly : polys) {
@@ -266,7 +266,7 @@ class EarClip {
   }
 
   std::vector<ivec3> Triangulate() {
-    ZoneScoped;
+    // PROF ZoneScoped;
 
     for (const VertItr start : holes_) {
       CutKeyhole(start);
@@ -829,7 +829,7 @@ class EarClip {
   // epsilon_. Each ear uses this BVH to quickly find a subset of vertices to
   // check for cost.
   IdxCollider VertCollider(VertItr start) const {
-    ZoneScoped;
+    // PROF ZoneScoped;
     std::vector<VertItr> itr;
     Vec<PolyVert> points;
     Loop(start, [&itr, &points](VertItr v) {
@@ -844,7 +844,7 @@ class EarClip {
   // The main ear-clipping loop. This is called once for each simple polygon -
   // all holes have already been key-holed and joined to an outer polygon.
   void TriangulatePoly(VertItr start) {
-    ZoneScoped;
+    // PROF ZoneScoped;
 
     IdxCollider vertCollider = VertCollider(start);
 

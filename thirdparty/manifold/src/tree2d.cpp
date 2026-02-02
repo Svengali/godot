@@ -53,7 +53,7 @@ void BuildTwoDTreeImpl(VecView<PolyVert> points, bool sortX) {
 }
 
 void BuildTwoDTree(VecView<PolyVert> points) {
-  ZoneScoped;
+  // PROF ZoneScoped;
   // don't even bother...
   if (points.size() <= 8) return;
   BuildTwoDTreeImpl(points, true);

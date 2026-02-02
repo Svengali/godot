@@ -852,7 +852,7 @@ Variant Object::callv(const StringName &p_method, const Array &p_args) {
 
 Variant Object::callp(const StringName &p_method, const Variant **p_args, int p_argcount, Callable::CallError &r_error) {
 
-	ZoneScoped;
+	// PROF ZoneScoped;
 
 	r_error.error = Callable::CallError::CALL_OK;
 

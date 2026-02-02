@@ -1219,11 +1219,11 @@ void SceneTree::_process_groups_thread(uint32_t p_index, bool p_physics) {
 
 void SceneTree::_process(bool p_physics) {
 
-	ZoneScoped;
+	// PROF ZoneScoped;
 
 	if (process_groups_dirty) {
 		{
-			ZoneScopedN( "process_groups_dirty" );
+			// PERF ZoneScopedN( "process_groups_dirty" );
 
 			// First, remove dirty groups.
 			// This needs to be done when not processing to avoid problems.

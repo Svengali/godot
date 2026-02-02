@@ -261,7 +261,7 @@ class Collider {
 
   Collider(const VecView<const Box>& leafBB,
            const VecView<const uint32_t>& leafMorton) {
-    ZoneScoped;
+    // PROF ZoneScoped;
     DEBUG_ASSERT(leafBB.size() == leafMorton.size(), userErr,
                  "vectors must be the same length");
     int num_nodes = 2 * leafBB.size() - 1;
@@ -277,7 +277,7 @@ class Collider {
   }
 
   bool Transform(mat3x4 transform) {
-    ZoneScoped;
+    // PROF ZoneScoped;
     bool axisAligned = true;
     for (int row : {0, 1, 2}) {
       int count = 0;
@@ -295,7 +295,7 @@ class Collider {
   }
 
   void UpdateBoxes(const VecView<const Box>& leafBB) {
-    ZoneScoped;
+    // PROF ZoneScoped;
     DEBUG_ASSERT(leafBB.size() == NumLeaves(), userErr,
                  "must have the same number of updated boxes as original");
     // copy in leaf node Boxes
@@ -321,7 +321,7 @@ class Collider {
   template <const bool selfCollision = false, typename T, typename Recorder>
   void Collisions(const VecView<const T>& queriesIn, Recorder& recorder,
                   bool parallel = true) const {
-    ZoneScoped;
+    // PROF ZoneScoped;
     using collider_internal::FindCollision;
     if (internalChildren_.empty()) return;
     auto f = [queriesIn](const int i) { return queriesIn[i]; };
@@ -335,7 +335,7 @@ class Collider {
 
   template <const bool selfCollision = false, typename F, typename Recorder>
   void Collisions(F f, int n, Recorder& recorder, bool parallel = true) const {
-    ZoneScoped;
+    // PROF ZoneScoped;
     using collider_internal::FindCollision;
     if (internalChildren_.empty()) return;
     for_each_n(parallel ? autoPolicy(n, collider_internal::kSequentialThreshold)
